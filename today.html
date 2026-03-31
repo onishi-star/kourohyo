@@ -1,0 +1,262 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <title>今日の予定</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: sans-serif;
+      background: #f0f4f8;
+      min-height: 100vh;
+      padding: 16px;
+    }
+
+    h1 {
+      text-align: center;
+      font-size: 18px;
+      color: #333;
+      margin-bottom: 4px;
+    }
+
+    #today-label {
+      text-align: center;
+      font-size: 14px;
+      color: #888;
+      margin-bottom: 16px;
+    }
+
+    .schedule-list {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .schedule-item {
+      display: flex;
+      align-items: center;
+      background: white;
+      border-radius: 10px;
+      padding: 10px 14px;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.1);
+      gap: 10px;
+      cursor: pointer;
+      transition: opacity 0.2s;
+    }
+
+    .schedule-item.checked {
+      opacity: 0.5;
+    }
+
+    .schedule-item.checked .content-label {
+      text-decoration: line-through;
+      color: #aaa;
+    }
+
+    .check-circle {
+      width: 22px;
+      height: 22px;
+      border-radius: 50%;
+      border: 2px solid #ccc;
+      flex-shrink: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 13px;
+      color: white;
+      background: white;
+      transition: background 0.2s, border-color 0.2s;
+    }
+
+    .schedule-item.checked .check-circle {
+      background: #4caf50;
+      border-color: #4caf50;
+    }
+
+    .time-label {
+      font-size: 13px;
+      color: #888;
+      min-width: 40px;
+    }
+
+    .content-label {
+      font-size: 15px;
+      color: #333;
+      font-weight: bold;
+      flex: 1;
+    }
+
+    .color-dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      flex-shrink: 0;
+    }
+
+    #empty-msg {
+      text-align: center;
+      color: #aaa;
+      margin-top: 40px;
+      font-size: 14px;
+    }
+
+    #loading {
+      text-align: center;
+      color: #aaa;
+      margin-top: 40px;
+      font-size: 14px;
+    }
+
+    .open-btn {
+      display: block;
+      margin: 24px auto 0;
+      padding: 10px 24px;
+      background: #4a90e2;
+      color: white;
+      border: none;
+      border-radius: 20px;
+      font-size: 14px;
+      cursor: pointer;
+      text-decoration: none;
+      text-align: center;
+      width: fit-content;
+    }
+  </style>
+
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+</head>
+<body>
+  <h1>📅 今日の予定</h1>
+  <div id="today-label"></div>
+  <div id="loading">読み込み中...</div>
+  <div class="schedule-list" id="schedule-list"></div>
+  <div id="empty-msg" style="display:none;">今日の予定はありません</div>
+  <a class="open-btn" href="./index.html">スケジュール表を開く</a>
+
+  <script>
+    const firebaseConfig = {
+      apiKey: "AIzaSyDOi3w86aPi5R5XjGBaUJ_RvkTiS5WqwF0",
+      authDomain: "achedule-app.firebaseapp.com",
+      projectId: "achedule-app",
+      storageBucket: "achedule-app.firebasestorage.app",
+      messagingSenderId: "823858682336",
+      appId: "1:823858682336:web:ec4629dbe4ace91a7a7385"
+    };
+
+    firebase.initializeApp(firebaseConfig);
+    const db = firebase.firestore();
+
+    const dayNames = ["日", "月", "火", "水", "木", "金", "土"];
+    let weekDocId = "";
+    let customColors = JSON.parse(localStorage.getItem("customColors") || "[]");
+
+    function getColorHex(colorKey) {
+      if (!colorKey) return "#ccc";
+      if (colorKey === "study") return "#a0c4ff";
+      if (colorKey === "club") return "#ffadad";
+      if (colorKey === "rest") return "#caffbf";
+      if (colorKey.startsWith("custom-")) {
+        const idx = parseInt(colorKey.split("-")[1]);
+        return customColors[idx] ? customColors[idx].color : "#ccc";
+      }
+      return "#ccc";
+    }
+
+    function getWeekDocId() {
+      const today = new Date();
+      const day = today.getDay();
+      const diff = today.getDate() - day + (day === 0 ? -6 : 1);
+      const monday = new Date(today.setDate(diff));
+      const year = monday.getFullYear();
+      const month = String(monday.getMonth() + 1).padStart(2, '0');
+      const d = String(monday.getDate()).padStart(2, '0');
+      return `${year}-${month}-${d}`;
+    }
+
+    function getTodayColIndex() {
+      const day = new Date().getDay();
+      return day === 0 ? 6 : day - 1;
+    }
+
+    function saveCheck(cellId, checked) {
+      const docRef = db.collection("schedules").doc(weekDocId);
+      const updateData = { cells: {} };
+      updateData.cells[cellId] = { checked };
+      docRef.set(updateData, { merge: true })
+        .catch(err => console.error("チェック保存エラー:", err));
+    }
+
+    function init() {
+      const today = new Date();
+      const label = document.getElementById("today-label");
+      label.innerText = (today.getMonth() + 1) + "/" + today.getDate() + " (" + dayNames[today.getDay()] + ")";
+
+      weekDocId = getWeekDocId();
+      const colIndex = getTodayColIndex();
+
+      db.collection("schedules").doc(weekDocId).get().then((doc) => {
+        document.getElementById("loading").style.display = "none";
+
+        if (!doc.exists) {
+          document.getElementById("empty-msg").style.display = "block";
+          return;
+        }
+
+        const cellsData = doc.data().cells || {};
+        const list = document.getElementById("schedule-list");
+        let hasItem = false;
+
+        for (let hour = 4; hour < 24; hour++) {
+          const cellId = `cell-${hour}-${colIndex}`;
+          const cell = cellsData[cellId];
+
+          if (cell && cell.text && cell.text.trim() !== "") {
+            hasItem = true;
+            const item = document.createElement("div");
+            item.className = "schedule-item" + (cell.checked ? " checked" : "");
+            item.dataset.cellId = cellId;
+
+            const colorHex = getColorHex(cell.color);
+
+            item.innerHTML = `
+              <div class="check-circle">${cell.checked ? "✓" : ""}</div>
+              <div class="color-dot" style="background:${colorHex};"></div>
+              <div class="time-label">${hour}:00</div>
+              <div class="content-label">${cell.text}</div>
+            `;
+
+            // タップでチェック切り替え
+            item.onclick = () => {
+              const isChecked = item.classList.contains("checked");
+              const newChecked = !isChecked;
+
+              if (newChecked) {
+                item.classList.add("checked");
+                item.querySelector(".check-circle").innerText = "✓";
+              } else {
+                item.classList.remove("checked");
+                item.querySelector(".check-circle").innerText = "";
+              }
+
+              saveCheck(cellId, newChecked);
+            };
+
+            list.appendChild(item);
+          }
+        }
+
+        if (!hasItem) {
+          document.getElementById("empty-msg").style.display = "block";
+        }
+      }).catch(err => {
+        document.getElementById("loading").innerText = "読み込みエラー: " + err.message;
+      });
+    }
+
+    init();
+  </script>
+</body>
+</html>

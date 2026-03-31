@@ -1,0 +1,692 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ポモドーロタイマー</title>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+  <style>
+    :root {
+      --primary:      #e05a2b;
+      --primary-soft: #fce8df;
+      --break-color:  #4a90e2;
+      --break-soft:   #ddeeff;
+      --bg:           #f5f5f0;
+      --surface:      #ffffff;
+      --border:       #e0ddd8;
+      --text:         #1a1a1a;
+      --text-sub:     #888;
+      --shadow:       0 2px 12px rgba(0,0,0,0.08);
+      --radius:       16px;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'Hiragino Kaku Gothic ProN', 'Hiragino Sans', 'Meiryo', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* ── ヘッダー ── */
+    header {
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      padding: 12px 16px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      position: sticky;
+      top: 0;
+      z-index: 10;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.06);
+    }
+
+    .back-btn {
+      background: var(--bg);
+      border: 1px solid var(--border);
+      font-size: 16px;
+      cursor: pointer;
+      padding: 5px 12px;
+      border-radius: 8px;
+      color: var(--text);
+      transition: background 0.15s;
+      text-decoration: none;
+    }
+    .back-btn:hover { background: var(--border); }
+
+    header h1 { font-size: 17px; font-weight: 700; flex: 1; }
+
+    /* ── メイン ── */
+    main {
+      flex: 1;
+      padding: 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+      max-width: 480px;
+      margin: 0 auto;
+      width: 100%;
+    }
+
+    /* ── カード共通 ── */
+    .card {
+      background: var(--surface);
+      border-radius: var(--radius);
+      padding: 16px;
+      box-shadow: var(--shadow);
+    }
+
+    /* ── 教材セレクター ── */
+    .material-selector {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .material-selector label { font-size: 13px; color: var(--text-sub); white-space: nowrap; }
+    .material-selector select {
+      flex: 1;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 7px 10px;
+      font-size: 14px;
+      font-family: inherit;
+      background: var(--bg);
+      cursor: pointer;
+    }
+
+    /* ── タイマーカード ── */
+    .timer-card {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 20px;
+      padding: 28px 20px 24px;
+    }
+
+    .mode-label {
+      font-size: 12px;
+      font-weight: 700;
+      letter-spacing: 0.1em;
+      padding: 4px 16px;
+      border-radius: 20px;
+      background: var(--primary-soft);
+      color: var(--primary);
+      transition: background 0.3s, color 0.3s;
+    }
+    .mode-label.break {
+      background: var(--break-soft);
+      color: var(--break-color);
+    }
+
+    /* ── 円形リング ── */
+    .ring-wrapper {
+      position: relative;
+      width: 200px;
+      height: 200px;
+    }
+    .ring-wrapper svg { transform: rotate(-90deg); }
+    .ring-bg       { fill: none; stroke: var(--border); stroke-width: 10; }
+    .ring-progress {
+      fill: none;
+      stroke: var(--primary);
+      stroke-width: 10;
+      stroke-linecap: round;
+      transition: stroke-dashoffset 0.5s linear, stroke 0.3s;
+    }
+    .timer-display {
+      position: absolute;
+      top: 50%; left: 50%;
+      transform: translate(-50%, -50%);
+      text-align: center;
+    }
+    .timer-display .time {
+      font-size: 44px;
+      font-weight: 300;
+      letter-spacing: -1px;
+      line-height: 1;
+    }
+    .timer-display .phase {
+      font-size: 11px;
+      color: var(--text-sub);
+      margin-top: 5px;
+    }
+
+    /* ── コントロール ── */
+    .controls { display: flex; gap: 14px; align-items: center; }
+    .btn-sec {
+      width: 46px; height: 46px;
+      border-radius: 50%;
+      border: 2px solid var(--border);
+      background: var(--bg);
+      font-size: 18px;
+      cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+      transition: background 0.15s;
+    }
+    .btn-sec:hover { background: var(--border); }
+    .btn-main {
+      width: 68px; height: 68px;
+      border-radius: 50%;
+      border: none;
+      background: var(--primary);
+      color: #fff;
+      font-size: 28px;
+      cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+      box-shadow: 0 4px 18px rgba(224,90,43,0.35);
+      transition: transform 0.12s, box-shadow 0.12s;
+    }
+    .btn-main:hover  { transform: scale(1.06); }
+    .btn-main:active { transform: scale(0.96); }
+    .btn-main.break-mode {
+      background: var(--break-color);
+      box-shadow: 0 4px 18px rgba(74,144,226,0.35);
+    }
+
+    /* ── セッション ── */
+    .session-card {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+    }
+    .session-label { font-size: 14px; color: var(--text-sub); }
+    .tomatoes { display: flex; gap: 5px; }
+    .tomato {
+      font-size: 22px;
+      opacity: 0.2;
+      transition: opacity 0.3s, transform 0.3s;
+    }
+    .tomato.done { opacity: 1; transform: scale(1.12); }
+    .session-num { font-size: 14px; font-weight: 700; color: var(--primary); min-width: 36px; text-align: right; }
+
+    /* ── 設定カード ── */
+    .settings-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      cursor: pointer;
+      user-select: none;
+    }
+    .settings-header span { font-size: 14px; font-weight: 600; }
+    .settings-toggle { font-size: 14px; color: var(--text-sub); transition: transform 0.25s; }
+    .settings-toggle.open { transform: rotate(180deg); }
+    .settings-body {
+      display: none;
+      flex-direction: column;
+      gap: 12px;
+      margin-top: 14px;
+      padding-top: 14px;
+      border-top: 1px solid var(--border);
+    }
+    .settings-body.open { display: flex; }
+    .setting-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .setting-row label { font-size: 13px; }
+    .setting-row .right { display: flex; align-items: center; gap: 4px; }
+    .setting-row input[type="number"] {
+      width: 60px;
+      padding: 5px 8px;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      font-size: 14px;
+      text-align: center;
+      font-family: inherit;
+      background: var(--bg);
+    }
+    .setting-row .unit { font-size: 12px; color: var(--text-sub); }
+
+    /* ── 今日の集計 ── */
+    .stats-title { font-size: 14px; font-weight: 600; margin-bottom: 12px; }
+    .stats-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+    }
+    .stat-item {
+      background: var(--bg);
+      border-radius: 10px;
+      padding: 12px;
+      text-align: center;
+    }
+    .stat-val  { font-size: 24px; font-weight: 700; color: var(--primary); }
+    .stat-desc { font-size: 11px; color: var(--text-sub); margin-top: 3px; }
+
+    /* ── 教材別集計 ── */
+    .mat-stat-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 12px;
+      margin-bottom: 6px;
+    }
+    .mat-dot {
+      width: 10px; height: 10px;
+      border-radius: 50%;
+      flex-shrink: 0;
+    }
+    .mat-stat-name { flex: 1; font-weight: 600; }
+    .mat-stat-time { color: var(--text-sub); }
+    .no-stat { color: var(--text-sub); font-size: 13px; }
+
+    /* ── 通知バナー ── */
+    .notif {
+      position: fixed;
+      top: 70px; left: 50%;
+      transform: translateX(-50%) translateY(-10px);
+      background: #222;
+      color: #fff;
+      padding: 10px 22px;
+      border-radius: 24px;
+      font-size: 14px;
+      font-weight: 600;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.25s, transform 0.25s;
+      z-index: 999;
+      white-space: nowrap;
+    }
+    .notif.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+  </style>
+</head>
+<body>
+
+<header>
+  
+  <h1>🍅 ポモドーロタイマー</h1>
+</header>
+
+<main>
+  <!-- 教材選択 -->
+  <div class="card material-selector">
+    <label>📚 教材：</label>
+    <select id="materialSelect">
+      <option value="">— 教材を選択（任意）—</option>
+    </select>
+  </div>
+
+  <!-- タイマー -->
+  <div class="card timer-card">
+    <div class="mode-label" id="modeLabel">作業中</div>
+
+    <div class="ring-wrapper">
+      <svg width="200" height="200" viewBox="0 0 200 200">
+        <circle class="ring-bg" cx="100" cy="100" r="85" />
+        <circle class="ring-progress" id="ringProgress"
+          cx="100" cy="100" r="85"
+          stroke-dasharray="534.07"
+          stroke-dashoffset="0" />
+      </svg>
+      <div class="timer-display">
+        <div class="time" id="timerDisplay">25:00</div>
+        <div class="phase" id="phaseHint">準備完了</div>
+      </div>
+    </div>
+
+    <div class="controls">
+      <button class="btn-sec" id="skipBtn"  title="スキップ">⏭</button>
+      <button class="btn-main" id="mainBtn">▶</button>
+      <button class="btn-sec" id="resetBtn" title="リセット">↺</button>
+    </div>
+  </div>
+
+  <!-- セッション数 -->
+  <div class="card session-card">
+    <div class="session-label">🍅 今日のポモドーロ</div>
+    <div class="tomatoes" id="tomatoRow">
+      <span class="tomato" id="t0">🍅</span>
+      <span class="tomato" id="t1">🍅</span>
+      <span class="tomato" id="t2">🍅</span>
+      <span class="tomato" id="t3">🍅</span>
+    </div>
+    <div class="session-num" id="sessionNum">0回</div>
+  </div>
+
+  <!-- 設定 -->
+  <div class="card">
+    <div class="settings-header" id="settingsHeader">
+      <span>⚙️ タイマー設定</span>
+      <span class="settings-toggle" id="settingsToggle">▼</span>
+    </div>
+    <div class="settings-body" id="settingsBody">
+      <div class="setting-row">
+        <label>作業時間</label>
+        <div class="right">
+          <input type="number" id="workMin"       min="1" max="60" value="25">
+          <span class="unit">分</span>
+        </div>
+      </div>
+      <div class="setting-row">
+        <label>短い休憩</label>
+        <div class="right">
+          <input type="number" id="shortBreakMin" min="1" max="30" value="5">
+          <span class="unit">分</span>
+        </div>
+      </div>
+      <div class="setting-row">
+        <label>長い休憩（4回ごと）</label>
+        <div class="right">
+          <input type="number" id="longBreakMin"  min="1" max="60" value="15">
+          <span class="unit">分</span>
+        </div>
+      </div>
+      <div class="setting-row">
+        <label>通知音</label>
+        <div class="right">
+          <input type="checkbox" id="soundOn" checked style="width:18px;height:18px;cursor:pointer;">
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 今日の集計 -->
+  <div class="card">
+    <div class="stats-title">📊 今日の集計</div>
+    <div class="stats-grid" style="margin-bottom:14px;">
+      <div class="stat-item">
+        <div class="stat-val" id="statSession">0</div>
+        <div class="stat-desc">ポモドーロ完了</div>
+      </div>
+      <div class="stat-item">
+        <div class="stat-val" id="statMinutes">0</div>
+        <div class="stat-desc">作業分数</div>
+      </div>
+    </div>
+    <div id="matStatList"></div>
+  </div>
+</main>
+
+<div class="notif" id="notif"></div>
+
+<script src="nav.js"></script>
+<script>
+// ── Firebase（既存アプリと同じ設定） ──
+const firebaseConfig = {
+  apiKey: "AIzaSyDOi3w86aPi5R5XjGBaUJ_RvkTiS5WqwF0",
+  authDomain: "achedule-app.firebaseapp.com",
+  projectId: "achedule-app",
+  storageBucket: "achedule-app.firebasestorage.app",
+  messagingSenderId: "823858682336",
+  appId: "1:823858682336:web:ec4629dbe4ace91a7a7385"
+};
+if (!firebase.apps.length) firebase.initializeApp(firebaseConfig);
+const db = firebase.firestore();
+
+// ── 定数 ──
+const CIRCUMFERENCE = 2 * Math.PI * 85; // 534.07
+
+// ── 状態 ──
+let state = {
+  phase: 'work',      // 'work' | 'shortBreak' | 'longBreak'
+  running: false,
+  secondsLeft: 0,
+  totalSeconds: 0,
+  sessionCount: 0,
+  cyclePos: 0,        // 4サイクル内の位置
+  workMinutes: 0,
+  matSessions: {},    // { materialId: { name, color, minutes } }
+  interval: null,
+};
+
+let materials = [];
+
+// ── Firebase から教材を読み込む ──
+async function loadMaterials() {
+  try {
+    const doc = await db.collection("app_config").doc("materials").get();
+    materials = doc.exists ? (doc.data().list || []) : [];
+  } catch(e) {
+    materials = [];
+  }
+  const sel = document.getElementById('materialSelect');
+  materials.forEach(m => {
+    const opt = document.createElement('option');
+    opt.value = m.id;
+    opt.textContent = m.name + (m.category ? ` (${m.category})` : '');
+    opt.dataset.color = m.color;
+    opt.dataset.name  = m.name;
+    sel.appendChild(opt);
+  });
+}
+
+// ── 設定値 ──
+function getSettings() {
+  return {
+    work:       parseInt(document.getElementById('workMin').value)       * 60,
+    shortBreak: parseInt(document.getElementById('shortBreakMin').value) * 60,
+    longBreak:  parseInt(document.getElementById('longBreakMin').value)  * 60,
+    sound:      document.getElementById('soundOn').checked,
+  };
+}
+
+function getSelectedMat() {
+  const sel = document.getElementById('materialSelect');
+  const id  = sel.value;
+  if (!id) return null;
+  const opt = sel.options[sel.selectedIndex];
+  return { id, name: opt.dataset.name, color: opt.dataset.color };
+}
+
+// ── UI更新 ──
+function updateUI() {
+  const min = String(Math.floor(state.secondsLeft / 60)).padStart(2, '0');
+  const sec = String(state.secondsLeft % 60).padStart(2, '0');
+  document.getElementById('timerDisplay').textContent = `${min}:${sec}`;
+
+  const ratio  = state.totalSeconds > 0 ? state.secondsLeft / state.totalSeconds : 1;
+  const offset = CIRCUMFERENCE * (1 - ratio);
+  const ring   = document.getElementById('ringProgress');
+  ring.style.strokeDashoffset = offset;
+
+  const isWork    = state.phase === 'work';
+  const isShort   = state.phase === 'shortBreak';
+  ring.style.stroke = isWork ? 'var(--primary)' : 'var(--break-color)';
+
+  const modeLabel = document.getElementById('modeLabel');
+  const mainBtn   = document.getElementById('mainBtn');
+  if (state.phase === 'work') {
+    modeLabel.textContent = '作業中';
+    modeLabel.className   = 'mode-label';
+    mainBtn.className     = 'btn-main';
+  } else {
+    modeLabel.textContent = isShort ? '休憩中（短）' : '休憩中（長）';
+    modeLabel.className   = 'mode-label break';
+    mainBtn.className     = 'btn-main break-mode';
+  }
+  mainBtn.textContent = state.running ? '⏸' : '▶';
+
+  const hint = document.getElementById('phaseHint');
+  if (!state.running && state.secondsLeft === state.totalSeconds) hint.textContent = '準備完了';
+  else if (state.running) hint.textContent = state.phase === 'work' ? '集中して！' : 'ゆっくり休んで';
+  else hint.textContent = '一時停止中';
+
+  // トマト
+  for (let i = 0; i < 4; i++) {
+    document.getElementById('t' + i).classList.toggle('done', i < (state.cyclePos % 4));
+  }
+  document.getElementById('sessionNum').textContent = `${state.sessionCount}回`;
+  updateStats();
+}
+
+function updateStats() {
+  document.getElementById('statSession').textContent = state.sessionCount;
+  document.getElementById('statMinutes').textContent = state.workMinutes;
+
+  const el = document.getElementById('matStatList');
+  const entries = Object.values(state.matSessions);
+  if (!entries.length) {
+    el.innerHTML = '<div class="no-stat">まだ記録がありません</div>';
+    return;
+  }
+  el.innerHTML = entries.map(e =>
+    `<div class="mat-stat-row">
+      <div class="mat-dot" style="background:${e.color}"></div>
+      <div class="mat-stat-name">${e.name}</div>
+      <div class="mat-stat-time">${e.minutes}分</div>
+    </div>`
+  ).join('');
+}
+
+// ── フェーズ初期化 ──
+function initPhase(phase) {
+  state.phase = phase;
+  const s = getSettings();
+  state.totalSeconds = phase === 'work' ? s.work
+    : phase === 'shortBreak' ? s.shortBreak : s.longBreak;
+  state.secondsLeft = state.totalSeconds;
+  updateUI();
+}
+
+// ── タイマー制御 ──
+function startTimer() {
+  if (state.running) return;
+  state.running = true;
+  updateUI();
+  state.interval = setInterval(tick, 1000);
+}
+
+function pauseTimer() {
+  clearInterval(state.interval);
+  state.running = false;
+  updateUI();
+}
+
+function tick() {
+  state.secondsLeft--;
+  if (state.secondsLeft <= 0) onPhaseEnd();
+  else updateUI();
+}
+
+function onPhaseEnd() {
+  clearInterval(state.interval);
+  state.running = false;
+
+  if (state.phase === 'work') {
+    // 作業完了
+    state.sessionCount++;
+    state.cyclePos++;
+
+    const addMin = Math.round(getSettings().work / 60);
+    state.workMinutes += addMin;
+
+    // 教材別集計
+    const mat = getSelectedMat();
+    if (mat) {
+      if (!state.matSessions[mat.id]) {
+        state.matSessions[mat.id] = { name: mat.name, color: mat.color, minutes: 0 };
+      }
+      state.matSessions[mat.id].minutes += addMin;
+    }
+
+    saveToday();
+    playSound('work');
+    showNotif('🍅 作業完了！お疲れさまです');
+
+    if (state.cyclePos % 4 === 0) initPhase('longBreak');
+    else                           initPhase('shortBreak');
+  } else {
+    playSound('break');
+    showNotif('⏰ 休憩終了！また頑張ろう');
+    initPhase('work');
+  }
+}
+
+function skip() {
+  if (!confirm('このフェーズをスキップしますか？')) return;
+  clearInterval(state.interval);
+  state.running = false;
+  state.secondsLeft = 0;
+  onPhaseEnd();
+}
+
+function reset() {
+  if (!confirm('タイマーをリセットしますか？')) return;
+  clearInterval(state.interval);
+  state.running = false;
+  initPhase('work');
+}
+
+// ── 音 ──
+function playSound(type) {
+  if (!document.getElementById('soundOn').checked) return;
+  try {
+    const ctx = new (window.AudioContext || window.webkitAudioContext)();
+    const freqs = type === 'work' ? [523, 659, 784] : [440, 520];
+    freqs.forEach((freq, i) => {
+      const o = ctx.createOscillator();
+      const g = ctx.createGain();
+      o.connect(g); g.connect(ctx.destination);
+      o.frequency.value = freq;
+      o.type = type === 'work' ? 'sine' : 'triangle';
+      const t = ctx.currentTime + i * 0.2;
+      g.gain.setValueAtTime(0.3, t);
+      g.gain.exponentialRampToValueAtTime(0.001, t + 0.55);
+      o.start(t); o.stop(t + 0.55);
+    });
+  } catch(e) {}
+}
+
+// ── 通知 ──
+function showNotif(msg) {
+  const el = document.getElementById('notif');
+  el.textContent = msg;
+  el.classList.add('show');
+  setTimeout(() => el.classList.remove('show'), 3000);
+}
+
+// ── 今日のデータ保存・読み込み ──
+const TODAY_KEY = 'pomodoro_today_v2';
+function saveToday() {
+  localStorage.setItem(TODAY_KEY, JSON.stringify({
+    date:        new Date().toDateString(),
+    sessions:    state.sessionCount,
+    minutes:     state.workMinutes,
+    cyclePos:    state.cyclePos,
+    matSessions: state.matSessions,
+  }));
+}
+function loadToday() {
+  try {
+    const s = JSON.parse(localStorage.getItem(TODAY_KEY));
+    if (s && s.date === new Date().toDateString()) {
+      state.sessionCount = s.sessions    || 0;
+      state.workMinutes  = s.minutes     || 0;
+      state.cyclePos     = s.cyclePos    || 0;
+      state.matSessions  = s.matSessions || {};
+    }
+  } catch(e) {}
+}
+
+// ── イベント ──
+document.getElementById('mainBtn').addEventListener('click',  () => state.running ? pauseTimer() : startTimer());
+document.getElementById('resetBtn').addEventListener('click', reset);
+document.getElementById('skipBtn').addEventListener('click',  skip);
+
+document.getElementById('settingsHeader').addEventListener('click', () => {
+  document.getElementById('settingsBody').classList.toggle('open');
+  document.getElementById('settingsToggle').classList.toggle('open');
+});
+
+['workMin','shortBreakMin','longBreakMin'].forEach(id => {
+  document.getElementById(id).addEventListener('change', () => {
+    if (!state.running) initPhase(state.phase);
+  });
+});
+
+// ── 起動 ──
+(async () => {
+  loadToday();
+  await loadMaterials();
+  initPhase('work');
+})();
+</script>
+</body>
+</html>

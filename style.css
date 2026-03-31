@@ -1,0 +1,426 @@
+/* ════════════════════════════════════════
+   週間スケジュール - style.css
+   ════════════════════════════════════════ */
+
+body {
+  font-family: sans-serif;
+  text-align: center;
+}
+
+/* ── カレンダーグリッド ── */
+.calendar {
+  display: grid;
+  grid-template-columns: 60px repeat(7, 1fr);
+  width: 100%;
+  box-sizing: border-box;
+  padding-right: 10px;
+}
+.header {
+  background: #333;
+  color: white;
+  padding: 5px;
+  font-size: 12px;
+  position: sticky;
+  top: 0;
+  z-index: 10;
+}
+.time {
+  background: #eee;
+  padding: 3px;
+  font-size: 10px;
+  position: sticky;
+  left: 0;
+  z-index: 5;
+}
+.cell {
+  border: 1px solid black;
+  height: 50px;
+  font-size: 12px;
+}
+.cell:focus {
+  background: #ffffcc;
+}
+
+/* ── セルラッパー ── */
+.cell-wrapper {
+  display: flex;
+  align-items: flex-start;
+  border: 1px solid black;
+  height: 50px;
+  position: relative;
+  cursor: pointer;
+}
+.cell-wrapper .cell {
+  border: none;
+  height: 100%;
+  flex: 1;
+  font-size: 12px;
+}
+.cell-check {
+  margin: 4px 2px 0 2px;
+  flex-shrink: 0;
+  cursor: pointer;
+  width: 14px;
+  height: 14px;
+}
+
+/* ── 今日ハイライト ── */
+.today-header {
+  background: #f9a825;
+  color: white;
+}
+.today-col {
+  background-color: #fffde7;
+}
+
+/* ── 勉強予約セル：薄青背景 ── */
+.cell-study-bg {
+  background: linear-gradient(135deg, #e8f0fe 0%, #dceeff 100%) !important;
+}
+
+/* ── セル内オーバーレイ表示 ── */
+.cell-mat-badge {
+  position: absolute;
+  top: 2px;
+  right: 2px;
+  font-size: 9px;
+  font-weight: bold;
+  padding: 1px 5px;
+  border-radius: 3px;
+  color: #fff;
+  max-width: 60px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  pointer-events: none;
+  z-index: 2;
+}
+.cell-page-hint {
+  position: absolute;
+  bottom: 3px;
+  left: 4px;
+  font-size: 9px;
+  color: #7a9fd4;
+  pointer-events: none;
+  z-index: 2;
+}
+.cell-event-title {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  font-size: 11px;
+  font-weight: bold;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 90%;
+  pointer-events: none;
+  z-index: 2;
+}
+
+/* ── 色塗りモード中：ペンカーソル ── */
+#calendar[style*="crosshair"] .cell-wrapper {
+  cursor: crosshair !important;
+}
+#calendar[style*="crosshair"] .cell-wrapper:hover {
+  filter: brightness(0.93);
+}
+
+/* ── TOP BAR ── */
+#top-bar {
+  display: flex;
+  align-items: stretch;
+  gap: 12px;
+  padding: 10px 12px;
+  background: #f9f9f9;
+  border-bottom: 1px solid #ddd;
+  position: sticky;
+  top: 0;
+  z-index: 50;
+}
+#left-controls {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  width: fit-content;
+  flex-shrink: 0;
+}
+#left-controls h1 {
+  font-size: 18px;
+  margin: 0;
+  text-align: left;
+}
+.ctrl-row {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+/* ── メモエリア ── */
+#memo-area {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  margin-right: 10px;
+}
+#memo-label {
+  font-size: 13px;
+  color: #555;
+  margin-bottom: 4px;
+  text-align: left;
+}
+#global-memo {
+  flex: 1;
+  width: 100%;
+  min-height: 100px;
+  border: 1px solid #ccc;
+  border-radius: 6px;
+  padding: 8px;
+  font-size: 13px;
+  resize: none;
+  font-family: sans-serif;
+  background: #fffde7;
+}
+
+/* ── モーダル共通 ── */
+.modal-overlay {
+  display: none;
+  position: fixed;
+  top: 0; left: 0;
+  width: 100%; height: 100%;
+  background: rgba(0,0,0,0.45);
+  z-index: 300;
+  align-items: center;
+  justify-content: center;
+}
+.modal-box {
+  background: #fff;
+  border-radius: 14px;
+  padding: 22px 24px;
+  min-width: 320px;
+  max-width: 430px;
+  width: 92%;
+  max-height: 92vh;
+  overflow-y: auto;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.18);
+}
+
+/* ── モード切り替えタブ ── */
+.mode-tabs {
+  display: flex;
+  margin-bottom: 16px;
+  border-radius: 8px;
+  overflow: hidden;
+  border: 1.5px solid #d0d8e8;
+}
+.mode-tab {
+  flex: 1;
+  padding: 9px 0;
+  font-size: 13px;
+  font-weight: bold;
+  cursor: pointer;
+  border: none;
+  transition: background .15s, color .15s;
+}
+.mode-tab.active-study { background: #4a90e2; color: #fff; }
+.mode-tab.active-event { background: #f06292; color: #fff; }
+.mode-tab.inactive     { background: #f5f5f5; color: #aaa; }
+
+/* ── 教材リスト ── */
+.mat-list-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 10px;
+  border-radius: 8px;
+  cursor: pointer;
+  border: 2px solid transparent;
+  transition: background .12s;
+}
+.mat-list-item:hover    { background: #f0f4ff; }
+.mat-list-item.selected { border-color: #4a90e2; background: #e8f0ff; }
+.mat-color-dot {
+  width: 13px; height: 13px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  border: 1px solid rgba(0,0,0,0.1);
+}
+.mat-list-name { font-size: 13px; flex: 1; }
+
+/* ── 行事：色スウォッチ ── */
+.color-swatch {
+  width: 28px; height: 28px;
+  border-radius: 6px;
+  cursor: pointer;
+  border: 2px solid transparent;
+  transition: transform .1s;
+}
+.color-swatch:hover    { transform: scale(1.15); }
+.color-swatch.selected { border-color: #333; transform: scale(1.15); }
+
+/* ── 教材管理モーダル ── */
+#mat-manage-overlay {
+  display: none;
+  position: fixed;
+  top: 0; left: 0;
+  width: 100%; height: 100%;
+  background: rgba(0,0,0,0.45);
+  z-index: 400;
+  align-items: center;
+  justify-content: center;
+}
+
+/* ── 新規教材フォーム ── */
+.new-mat-form {
+  border: 1px dashed #bbb;
+  border-radius: 10px;
+  padding: 12px;
+  margin-top: 8px;
+  background: #fafcff;
+}
+.new-mat-form input[type=text] {
+  width: 100%;
+  padding: 6px 10px;
+  border: 1px solid #ccc;
+  border-radius: 6px;
+  font-size: 13px;
+  box-sizing: border-box;
+  margin-bottom: 8px;
+}
+.form-row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+.progress-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 10px;
+}
+.progress-row label {
+  font-size: 13px;
+  width: 84px;
+  flex-shrink: 0;
+}
+.progress-row input[type=number] {
+  width: 66px;
+  padding: 5px 8px;
+  border: 1px solid #ccc;
+  border-radius: 6px;
+  font-size: 13px;
+}
+
+/* ── 集計パネル ── */
+#summary-panel {
+  padding: 14px 14px 12px;
+  background: #f8f9fb;
+  border-top: 2px solid #e8eaf0;
+  width: 100%;
+  box-sizing: border-box;
+}
+#summary-tabs {
+  display: flex;
+  gap: 6px;
+  margin-bottom: 10px;
+}
+.summary-tab {
+  padding: 4px 12px;
+  border-radius: 14px;
+  border: 1px solid #ccc;
+  font-size: 12px;
+  cursor: pointer;
+  background: #fff;
+}
+.summary-tab.active { background: #4a90e2; color: #fff; border-color: #4a90e2; }
+.summary-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  margin-bottom: 4px;
+}
+.summary-label {
+  width: 90px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  flex-shrink: 0;
+  font-weight: bold;
+}
+.summary-bar-wrap {
+  flex: 1;
+  background: #e0e0e0;
+  border-radius: 4px;
+  height: 14px;
+  overflow: hidden;
+}
+.summary-bar {
+  height: 100%;
+  border-radius: 4px;
+  transition: width .4s ease;
+}
+.summary-time {
+  width: 54px;
+  text-align: right;
+  flex-shrink: 0;
+  color: #444;
+}
+
+/* ════════════════════════════════════════
+   スマホ対応
+   ════════════════════════════════════════ */
+@media (max-width: 600px) {
+  .calendar {
+    grid-template-columns: 40px repeat(7, 1fr);
+  }
+  .cell {
+    height: 35px;
+    font-size: 10px;
+  }
+  .cell-wrapper {
+    height: 35px;
+  }
+  .header {
+    font-size: 10px;
+  }
+  .time {
+    font-size: 8px;
+  }
+  #top-bar {
+    flex-direction: column;
+    position: static;
+  }
+  #left-controls {
+    min-width: unset;
+  }
+  #memo-area {
+    width: 100%;
+    margin-right: 0;
+  }
+}
+
+/* ════════════════════════════════════════
+   印刷（A4横）
+   ════════════════════════════════════════ */
+@media print {
+  @page {
+    size: A4 landscape;
+    margin: 10mm;
+  }
+  body { margin: 0; }
+  button, #color-picker, #week-control { display: none; }
+  .calendar {
+    grid-template-columns: 60px repeat(7, 1fr) !important;
+    width: 100%;
+    page-break-inside: avoid;
+  }
+  .cell   { height: 32px; font-size: 9px; }
+  .time   { font-size: 9px; }
+  .header { font-size: 11px; }
+  #top-bar      { display: none; }
+  #summary-panel { display: none; }
+}
