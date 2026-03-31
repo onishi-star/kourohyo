@@ -70,6 +70,10 @@
       display: flex; margin-bottom: 16px;
       border-radius: 8px; overflow: hidden;
       border: 1.5px solid #d0d8e8;
+      width: 100%;
+      max-width: 400px;
+      margin-left: auto;
+      margin-right: auto;
     }
     .mode-tab {
       flex: 1; padding: 9px 0;
@@ -243,8 +247,20 @@
       border-radius: 4px; padding: 1px 4px; pointer-events: none;
     }
   </style>
+
+ <style>
+  #_nav_side {
+    position: fixed !important;
+    top: 50% !important;
+    transform: translateY(-50%) !important;
+  }
+  #_nav_bar {
+    position: fixed !important;
+    bottom: 0 !important;
+  }</style>
+
 </head>
-<body style="overflow-y:scroll; height:100vh;">
+<body>
 
 <!-- ══ ログイン画面 ══ -->
 <div id="auth-container" style="display:flex; flex-direction:column; align-items:center; justify-content:center; height:100vh; gap:15px; font-family:sans-serif;">

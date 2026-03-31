@@ -55,7 +55,7 @@ var _NAV_CURRENT_IDX = -1;
     '#_nav_curtain_title{font-size:18px;font-weight:700;color:#444;font-family:"Hiragino Kaku Gothic ProN",sans-serif;}',
 
     /* 右端ボタングループ */
-    '#_nav_side{position:fixed;right:0;top:50%;transform:translateY(-50%);z-index:10001;display:flex;flex-direction:column;border-radius:12px 0 0 12px;overflow:hidden;box-shadow:-3px 0 16px rgba(0,0,0,0.14);}',
+    '#_nav_side{position:fixed;right:env(safe-area-inset-right,0);top:50%;transform:translateY(-50%);z-index:10001;display:flex;flex-direction:column;border-radius:12px 0 0 12px;overflow:hidden;box-shadow:-3px 0 16px rgba(0,0,0,0.14);}',
     '.side-btn{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;width:46px;padding:13px 0;border:none;cursor:pointer;font-family:"Hiragino Kaku Gothic ProN",sans-serif;transition:filter .15s,transform .12s;-webkit-tap-highlight-color:transparent;position:relative;}',
     '.side-btn+.side-btn{border-top:1px solid rgba(255,255,255,0.22);}',
     '.side-btn:active{filter:brightness(0.86);transform:scaleX(0.93);}',
@@ -65,7 +65,7 @@ var _NAV_CURRENT_IDX = -1;
     '.side-btn.current::before{content:"";position:absolute;left:0;top:20%;bottom:20%;width:3px;border-radius:0 2px 2px 0;background:rgba(255,255,255,0.9);}',
 
     /* 下部タブバー */
-    '#_nav_bar{position:fixed;bottom:0;left:0;right:0;height:58px;background:rgba(255,255,255,0.95);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);border-top:1px solid rgba(0,0,0,0.08);display:flex;z-index:10000;box-shadow:0 -2px 12px rgba(0,0,0,0.06);}',
+    '#_nav_bar{position:fixed;bottom:0;left:0;right:0;height:calc(58px + env(safe-area-inset-bottom, 0px));background:rgba(255,255,255,0.95);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);border-top:1px solid rgba(0,0,0,0.08);display:flex;z-index:10000;box-shadow:0 -2px 12px rgba(0,0,0,0.06);padding-bottom:env(safe-area-inset-bottom, 0px);}',
     '.nav-tab{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;border:none;background:none;cursor:pointer;padding:6px 0;font-family:"Hiragino Kaku Gothic ProN",sans-serif;transition:transform .12s;-webkit-tap-highlight-color:transparent;position:relative;}',
     '.nav-tab:active{transform:scale(0.91);}',
     '.nav-tab .tab-icon{font-size:22px;line-height:1;transition:transform .18s;}',

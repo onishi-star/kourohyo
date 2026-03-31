@@ -1,20 +1,5 @@
 const CACHE_NAME = 'schedule-cache-v3';
-```
 
-保存してコミットしてください。
-
----
-
-**ステップ2: 1〜2分待ってからスマホ・PCで強制リロード**
-
-- PC：**Ctrl + Shift + R**
-- スマホ：ブラウザのキャッシュをクリアしてから開き直す
-
----
-
-**ステップ3: URLに `?v=5` をつけて開く**
-```
-https://onishi-star.github.io/schedule-app/?v=5
 const urlsToCache = [
   './',
   './index.html',
@@ -46,7 +31,6 @@ self.addEventListener('activate', (e) => {
 
 // リクエスト時：ネットワーク優先、失敗時はキャッシュを使う（GETメソッドのみ）
 self.addEventListener('fetch', (e) => {
-  // GETメソッドの場合のみキャッシュ処理を行う
   if (e.request.method === 'GET') {
     e.respondWith(
       fetch(e.request)

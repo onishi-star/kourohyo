@@ -1,0 +1,13 @@
+{
+  "name": "schedule-app",
+  "version": "1.0.0",
+  "description": "週間スケジュールアプリ",
+  "main": "index.html",
+  "scripts": {
+    "deploy": "firebase deploy",
+    "serve": "firebase serve"
+  },
+  "devDependencies": {
+    "firebase-tools": "^12.0.0"
+  }
+}
