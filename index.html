@@ -3,6 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <title>行路表</title>
+  <link rel="icon" href="data:,">
   <link rel="stylesheet" href="style.css">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
@@ -1558,7 +1559,7 @@ async function applyPresetToCell(day, schedule) {
 })();
 
 if ("serviceWorker" in navigator){
-  navigator.serviceWorker.register("/sw.js").then(()=>console.log("SW OK")).catch(e=>console.error(e));
+  navigator.serviceWorker.register("./sw.js").then(()=>console.log("SW OK")).catch(e=>console.error(e));
 }
 </script>
 
