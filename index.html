@@ -255,14 +255,57 @@
   <p id="auth-error" style="color:red; display:none; margin:5px 0;"></p>
 </div>
 
-<!-- ══ アプリ本体 ══ -->
 <div id="app-content" style="display:none;">
 
 <!-- ══ 設定モーダル ══ -->
 <div id="modal-overlay" class="modal-overlay" style="z-index:200;">
-  <div class="modal-box" style="min-width:260px; text-align:center;">
-    <h2 style="margin-bottom:16px; font-size:16px;">⚙️ 週の開始曜日</h2>
-    <div id="day-select-buttons" style="display:flex; flex-wrap:wrap; gap:8px; justify-content:center; margin-bottom:20px;"></div>
+  <div class="modal-box" style="min-width:320px; max-width:400px;">
+    <h2 style="margin-bottom:16px; font-size:16px;">⚙️ 設定</h2>
+    
+    <!-- プリセット選択タブ -->
+    <div class="mode-tabs" style="margin-bottom:16px;">
+      <button class="mode-tab active-study" id="tab-basic" onclick="switchSettingsTab('basic')">基本設定</button>
+      <button class="mode-tab inactive" id="tab-preset" onclick="switchSettingsTab('preset')">プリセット</button>
+    </div>
+    
+    <!-- 基本設定パネル -->
+    <div id="panel-basic">
+      <h3 style="margin-bottom:12px; font-size:14px;">週の開始曜日</h3>
+      <div id="day-select-buttons" style="display:flex; flex-wrap:wrap; gap:8px; justify-content:center; margin-bottom:20px;"></div>
+    </div>
+    
+    <!-- プリセットパネル -->
+    <div id="panel-preset" style="display:none;">
+      <h3 style="margin-bottom:12px; font-size:14px;">放課後学習プリセット</h3>
+      <div style="margin-bottom:15px;">
+        <label style="font-size:12px; color:#666; display:block; margin-bottom:5px;">学校タイプ</label>
+        <div style="display:flex; gap:8px;">
+          <button id="preset-6class" onclick="applyPreset('6class')" style="flex:1; padding:8px; background:#e3f2fd; border:1px solid #2196f3; border-radius:6px; cursor:pointer; font-size:12px;">6限タイプ</button>
+          <button id="preset-7class" onclick="applyPreset('7class')" style="flex:1; padding:8px; background:#e3f2fd; border:1px solid #2196f3; border-radius:6px; cursor:pointer; font-size:12px;">7限タイプ</button>
+        </div>
+      </div>
+      <div style="margin-bottom:15px;">
+        <label style="font-size:12px; color:#666; display:block; margin-bottom:5px;">勉強モード</label>
+        <div style="display:flex; gap:8px;">
+          <button id="preset-proceed" onclick="setStudyMode('proceed')" style="flex:1; padding:8px; background:#f3e5f5; border:1px solid #9c27b0; border-radius:6px; cursor:pointer; font-size:12px;">プロシード</button>
+          <button id="preset-bunpla" onclick="setStudyMode('bunpla')" style="flex:1; padding:8px; background:#f3e5f5; border:1px solid #9c27b0; border-radius:6px; cursor:pointer; font-size:12px;">文プラ</button>
+        </div>
+      </div>
+      <div style="margin-bottom:15px;">
+        <label style="font-size:12px; color:#666; display:block; margin-bottom:5px;">対象曜日</label>
+        <div id="preset-days" style="display:flex; gap:6px; flex-wrap:wrap;">
+          <label style="font-size:12px;"><input type="checkbox" value="1" checked> 月</label>
+          <label style="font-size:12px;"><input type="checkbox" value="2" checked> 火</label>
+          <label style="font-size:12px;"><input type="checkbox" value="3" checked> 水</label>
+          <label style="font-size:12px;"><input type="checkbox" value="4" checked> 木</label>
+          <label style="font-size:12px;"><input type="checkbox" value="5" checked> 金</label>
+          <label style="font-size:12px;"><input type="checkbox" value="6"> 土</label>
+          <label style="font-size:12px;"><input type="checkbox" value="0"> 日</label>
+        </div>
+      </div>
+      <button onclick="applyCurrentPreset()" style="width:100%; padding:10px; background:#4caf50; color:white; border:none; border-radius:6px; cursor:pointer; font-size:14px; margin-bottom:10px;">プリセットを適用</button>
+    </div>
+    
     <button onclick="closeModal()" style="padding:8px 24px; border-radius:6px; border:1px solid #ccc; cursor:pointer;">閉じる</button>
   </div>
 </div>
@@ -1312,9 +1355,201 @@ function switchSummaryTab(tab,e){
 }
 
 // ════════════════════════════════════════
+// 認証機能
+// ════════════════════════════════════════
+function setupAuth() {
+  // ログインボタン
+  document.getElementById('auth-login').addEventListener('click', () => {
+    const email = document.getElementById('auth-email').value;
+    const password = document.getElementById('auth-password').value;
+    const errorEl = document.getElementById('auth-error');
+    
+    if (!email || !password) {
+      errorEl.textContent = 'メールアドレスとパスワードを入力してください';
+      errorEl.style.display = 'block';
+      return;
+    }
+    
+    auth.signInWithEmailAndPassword(email, password)
+      .then((userCredential) => {
+        errorEl.style.display = 'none';
+        showApp();
+      })
+      .catch((error) => {
+        errorEl.textContent = 'ログインエラー: ' + error.message;
+        errorEl.style.display = 'block';
+      });
+  });
+  
+  // 新規登録ボタン
+  document.getElementById('auth-signup').addEventListener('click', () => {
+    const email = document.getElementById('auth-email').value;
+    const password = document.getElementById('auth-password').value;
+    const errorEl = document.getElementById('auth-error');
+    
+    if (!email || !password) {
+      errorEl.textContent = 'メールアドレスとパスワードを入力してください';
+      errorEl.style.display = 'block';
+      return;
+    }
+    
+    if (password.length < 6) {
+      errorEl.textContent = 'パスワードは6文字以上にしてください';
+      errorEl.style.display = 'block';
+      return;
+    }
+    
+    auth.createUserWithEmailAndPassword(email, password)
+      .then((userCredential) => {
+        errorEl.style.display = 'none';
+        showApp();
+      })
+      .catch((error) => {
+        errorEl.textContent = '登録エラー: ' + error.message;
+        errorEl.style.display = 'block';
+      });
+  });
+  
+  // ログアウト機能
+  window.logout = function() {
+    auth.signOut().then(() => {
+      showLogin();
+    }).catch((error) => {
+      console.error('ログアウトエラー:', error);
+    });
+  };
+  
+  // 認証状態の監視
+  auth.onAuthStateChanged((user) => {
+    if (user) {
+      showApp();
+    } else {
+      showLogin();
+    }
+  });
+}
+
+function showApp() {
+  document.getElementById('auth-container').style.display = 'none';
+  document.getElementById('app-content').style.display = 'block';
+}
+
+function showLogin() {
+  document.getElementById('auth-container').style.display = 'flex';
+  document.getElementById('app-content').style.display = 'none';
+}
+
+// ════════════════════════════════════════
+// プリセット機能
+// ════════════════════════════════════════
+let currentPresetType = '7class';
+let currentStudyMode = 'proceed';
+function switchSettingsTab(tab) {
+  const tabs = document.querySelectorAll('#modal-overlay .mode-tab');
+  const panels = ['panel-basic', 'panel-preset'];
+  
+  tabs.forEach(t => t.classList.remove('active-study'));
+  panels.forEach(p => document.getElementById(p).style.display = 'none');
+  
+  if (tab === 'basic') {
+    document.getElementById('tab-basic').classList.add('active-study');
+    document.getElementById('panel-basic').style.display = 'block';
+  } else {
+    document.getElementById('tab-preset').classList.add('active-study');
+    document.getElementById('panel-preset').style.display = 'block';
+  }
+}
+
+function applyPreset(type) {
+  currentPresetType = type;
+  document.querySelectorAll('#preset-6class, #preset-7class').forEach(btn => {
+    btn.style.background = '#e3f2fd';
+    btn.style.color = '#333';
+  });
+  document.getElementById('preset-' + type).style.background = '#2196f3';
+  document.getElementById('preset-' + type).style.color = 'white';
+}
+
+function setStudyMode(mode) {
+  currentStudyMode = mode;
+  document.querySelectorAll('#preset-proceed, #preset-bunpla').forEach(btn => {
+    btn.style.background = '#f3e5f5';
+    btn.style.color = '#333';
+  });
+  document.getElementById('preset-' + mode).style.background = '#9c27b0';
+  document.getElementById('preset-' + mode).style.color = 'white';
+}
+
+async function applyCurrentPreset() {
+  const checkedDays = Array.from(document.querySelectorAll('#preset-days input:checked')).map(cb => parseInt(cb.value));
+  if (checkedDays.length === 0) {
+    alert('対象曜日を少なくとも1つ選択してください');
+    return;
+  }
+  
+  const clubStart = currentPresetType === '6class' ? 15 : 16;
+  const studyEnd = currentStudyMode === 'bunpla' ? 22 : 21.33; // 22:00 or 21:20
+  
+  const presetSchedule = [
+    { hour: 6, minute: 0, duration: 60, type: 'event', title: '起床', color: '#ffeb3b' },
+    { hour: 7, minute: 0, duration: 60, type: 'study', title: '朝の勉強' },
+    { hour: 8, minute: 0, duration: 480, type: 'event', title: '学校', color: '#e3f2fd' },
+    { hour: clubStart, minute: 0, duration: 120, type: 'event', title: '部活', color: '#f3e5f5' },
+    { hour: 18, minute: 0, duration: (studyEnd - 18) * 60, type: 'study', title: '夜の勉強' },
+    { hour: Math.floor(studyEnd) + (studyEnd % 1 >= 0.33 ? 1 : 0), minute: (studyEnd % 1 >= 0.33 ? 20 : 40), duration: 80, type: 'event', title: '終支度', color: '#fff3e0' }
+  ];
+  
+  for (const day of checkedDays) {
+    for (const schedule of presetSchedule) {
+      await applyPresetToCell(day, schedule);
+    }
+  }
+  
+  setTimeout(loadWeek, 500);
+  alert('プリセットを適用しました');
+}
+
+async function applyPresetToCell(day, schedule) {
+  const startHour = Math.floor(schedule.hour);
+  const startMinute = schedule.minute;
+  const duration = schedule.duration;
+  
+  const hourSlots = Math.ceil(duration / 60);
+  
+  for (let i = 0; i < hourSlots; i++) {
+    const hour = startHour + i;
+    if (hour < 4 || hour >= 24) continue; // 表示範囲外
+    
+    const cellId = `cell-${hour}-${day}`;
+    const colIndex = day;
+    
+    if (schedule.type === 'study') {
+      const cellRecord = {
+        mode: "study",
+        materialId: null, 
+        materialName: "教材未設定",
+        materialColor: "#4a90e2",
+        pageFrom: null,
+        pageTo: null
+      };
+      await saveCellData(cellId, colIndex, hour, cellRecord);
+    } else {
+      const cellRecord = {
+        mode: "event",
+        title: schedule.title,
+        color: schedule.color || "#ffadad",
+        memo: ""
+      };
+      await saveCellData(cellId, colIndex, hour, cellRecord);
+    }
+  }
+}
+
+// ════════════════════════════════════════
 // 起動
 // ════════════════════════════════════════
 (async()=>{
+  setupAuth();
   renderCustomColorButtons();
   await loadMaterials();
   await loadWeek();
