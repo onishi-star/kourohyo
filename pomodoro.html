@@ -315,7 +315,7 @@
 
   <!-- ページ情報（スケジュールから来た場合に表示） -->
   <div class="card" id="page-info-card" style="display:none; padding:12px 16px;">
-    <div style="font-size:12px; color:var(--text-sub); margin-bottom:4px;">📄 今日のページ目標</div>
+    <div style="font-size:12px; color:var(--text-sub); margin-bottom:4px;">📄 予約ページ目標</div>
     <div id="page-info-text" style="font-size:15px; font-weight:700; color:var(--primary);"></div>
   </div>
 
@@ -411,6 +411,78 @@
 </main>
 
 <div class="notif" id="notif"></div>
+
+<!-- ══ 作業完了・記録モーダル ══ -->
+<div id="record-modal" style="
+  display:none; position:fixed; inset:0;
+  background:rgba(0,0,0,0.5); z-index:500;
+  align-items:center; justify-content:center;">
+  <div style="
+    background:#fff; border-radius:20px;
+    padding:24px 20px; max-width:360px; width:92%;
+    max-height:92vh; overflow-y:auto;
+    box-shadow:0 8px 32px rgba(0,0,0,0.18);">
+
+    <!-- 完了メッセージ -->
+    <div style="text-align:center; margin-bottom:20px;">
+      <div style="font-size:40px; margin-bottom:6px;">🍅</div>
+      <div style="font-size:17px; font-weight:700; margin-bottom:4px;">お疲れさまでした！</div>
+      <div id="rec-mat-name" style="font-size:13px; color:#888;"></div>
+    </div>
+
+    <!-- 実際にやったページ記録 -->
+    <div style="background:#f8f9fb; border-radius:12px; padding:14px; margin-bottom:16px;">
+      <div style="font-size:13px; font-weight:600; margin-bottom:10px;">📝 実際にやったページを記録</div>
+      <div style="display:flex; align-items:center; gap:8px; justify-content:center;">
+        <input type="number" id="rec-from" placeholder="開始" min="1"
+          style="width:72px; padding:8px; border:1px solid #ddd; border-radius:8px; font-size:15px; text-align:center;">
+        <span style="color:#888;">〜</span>
+        <input type="number" id="rec-to" placeholder="終了" min="1"
+          style="width:72px; padding:8px; border:1px solid #ddd; border-radius:8px; font-size:15px; text-align:center;">
+        <span style="font-size:13px; color:#888;">p</span>
+      </div>
+      <div style="font-size:11px; color:#aaa; text-align:center; margin-top:6px;" id="rec-page-hint"></div>
+    </div>
+
+    <!-- 次のポモドーロ設定 -->
+    <div style="background:#f0f6ff; border-radius:12px; padding:14px; margin-bottom:18px;">
+      <div style="font-size:13px; font-weight:600; margin-bottom:10px;">▶ 次のポモドーロ</div>
+
+      <!-- 教材選択 -->
+      <div style="margin-bottom:10px;">
+        <div style="font-size:12px; color:#888; margin-bottom:4px;">教材</div>
+        <select id="rec-next-mat" style="width:100%; padding:8px; border:1px solid #ddd; border-radius:8px; font-size:13px; font-family:inherit; background:#fff;">
+          <option value="">— 教材を選択（任意）—</option>
+        </select>
+      </div>
+
+      <!-- 次のページ -->
+      <div>
+        <div style="font-size:12px; color:#888; margin-bottom:4px;">ページ</div>
+        <div style="display:flex; align-items:center; gap:8px;">
+          <input type="number" id="rec-next-from" placeholder="開始" min="1"
+            style="width:72px; padding:8px; border:1px solid #ddd; border-radius:8px; font-size:14px; text-align:center;">
+          <span style="color:#888;">〜</span>
+          <input type="number" id="rec-next-to" placeholder="終了" min="1"
+            style="width:72px; padding:8px; border:1px solid #ddd; border-radius:8px; font-size:14px; text-align:center;">
+          <span style="font-size:13px; color:#888;">p</span>
+          <button onclick="recAutoFillNext()" title="実績の続きを自動入力"
+            style="font-size:11px; padding:6px 10px; border:1px dashed #4a90e2; color:#4a90e2; background:#fff; border-radius:6px; cursor:pointer; white-space:nowrap;">続きを入力</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ボタン -->
+    <button onclick="recSaveAndContinue()"
+      style="width:100%; padding:13px; background:#e05a2b; color:#fff; border:none; border-radius:10px; font-size:15px; font-weight:700; cursor:pointer; margin-bottom:8px;">
+      記録して次へ ▶
+    </button>
+    <button onclick="recSaveAndStop()"
+      style="width:100%; padding:11px; background:#f5f5f0; color:#555; border:1px solid #ddd; border-radius:10px; font-size:14px; cursor:pointer;">
+      記録して終了
+    </button>
+  </div>
+</div>
 
 <script src="nav.js"></script>
 <script>
@@ -536,7 +608,7 @@ function updateStats() {
     `<div class="mat-stat-row">
       <div class="mat-dot" style="background:${e.color}"></div>
       <div class="mat-stat-name">${e.name}</div>
-      <div class="mat-stat-time">${e.minutes}分</div>
+      <div class="mat-stat-time">${e.minutes}分${e.pages ? ` / ${e.pages}p` : ''}</div>
     </div>`
   ).join('');
 }
@@ -594,10 +666,10 @@ function onPhaseEnd() {
 
     saveToday();
     playSound('work');
-    showNotif('🍅 作業完了！お疲れさまです');
 
-    if (state.cyclePos % 4 === 0) initPhase('longBreak');
-    else                           initPhase('shortBreak');
+    // 記録モーダルを表示
+    openRecordModal();
+
   } else {
     playSound('break');
     showNotif('⏰ 休憩終了！また頑張ろう');
@@ -704,7 +776,6 @@ function applyUrlParams() {
   const from     = p.get('from');
   const to       = p.get('to');
 
-  // 教材セレクト：IDが一致するoptionを選択、なければ仮optionを挿入
   if (matId || matName) {
     const sel = document.getElementById('materialSelect');
     let found = false;
@@ -713,8 +784,8 @@ function applyUrlParams() {
     }
     if (!found && matName) {
       const opt = document.createElement('option');
-      opt.value        = matId || '__from_schedule__';
-      opt.textContent  = matName;
+      opt.value         = matId || '__from_schedule__';
+      opt.textContent   = matName;
       opt.dataset.name  = matName;
       opt.dataset.color = matColor || '#4a90e2';
       opt.selected = true;
@@ -722,13 +793,246 @@ function applyUrlParams() {
     }
   }
 
-  // ページ情報カード
   if (from || to) {
     document.getElementById('page-info-card').style.display = 'block';
-    document.getElementById('page-info-text').textContent =
-      `p${from || '?'} 〜 p${to || '?'}`;
+    document.getElementById('page-info-text').textContent = `p${from || '?'} 〜 p${to || '?'}`;
+    window._schedFrom = parseInt(from) || null;
+    window._schedTo   = parseInt(to)   || null;
+  }
+
+  // 次の予約教材を保持
+  const nextMatId    = p.get('nextMatId');
+  const nextMatName  = p.get('nextMatName');
+  const nextMatColor = p.get('nextMatColor');
+  const nextFrom     = p.get('nextFrom');
+  const nextTo       = p.get('nextTo');
+  window._nextMat = (nextMatId || nextMatName) ? {
+    id:    nextMatId,
+    name:  nextMatName,
+    color: nextMatColor || '#4a90e2',
+    from:  parseInt(nextFrom) || null,
+    to:    parseInt(nextTo)   || null,
+  } : null;
+}
+
+// ── 記録モーダル ──
+function openRecordModal() {
+  const mat = getSelectedMat();
+
+  // 教材名表示
+  document.getElementById('rec-mat-name').textContent =
+    mat ? `📚 ${mat.name}` : '教材なし';
+
+  // 予約ページをヒントとして表示・初期値としてセット
+  const hintEl = document.getElementById('rec-page-hint');
+  if (window._schedFrom || window._schedTo) {
+    hintEl.textContent = `予約: p${window._schedFrom||'?'}〜${window._schedTo||'?'}`;
+    document.getElementById('rec-from').value = window._schedFrom || '';
+    document.getElementById('rec-to').value   = window._schedTo   || '';
+  } else {
+    hintEl.textContent = '';
+    document.getElementById('rec-from').value = '';
+    document.getElementById('rec-to').value   = '';
+  }
+
+  // 次のポモドーロ：完了判定して初期値を決める
+  buildNextSession(mat);
+
+  document.getElementById('record-modal').style.display = 'flex';
+}
+
+// 完了判定して「次のポモドーロ」欄を構築
+function buildNextSession(currentMat) {
+  const recTo      = parseInt(document.getElementById('rec-to').value) || null;
+  const schedTo    = window._schedTo;
+  const isDone     = schedTo && recTo && recTo >= schedTo;
+  const nextMat    = window._nextMat;
+
+  // 次の教材セレクトを構築
+  const nextSel = document.getElementById('rec-next-mat');
+  nextSel.innerHTML = '';
+
+  // ① 現在の教材の続き（未完了の場合のみ）
+  if (!isDone && currentMat) {
+    const opt = document.createElement('option');
+    opt.value        = currentMat.id;
+    opt.textContent  = `📖 続き：${currentMat.name}`;
+    opt.dataset.name  = currentMat.name;
+    opt.dataset.color = currentMat.color || '#4a90e2';
+    opt.dataset.isContinue = 'true';
+    nextSel.appendChild(opt);
+  }
+
+  // ② 次の予約教材
+  if (nextMat) {
+    const opt = document.createElement('option');
+    opt.value        = nextMat.id || '__next__';
+    opt.textContent  = `📅 次の予約：${nextMat.name}` + (nextMat.from ? ` p${nextMat.from}〜${nextMat.to||'?'}` : '');
+    opt.dataset.name  = nextMat.name;
+    opt.dataset.color = nextMat.color;
+    opt.dataset.from  = nextMat.from || '';
+    opt.dataset.to    = nextMat.to   || '';
+    opt.dataset.isNext = 'true';
+    nextSel.appendChild(opt);
+  }
+
+  // ③ その他（全教材から選ぶ）
+  const curSel = document.getElementById('materialSelect');
+  for (const opt of curSel.options) {
+    if (!opt.value) continue; // 空欄スキップ
+    // すでに追加済みのIDは重複しない
+    const alreadyAdded = [...nextSel.options].some(o => o.value === opt.value);
+    if (!alreadyAdded) {
+      const clone = opt.cloneNode(true);
+      clone.textContent = `　${clone.textContent}`;
+      nextSel.appendChild(clone);
+    }
+  }
+
+  // 「教材なし」を末尾に追加
+  const noneOpt = document.createElement('option');
+  noneOpt.value = ''; noneOpt.textContent = '— 教材なし —';
+  nextSel.appendChild(noneOpt);
+
+  // 初期選択：完了なら次の予約、未完なら続き
+  nextSel.selectedIndex = 0;
+
+  // 次のページを自動入力
+  autoFillNextPage();
+
+  // セレクト変更時にページも追従
+  nextSel.onchange = autoFillNextPage;
+}
+
+// 選択された次の教材に応じてページを自動入力
+function autoFillNextPage() {
+  const nextSel = document.getElementById('rec-next-mat');
+  const selected = nextSel.options[nextSel.selectedIndex];
+  if (!selected) return;
+
+  const fromEl = document.getElementById('rec-next-from');
+  const toEl   = document.getElementById('rec-next-to');
+
+  if (selected.dataset.isNext === 'true') {
+    // 次の予約教材：予約ページを自動入力
+    fromEl.value = selected.dataset.from || '';
+    toEl.value   = selected.dataset.to   || '';
+  } else if (selected.dataset.isContinue === 'true') {
+    // 続き：実績の終了p+1を開始に
+    const recTo = parseInt(document.getElementById('rec-to').value);
+    fromEl.value = !isNaN(recTo) ? recTo + 1 : '';
+    toEl.value   = '';
+  } else {
+    fromEl.value = '';
+    toEl.value   = '';
   }
 }
+
+function closeRecordModal() {
+  document.getElementById('record-modal').style.display = 'none';
+}
+
+// 「続きを入力」ボタン：実績入力後に次ページを再計算
+function recAutoFillNext() {
+  autoFillNextPage();
+}
+
+// 記録を保存して次のポモドーロへ
+function recSaveAndContinue() {
+  saveRecord();
+  applyNextSession();
+  closeRecordModal();
+  // 休憩フェーズへ
+  if (state.cyclePos % 4 === 0) initPhase('longBreak');
+  else                           initPhase('shortBreak');
+  showNotif('🍅 記録しました！休憩しましょう');
+}
+
+// 記録して終了
+function recSaveAndStop() {
+  saveRecord();
+  closeRecordModal();
+  updateUI();
+  showNotif('✅ お疲れさまでした！記録しました');
+}
+
+// 実績をlocalStorageに保存
+function saveRecord() {
+  const from  = parseInt(document.getElementById('rec-from').value) || null;
+  const to    = parseInt(document.getElementById('rec-to').value)   || null;
+  const mat   = getSelectedMat();
+  const pages = (from || to) ? (to - (from||0) + 1) : null;
+
+  const rec = {
+    ts:       Date.now(),
+    date:     new Date().toLocaleDateString('ja-JP'),
+    matId:    mat ? mat.id   : null,
+    matName:  mat ? mat.name : null,
+    matColor: mat ? mat.color: null,
+    from, to,
+    pages,
+    minutes:  Math.round(getSettings().work / 60),
+  };
+
+  const key = 'pomodoro_records_v1';
+  const all = JSON.parse(localStorage.getItem(key) || '[]');
+  all.push(rec);
+  localStorage.setItem(key, JSON.stringify(all));
+
+  // 今日の累計ページも更新
+  if (pages) {
+    const id = mat ? mat.id : '__none__';
+    if (!state.matSessions[id]) {
+      state.matSessions[id] = { name: mat?.name || '教材なし', color: mat?.color || '#aaa', minutes: 0, pages: 0 };
+    }
+    state.matSessions[id].pages = (state.matSessions[id].pages || 0) + pages;
+    saveToday();
+    updateUI();
+  }
+}
+
+// 次のポモドーロの教材・ページをUIに反映
+function applyNextSession() {
+  const nextSel     = document.getElementById('rec-next-mat');
+  const selected    = nextSel.options[nextSel.selectedIndex];
+  const nextFrom    = document.getElementById('rec-next-from').value;
+  const nextTo      = document.getElementById('rec-next-to').value;
+
+  // メインの教材セレクトを切り替え
+  const mainSel = document.getElementById('materialSelect');
+  let found = false;
+  for (const opt of mainSel.options) {
+    if (selected && opt.value === selected.value) { opt.selected = true; found = true; break; }
+  }
+  // 見つからない場合（次の予約教材が未登録）は追加
+  if (!found && selected && selected.value && selected.dataset.name) {
+    const opt = document.createElement('option');
+    opt.value        = selected.value;
+    opt.textContent  = selected.dataset.name;
+    opt.dataset.name  = selected.dataset.name;
+    opt.dataset.color = selected.dataset.color || '#4a90e2';
+    opt.selected = true;
+    mainSel.appendChild(opt);
+  }
+
+  // ページ情報カードと内部変数を更新
+  window._schedFrom = parseInt(nextFrom) || null;
+  window._schedTo   = parseInt(nextTo)   || null;
+  if (window._schedFrom || window._schedTo) {
+    document.getElementById('page-info-card').style.display = 'block';
+    document.getElementById('page-info-text').textContent =
+      `p${window._schedFrom||'?'} 〜 p${window._schedTo||'?'}`;
+  } else {
+    document.getElementById('page-info-card').style.display = 'none';
+  }
+
+  // 次の予約教材を引き継ぎ（次のポモドーロでも使えるよう）
+  if (selected && selected.dataset.isNext === 'true') {
+    // 次の予約教材を使ったので、その次はもうない（リセット）
+    window._nextMat = null;
+  }
+}
+
 </script>
 </body>
 </html>
