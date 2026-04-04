@@ -358,6 +358,29 @@
   <div id="file-viewer-name" style="color:rgba(255,255,255,0.7); font-size:12px; margin-top:10px; text-align:center;"></div>
 </div>
 
+<!-- ══ ポモドーロモーダル ══ -->
+<div id="pomodoro-modal-overlay" class="modal-overlay" style="z-index:350;">
+  <div class="modal-box" style="text-align:center; max-width:340px;">
+    <div id="pom-subject" style="font-size:15px; font-weight:bold; margin-bottom:4px;"></div>
+    <div id="pom-pages" style="font-size:12px; color:#7a9fd4; margin-bottom:18px;"></div>
+    <div id="pom-phase-label" style="font-size:12px; color:#888; margin-bottom:6px;">🍅 集中タイム</div>
+    <div id="pom-display" style="font-size:64px; font-family:monospace; font-weight:bold; color:#e53935; letter-spacing:2px; margin-bottom:20px;">25:00</div>
+    <div style="display:flex; gap:10px; justify-content:center; margin-bottom:16px;">
+      <button id="pom-start-btn" onclick="pomStart()"
+        style="padding:10px 28px; background:#e53935; color:white; border:none; border-radius:8px; font-size:15px; cursor:pointer; font-weight:bold;">▶ 開始</button>
+      <button id="pom-pause-btn" onclick="pomPause()" style="display:none;
+        padding:10px 22px; background:#fb8c00; color:white; border:none; border-radius:8px; font-size:15px; cursor:pointer;">⏸ 一時停止</button>
+      <button onclick="pomStop()"
+        style="padding:10px 22px; background:#eee; color:#555; border:none; border-radius:8px; font-size:15px; cursor:pointer;">⏹ 終了</button>
+    </div>
+    <div id="pom-count" style="font-size:12px; color:#aaa; margin-bottom:16px;">ポモドーロ: 0回目</div>
+    <button onclick="openCellModalFromPom()"
+      style="font-size:12px; color:#4a90e2; background:none; border:1px dashed #4a90e2; border-radius:6px; padding:4px 14px; cursor:pointer;">✏️ 予約を編集</button>
+    <button onclick="closePomodoroModal()"
+      style="font-size:12px; color:#aaa; background:none; border:none; cursor:pointer; margin-left:10px;">閉じる</button>
+  </div>
+</div>
+
 <!-- ══ セル編集モーダル ══ -->
 <div id="cell-modal-overlay" class="modal-overlay">
   <div class="modal-box">
@@ -1334,7 +1357,13 @@ function applyWeekData(data,start) {
       wrapper.onclick=(e)=>{
         if (e.target===checkbox) return;
         if (currentColor){ const newColor=currentColor==="clear"?"":currentColor; const newBg=newColor?getColorStyle(newColor):""; cell.dataset.color=newColor; wrapper.style.background=newBg; cell.style.color=newBg?getTextColor(newBg):""; saveCell(cellId,j,i,null,newColor,null); }
-        else openCellModal(cellId,j,i);
+        else {
+          const key=getCellDateKey(i,j);
+          const savedEntry=currentWeekData[key]||{};
+          const cellRecord=savedEntry.cell||null;
+          if (cellRecord&&cellRecord.mode==="study") { openPomodoroModal(cellId,j,i,cellRecord); }
+          else { openCellModal(cellId,j,i); }
+        }
       };
       checkbox.onchange=()=>{ cell.style.textDecoration=checkbox.checked?"line-through":""; cell.style.opacity=checkbox.checked?"0.5":"1"; saveCell(cellId,j,i,null,null,checkbox.checked); };
     }
@@ -1563,8 +1592,102 @@ async function applyPresetToCell(day, schedule) {
 }
 
 // ════════════════════════════════════════
-// 起動
+// ポモドーロタイマー
 // ════════════════════════════════════════
+let pomInterval = null;
+let pomSeconds  = 25 * 60;
+let pomRunning  = false;
+let pomIsBreak  = false;
+let pomCount    = 0;
+let pomCellId   = null, pomCellCol = null, pomCellHour = null;
+
+const POM_WORK  = 25 * 60;
+const POM_BREAK =  5 * 60;
+
+function openPomodoroModal(cellId, colIndex, hour, cellData) {
+  pomCellId = cellId; pomCellCol = colIndex; pomCellHour = hour;
+  pomStop();
+  const matName = cellData.materialId ? cellData.materialName : "（教材なし）";
+  document.getElementById("pom-subject").innerText = "📚 " + matName;
+  const from = cellData.pageFrom, to = cellData.pageTo;
+  document.getElementById("pom-pages").innerText = (from || to) ? `p${from||"?"}〜${to||"?"} ページ` : "";
+  document.getElementById("pom-count").innerText = "ポモドーロ: 0回目";
+  document.getElementById("pomodoro-modal-overlay").style.display = "flex";
+}
+
+function closePomodoroModal() {
+  pomStop();
+  document.getElementById("pomodoro-modal-overlay").style.display = "none";
+}
+
+function openCellModalFromPom() {
+  closePomodoroModal();
+  openCellModal(pomCellId, pomCellCol, pomCellHour);
+}
+
+function pomStart() {
+  if (pomRunning) return;
+  pomRunning = true;
+  document.getElementById("pom-start-btn").style.display = "none";
+  document.getElementById("pom-pause-btn").style.display = "inline-block";
+  pomInterval = setInterval(() => {
+    pomSeconds--;
+    pomUpdateDisplay();
+    if (pomSeconds <= 0) {
+      clearInterval(pomInterval);
+      pomRunning = false;
+      pomOnEnd();
+    }
+  }, 1000);
+}
+
+function pomPause() {
+  if (!pomRunning) return;
+  clearInterval(pomInterval);
+  pomRunning = false;
+  document.getElementById("pom-start-btn").style.display = "inline-block";
+  document.getElementById("pom-pause-btn").style.display = "none";
+}
+
+function pomStop() {
+  clearInterval(pomInterval);
+  pomRunning = false;
+  pomIsBreak = false;
+  pomSeconds = POM_WORK;
+  pomUpdateDisplay();
+  document.getElementById("pom-start-btn").style.display = "inline-block";
+  document.getElementById("pom-pause-btn").style.display = "none";
+  document.getElementById("pom-phase-label").innerText = "🍅 集中タイム";
+  document.getElementById("pom-display").style.color = "#e53935";
+}
+
+function pomOnEnd() {
+  if (!pomIsBreak) {
+    pomCount++;
+    document.getElementById("pom-count").innerText = `ポモドーロ: ${pomCount}回目`;
+    pomIsBreak = true;
+    pomSeconds = POM_BREAK;
+    document.getElementById("pom-phase-label").innerText = "☕ 休憩タイム";
+    document.getElementById("pom-display").style.color = "#43a047";
+    setTimeout(pomStart, 1000);
+  } else {
+    pomIsBreak = false;
+    pomSeconds = POM_WORK;
+    document.getElementById("pom-phase-label").innerText = "🍅 集中タイム";
+    document.getElementById("pom-display").style.color = "#e53935";
+    document.getElementById("pom-start-btn").style.display = "inline-block";
+    document.getElementById("pom-pause-btn").style.display = "none";
+    pomUpdateDisplay();
+  }
+}
+
+function pomUpdateDisplay() {
+  const m = String(Math.floor(pomSeconds / 60)).padStart(2, "0");
+  const s = String(pomSeconds % 60).padStart(2, "0");
+  document.getElementById("pom-display").innerText = `${m}:${s}`;
+}
+
+
 (async()=>{
   setupAuth();
   renderCustomColorButtons();
