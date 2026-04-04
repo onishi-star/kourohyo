@@ -1,553 +1,420 @@
 <!DOCTYPE html>
 <html lang="ja">
 <head>
-  <meta charset="UTF-8">
-  <title>行路表</title>
-  <link rel="icon" href="data:,">
-  <link rel="stylesheet" href="style.css">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ポモドーロタイマー</title>
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-storage-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <style>
-    /* ── セル内表示 ── */
-    .cell-wrapper { position: relative !important; }
+    :root {
+      --primary:      #e05a2b;
+      --primary-soft: #fce8df;
+      --break-color:  #4a90e2;
+      --break-soft:   #ddeeff;
+      --bg:           #f5f5f0;
+      --surface:      #ffffff;
+      --border:       #e0ddd8;
+      --text:         #1a1a1a;
+      --text-sub:     #888;
+      --shadow:       0 2px 12px rgba(0,0,0,0.08);
+      --radius:       16px;
+    }
 
-    /* 勉強モードセル：薄青背景 + 教材バッジ */
-    .cell-study-bg {
-      background: linear-gradient(135deg, #e8f0fe 0%, #dceeff 100%) !important;
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'Hiragino Kaku Gothic ProN', 'Hiragino Sans', 'Meiryo', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
     }
-    .cell-mat-badge {
-      position: absolute;
-      top: 2px; right: 2px;
-      font-size: 9px; font-weight: bold;
-      padding: 1px 5px;
-      border-radius: 3px;
-      color: #fff;
-      max-width: 60px;
-      overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
-      pointer-events: none; z-index: 2;
+
+    /* ── ヘッダー ── */
+    header {
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      padding: 12px 16px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      position: sticky;
+      top: 0;
+      z-index: 10;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.06);
     }
-    .cell-page-hint {
-      position: absolute;
-      bottom: 3px; left: 4px;
-      font-size: 9px; color: #7a9fd4;
-      pointer-events: none; z-index: 2;
+
+    .back-btn {
+      background: var(--bg);
+      border: 1px solid var(--border);
+      font-size: 16px;
+      cursor: pointer;
+      padding: 5px 12px;
+      border-radius: 8px;
+      color: var(--text);
+      transition: background 0.15s;
+      text-decoration: none;
     }
-    /* 行事モードセル：タイトルをセル中央に表示 */
-    .cell-event-title {
+    .back-btn:hover { background: var(--border); }
+
+    header h1 { font-size: 17px; font-weight: 700; flex: 1; }
+
+    /* ── メイン ── */
+    main {
+      flex: 1;
+      padding: 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+      max-width: 480px;
+      margin: 0 auto;
+      width: 100%;
+    }
+
+    /* ── カード共通 ── */
+    .card {
+      background: var(--surface);
+      border-radius: var(--radius);
+      padding: 16px;
+      box-shadow: var(--shadow);
+    }
+
+    /* ── 教材セレクター ── */
+    .material-selector {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .material-selector label { font-size: 13px; color: var(--text-sub); white-space: nowrap; }
+    .material-selector select {
+      flex: 1;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 7px 10px;
+      font-size: 14px;
+      font-family: inherit;
+      background: var(--bg);
+      cursor: pointer;
+    }
+
+    /* ── タイマーカード ── */
+    .timer-card {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 20px;
+      padding: 28px 20px 24px;
+    }
+
+    .mode-label {
+      font-size: 12px;
+      font-weight: 700;
+      letter-spacing: 0.1em;
+      padding: 4px 16px;
+      border-radius: 20px;
+      background: var(--primary-soft);
+      color: var(--primary);
+      transition: background 0.3s, color 0.3s;
+    }
+    .mode-label.break {
+      background: var(--break-soft);
+      color: var(--break-color);
+    }
+
+    /* ── 円形リング ── */
+    .ring-wrapper {
+      position: relative;
+      width: 200px;
+      height: 200px;
+    }
+    .ring-wrapper svg { transform: rotate(-90deg); }
+    .ring-bg       { fill: none; stroke: var(--border); stroke-width: 10; }
+    .ring-progress {
+      fill: none;
+      stroke: var(--primary);
+      stroke-width: 10;
+      stroke-linecap: round;
+      transition: stroke-dashoffset 0.5s linear, stroke 0.3s;
+    }
+    .timer-display {
       position: absolute;
       top: 50%; left: 50%;
       transform: translate(-50%, -50%);
-      font-size: 11px; font-weight: bold;
-      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-      max-width: 90%;
-      pointer-events: none; z-index: 2;
+      text-align: center;
+    }
+    .timer-display .time {
+      font-size: 44px;
+      font-weight: 300;
+      letter-spacing: -1px;
+      line-height: 1;
+    }
+    .timer-display .phase {
+      font-size: 11px;
+      color: var(--text-sub);
+      margin-top: 5px;
     }
 
-    /* ── モーダル共通 ── */
-    .modal-overlay {
-      display: none;
-      position: fixed; top: 0; left: 0;
-      width: 100%; height: 100%;
-      background: rgba(0,0,0,0.45);
-      z-index: 300;
-      align-items: center; justify-content: center;
-    }
-    .modal-box {
-      background: #fff;
-      border-radius: 14px;
-      padding: 22px 24px;
-      min-width: 320px; max-width: 430px; width: 92%;
-      max-height: 92vh; overflow-y: auto;
-      box-shadow: 0 8px 32px rgba(0,0,0,0.18);
-    }
-
-    /* ── モード切り替えタブ ── */
-    .mode-tabs {
-      display: flex; margin-bottom: 16px;
-      border-radius: 8px; overflow: hidden;
-      border: 1.5px solid #d0d8e8;
-      width: 100%;
-      max-width: 400px;
-      margin-left: auto;
-      margin-right: auto;
-    }
-    .mode-tab {
-      flex: 1; padding: 9px 0;
-      font-size: 13px; font-weight: bold;
-      cursor: pointer; border: none;
-      transition: background .15s, color .15s;
-    }
-    .mode-tab.active-study { background: #4a90e2; color: #fff; }
-    .mode-tab.active-event { background: #f06292; color: #fff; }
-    .mode-tab.inactive   { background: #f5f5f5; color: #aaa; }
-
-    /* ── 教材リスト ── */
-    .mat-list-item {
-      display: flex; align-items: center; gap: 8px;
-      padding: 7px 10px; border-radius: 8px;
-      cursor: pointer; border: 2px solid transparent;
-      transition: background .12s;
-    }
-    .mat-list-item:hover { background: #f0f4ff; }
-    .mat-list-item.selected { border-color: #4a90e2; background: #e8f0ff; }
-    .mat-color-dot {
-      width: 13px; height: 13px; border-radius: 50%;
-      flex-shrink: 0; border: 1px solid rgba(0,0,0,0.1);
-    }
-    .mat-list-name { font-size: 13px; flex: 1; }
-
-    /* ── 色スウォッチ（行事） ── */
-    .color-swatch {
-      width: 28px; height: 28px; border-radius: 6px;
-      cursor: pointer; border: 2px solid transparent;
-      transition: transform .1s;
-    }
-    .color-swatch:hover { transform: scale(1.15); }
-    .color-swatch.selected { border-color: #333; transform: scale(1.15); }
-
-    /* ── 新規教材フォーム ── */
-    .new-mat-form {
-      border: 1px dashed #bbb; border-radius: 10px;
-      padding: 12px; margin-top: 8px; background: #fafcff;
-    }
-    .new-mat-form input[type=text] {
-      width: 100%; padding: 6px 10px; border: 1px solid #ccc;
-      border-radius: 6px; font-size: 13px;
-      box-sizing: border-box; margin-bottom: 8px;
-    }
-    .form-row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
-    .progress-row { display: flex; align-items: center; gap: 8px; margin-top: 10px; }
-    .progress-row label { font-size: 13px; width: 84px; flex-shrink: 0; }
-    .progress-row input[type=number] {
-      width: 66px; padding: 5px 8px;
-      border: 1px solid #ccc; border-radius: 6px; font-size: 13px;
-    }
-
-    /* ── 教材管理モーダル ── */
-    #mat-manage-overlay {
-      display: none;
-      position: fixed; top: 0; left: 0;
-      width: 100%; height: 100%;
-      background: rgba(0,0,0,0.45);
-      z-index: 400;
-      align-items: center; justify-content: center;
-    }
-
-    /* ── 色塗りモード中：セルにペンカーソル ── */
-    #calendar[style*="crosshair"] .cell-wrapper {
-      cursor: crosshair !important;
-    }
-    #calendar[style*="crosshair"] .cell-wrapper:hover {
-      filter: brightness(0.93);
-    }
-
-    /* ── 集計パネル ── */
-    #summary-panel {
-      padding: 14px 14px 12px;
-      background: #f8f9fb;
-      border-top: 2px solid #e8eaf0;
-      width: 100%; box-sizing: border-box;
-    }
-    #summary-tabs { display: flex; gap: 6px; margin-bottom: 10px; }
-    .summary-tab {
-      padding: 4px 12px; border-radius: 14px;
-      border: 1px solid #ccc; font-size: 12px;
-      cursor: pointer; background: #fff;
-    }
-    .summary-tab.active { background: #4a90e2; color: #fff; border-color: #4a90e2; }
-    .summary-row { display: flex; align-items: center; gap: 8px; font-size: 12px; margin-bottom: 4px; }
-    .summary-label { width: 90px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex-shrink: 0; font-weight: bold; }
-    .summary-bar-wrap { flex: 1; background: #e0e0e0; border-radius: 4px; height: 14px; overflow: hidden; }
-    .summary-bar { height: 100%; border-radius: 4px; transition: width .4s ease; }
-    .summary-time { width: 54px; text-align: right; flex-shrink: 0; color: #444; }
-
-    /* ── ファイル添付タブ ── */
-    .day-modal-tabs {
-      display: flex;
-      border-radius: 8px; overflow: hidden;
-      border: 1.5px solid #d0d8e8;
-      margin-bottom: 14px;
-    }
-    .day-modal-tab {
-      flex: 1; padding: 8px 0;
-      font-size: 13px; font-weight: bold;
-      cursor: pointer; border: none;
-      background: #f5f5f5; color: #aaa;
-      transition: background .15s, color .15s;
-      font-family: inherit;
-    }
-    .day-modal-tab.active { background: #4a90e2; color: #fff; }
-
-    /* ── アップロードゾーン ── */
-    .upload-zone {
-      border: 2px dashed #c0ccdd; border-radius: 10px;
-      padding: 20px; text-align: center; cursor: pointer;
-      transition: background .15s, border-color .15s; background: #f8faff;
-    }
-    .upload-zone:hover, .upload-zone.dragover { background: #eef4ff; border-color: #4a90e2; }
-    .upload-zone input { display: none; }
-    .upload-zone .uz-icon { font-size: 32px; margin-bottom: 6px; }
-    .upload-zone .uz-text { font-size: 13px; color: #888; line-height: 1.5; }
-
-    /* ── ファイルグリッド ── */
-    .file-grid {
-      display: grid; grid-template-columns: repeat(3, 1fr);
-      gap: 8px; margin-top: 12px; max-height: 240px; overflow-y: auto;
-    }
-    .file-thumb {
-      position: relative; border-radius: 8px; overflow: hidden;
-      aspect-ratio: 1; background: #f0f4ff; cursor: pointer;
-      border: 1px solid #e0e8f0; transition: transform .12s;
-    }
-    .file-thumb:hover { transform: scale(1.04); }
-    .file-thumb img { width: 100%; height: 100%; object-fit: cover; }
-    .file-thumb .pdf-thumb {
-      width: 100%; height: 100%;
-      display: flex; flex-direction: column;
-      align-items: center; justify-content: center;
-      gap: 4px; padding: 6px;
-    }
-    .file-thumb .pdf-icon { font-size: 26px; }
-    .file-thumb .pdf-name {
-      font-size: 9px; color: #555; text-align: center;
-      overflow: hidden; text-overflow: ellipsis;
-      display: -webkit-box; -webkit-line-clamp: 2;
-      -webkit-box-orient: vertical; word-break: break-all;
-    }
-    .file-thumb .del-btn {
-      position: absolute; top: 3px; right: 3px;
-      width: 20px; height: 20px; border-radius: 50%;
-      background: rgba(0,0,0,0.55); color: white;
-      border: none; font-size: 11px; cursor: pointer;
+    /* ── コントロール ── */
+    .controls { display: flex; gap: 14px; align-items: center; }
+    .btn-sec {
+      width: 46px; height: 46px;
+      border-radius: 50%;
+      border: 2px solid var(--border);
+      background: var(--bg);
+      font-size: 18px;
+      cursor: pointer;
       display: flex; align-items: center; justify-content: center;
-      opacity: 0; transition: opacity .15s;
+      transition: background 0.15s;
     }
-    .file-thumb:hover .del-btn { opacity: 1; }
+    .btn-sec:hover { background: var(--border); }
+    .btn-main {
+      width: 68px; height: 68px;
+      border-radius: 50%;
+      border: none;
+      background: var(--primary);
+      color: #fff;
+      font-size: 28px;
+      cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+      box-shadow: 0 4px 18px rgba(224,90,43,0.35);
+      transition: transform 0.12s, box-shadow 0.12s;
+    }
+    .btn-main:hover  { transform: scale(1.06); }
+    .btn-main:active { transform: scale(0.96); }
+    .btn-main.break-mode {
+      background: var(--break-color);
+      box-shadow: 0 4px 18px rgba(74,144,226,0.35);
+    }
 
-    /* ── アップロード進捗 ── */
-    .upload-progress { margin-top: 10px; display: none; }
-    .upload-progress .prog-bar-wrap {
-      background: #e0e8f0; border-radius: 4px; height: 6px; overflow: hidden;
+    /* ── セッション ── */
+    .session-card {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
     }
-    .upload-progress .prog-bar {
-      height: 100%; background: #4a90e2; border-radius: 4px; transition: width .2s;
+    .session-label { font-size: 14px; color: var(--text-sub); }
+    .tomatoes { display: flex; gap: 5px; }
+    .tomato {
+      font-size: 22px;
+      opacity: 0.2;
+      transition: opacity 0.3s, transform 0.3s;
     }
-    .upload-progress .prog-label {
-      font-size: 11px; color: #888; margin-top: 4px; text-align: center;
-    }
+    .tomato.done { opacity: 1; transform: scale(1.12); }
+    .session-num { font-size: 14px; font-weight: 700; color: var(--primary); min-width: 36px; text-align: right; }
 
-    /* ── マンスリーセルのファイルバッジ ── */
-    .cell-file-badge {
-      position: absolute; bottom: 3px; right: 3px;
-      font-size: 11px; background: rgba(74,144,226,0.18);
-      border-radius: 4px; padding: 1px 4px; pointer-events: none;
+    /* ── 設定カード ── */
+    .settings-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      cursor: pointer;
+      user-select: none;
     }
+    .settings-header span { font-size: 14px; font-weight: 600; }
+    .settings-toggle { font-size: 14px; color: var(--text-sub); transition: transform 0.25s; }
+    .settings-toggle.open { transform: rotate(180deg); }
+    .settings-body {
+      display: none;
+      flex-direction: column;
+      gap: 12px;
+      margin-top: 14px;
+      padding-top: 14px;
+      border-top: 1px solid var(--border);
+    }
+    .settings-body.open { display: flex; }
+    .setting-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .setting-row label { font-size: 13px; }
+    .setting-row .right { display: flex; align-items: center; gap: 4px; }
+    .setting-row input[type="number"] {
+      width: 60px;
+      padding: 5px 8px;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      font-size: 14px;
+      text-align: center;
+      font-family: inherit;
+      background: var(--bg);
+    }
+    .setting-row .unit { font-size: 12px; color: var(--text-sub); }
+
+    /* ── 今日の集計 ── */
+    .stats-title { font-size: 14px; font-weight: 600; margin-bottom: 12px; }
+    .stats-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+    }
+    .stat-item {
+      background: var(--bg);
+      border-radius: 10px;
+      padding: 12px;
+      text-align: center;
+    }
+    .stat-val  { font-size: 24px; font-weight: 700; color: var(--primary); }
+    .stat-desc { font-size: 11px; color: var(--text-sub); margin-top: 3px; }
+
+    /* ── 教材別集計 ── */
+    .mat-stat-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 12px;
+      margin-bottom: 6px;
+    }
+    .mat-dot {
+      width: 10px; height: 10px;
+      border-radius: 50%;
+      flex-shrink: 0;
+    }
+    .mat-stat-name { flex: 1; font-weight: 600; }
+    .mat-stat-time { color: var(--text-sub); }
+    .no-stat { color: var(--text-sub); font-size: 13px; }
+
+    /* ── 通知バナー ── */
+    .notif {
+      position: fixed;
+      top: 70px; left: 50%;
+      transform: translateX(-50%) translateY(-10px);
+      background: #222;
+      color: #fff;
+      padding: 10px 22px;
+      border-radius: 24px;
+      font-size: 14px;
+      font-weight: 600;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.25s, transform 0.25s;
+      z-index: 999;
+      white-space: nowrap;
+    }
+    .notif.show { opacity: 1; transform: translateX(-50%) translateY(0); }
   </style>
-
- <style>
-  #_nav_side {
-    position: fixed !important;
-    top: 50% !important;
-    transform: translateY(-50%) !important;
-  }
-  #_nav_bar {
-    position: fixed !important;
-    bottom: 0 !important;
-  }</style>
-
 </head>
 <body>
 
-<!-- ══ ログイン画面 ══ -->
-<div id="auth-container" style="display:flex; flex-direction:column; align-items:center; justify-content:center; height:100vh; gap:15px; font-family:sans-serif;">
-  <h2 style="color:#333; margin-bottom:10px;">スケジュールアプリ</h2>
-  <input type="email" id="auth-email" placeholder="メールアドレス" style="padding:10px; border:1px solid #ccc; border-radius:5px; width:250px; font-size:14px;">
-  <input type="password" id="auth-password" placeholder="パスワード" style="padding:10px; border:1px solid #ccc; border-radius:5px; width:250px; font-size:14px;">
-  <button id="auth-login" style="padding:10px 20px; background-color:#4CAF50; color:white; border:none; border-radius:5px; cursor:pointer; font-size:14px;">ログイン</button>
-  <button id="auth-signup" style="padding:8px 15px; background-color:#2196F3; color:white; border:none; border-radius:5px; cursor:pointer; font-size:14px;">新規登録</button>
-  <p id="auth-error" style="color:red; display:none; margin:5px 0;"></p>
-</div>
+<header>
+  <a class="back-btn" href="index.html">← 戻る</a>
+  <h1>🍅 ポモドーロタイマー</h1>
+</header>
 
-<div id="app-content" style="display:none;">
+<main>
+  <!-- 教材選択 -->
+  <div class="card material-selector">
+    <label>📚 教材：</label>
+    <select id="materialSelect">
+      <option value="">— 教材を選択（任意）—</option>
+    </select>
+  </div>
 
-<!-- ══ 設定モーダル ══ -->
-<div id="modal-overlay" class="modal-overlay" style="z-index:200;">
-  <div class="modal-box" style="min-width:320px; max-width:400px;">
-    <h2 style="margin-bottom:16px; font-size:16px;">⚙️ 設定</h2>
-    
-    <!-- プリセット選択タブ -->
-    <div class="mode-tabs" style="margin-bottom:16px;">
-      <button class="mode-tab active-study" id="tab-basic" onclick="switchSettingsTab('basic')">基本設定</button>
-      <button class="mode-tab inactive" id="tab-preset" onclick="switchSettingsTab('preset')">プリセット</button>
+  <!-- ページ情報（スケジュールから来た場合に表示） -->
+  <div class="card" id="page-info-card" style="display:none; padding:12px 16px;">
+    <div style="font-size:12px; color:var(--text-sub); margin-bottom:4px;">📄 今日のページ目標</div>
+    <div id="page-info-text" style="font-size:15px; font-weight:700; color:var(--primary);"></div>
+  </div>
+
+  <!-- タイマー -->
+  <div class="card timer-card">
+    <div class="mode-label" id="modeLabel">作業中</div>
+
+    <div class="ring-wrapper">
+      <svg width="200" height="200" viewBox="0 0 200 200">
+        <circle class="ring-bg" cx="100" cy="100" r="85" />
+        <circle class="ring-progress" id="ringProgress"
+          cx="100" cy="100" r="85"
+          stroke-dasharray="534.07"
+          stroke-dashoffset="0" />
+      </svg>
+      <div class="timer-display">
+        <div class="time" id="timerDisplay">25:00</div>
+        <div class="phase" id="phaseHint">準備完了</div>
+      </div>
     </div>
-    
-    <!-- 基本設定パネル -->
-    <div id="panel-basic">
-      <h3 style="margin-bottom:12px; font-size:14px;">週の開始曜日</h3>
-      <div id="day-select-buttons" style="display:flex; flex-wrap:wrap; gap:8px; justify-content:center; margin-bottom:20px;"></div>
+
+    <div class="controls">
+      <button class="btn-sec" id="skipBtn"  title="スキップ">⏭</button>
+      <button class="btn-main" id="mainBtn">▶</button>
+      <button class="btn-sec" id="resetBtn" title="リセット">↺</button>
     </div>
-    
-    <!-- プリセットパネル -->
-    <div id="panel-preset" style="display:none;">
-      <h3 style="margin-bottom:12px; font-size:14px;">放課後学習プリセット</h3>
-      <div style="margin-bottom:15px;">
-        <label style="font-size:12px; color:#666; display:block; margin-bottom:5px;">学校タイプ</label>
-        <div style="display:flex; gap:8px;">
-          <button id="preset-6class" onclick="applyPreset('6class')" style="flex:1; padding:8px; background:#e3f2fd; border:1px solid #2196f3; border-radius:6px; cursor:pointer; font-size:12px;">6限タイプ</button>
-          <button id="preset-7class" onclick="applyPreset('7class')" style="flex:1; padding:8px; background:#e3f2fd; border:1px solid #2196f3; border-radius:6px; cursor:pointer; font-size:12px;">7限タイプ</button>
+  </div>
+
+  <!-- セッション数 -->
+  <div class="card session-card">
+    <div class="session-label">🍅 今日のポモドーロ</div>
+    <div class="tomatoes" id="tomatoRow">
+      <span class="tomato" id="t0">🍅</span>
+      <span class="tomato" id="t1">🍅</span>
+      <span class="tomato" id="t2">🍅</span>
+      <span class="tomato" id="t3">🍅</span>
+    </div>
+    <div class="session-num" id="sessionNum">0回</div>
+  </div>
+
+  <!-- 設定 -->
+  <div class="card">
+    <div class="settings-header" id="settingsHeader">
+      <span>⚙️ タイマー設定</span>
+      <span class="settings-toggle" id="settingsToggle">▼</span>
+    </div>
+    <div class="settings-body" id="settingsBody">
+      <div class="setting-row">
+        <label>作業時間</label>
+        <div class="right">
+          <input type="number" id="workMin"       min="1" max="60" value="25">
+          <span class="unit">分</span>
         </div>
       </div>
-      <div style="margin-bottom:15px;">
-        <label style="font-size:12px; color:#666; display:block; margin-bottom:5px;">勉強モード</label>
-        <div style="display:flex; gap:8px;">
-          <button id="preset-proceed" onclick="setStudyMode('proceed')" style="flex:1; padding:8px; background:#f3e5f5; border:1px solid #9c27b0; border-radius:6px; cursor:pointer; font-size:12px;">プロシード</button>
-          <button id="preset-bunpla" onclick="setStudyMode('bunpla')" style="flex:1; padding:8px; background:#f3e5f5; border:1px solid #9c27b0; border-radius:6px; cursor:pointer; font-size:12px;">文プラ</button>
+      <div class="setting-row">
+        <label>短い休憩</label>
+        <div class="right">
+          <input type="number" id="shortBreakMin" min="1" max="30" value="5">
+          <span class="unit">分</span>
         </div>
       </div>
-      <div style="margin-bottom:15px;">
-        <label style="font-size:12px; color:#666; display:block; margin-bottom:5px;">対象曜日</label>
-        <div id="preset-days" style="display:flex; gap:6px; flex-wrap:wrap;">
-          <label style="font-size:12px;"><input type="checkbox" value="1" checked> 月</label>
-          <label style="font-size:12px;"><input type="checkbox" value="2" checked> 火</label>
-          <label style="font-size:12px;"><input type="checkbox" value="3" checked> 水</label>
-          <label style="font-size:12px;"><input type="checkbox" value="4" checked> 木</label>
-          <label style="font-size:12px;"><input type="checkbox" value="5" checked> 金</label>
-          <label style="font-size:12px;"><input type="checkbox" value="6"> 土</label>
-          <label style="font-size:12px;"><input type="checkbox" value="0"> 日</label>
+      <div class="setting-row">
+        <label>長い休憩（4回ごと）</label>
+        <div class="right">
+          <input type="number" id="longBreakMin"  min="1" max="60" value="15">
+          <span class="unit">分</span>
         </div>
       </div>
-      <button onclick="applyCurrentPreset()" style="width:100%; padding:10px; background:#4caf50; color:white; border:none; border-radius:6px; cursor:pointer; font-size:14px; margin-bottom:10px;">プリセットを適用</button>
-    </div>
-    
-    <button onclick="closeModal()" style="padding:8px 24px; border-radius:6px; border:1px solid #ccc; cursor:pointer;">閉じる</button>
-  </div>
-</div>
-
-<!-- ══ 日メモモーダル（マンスリー用） ══ -->
-<div id="day-modal-overlay" class="modal-overlay" style="z-index:200;">
-  <div class="modal-box" style="min-width:300px; max-width:400px;">
-    <h2 id="day-modal-title" style="margin-bottom:12px; font-size:16px;"></h2>
-    <div style="display:flex; gap:6px; flex-wrap:wrap; margin-bottom:10px;" id="day-modal-colors"></div>
-    <textarea id="day-modal-memo" style="width:100%; height:120px; border:1px solid #ccc; border-radius:6px; padding:8px; font-size:14px; resize:none; font-family:sans-serif;" placeholder="この日のメモを入力..."></textarea>
-    <div style="display:flex; align-items:center; gap:8px; margin-top:10px;">
-      <input type="checkbox" id="day-modal-check">
-      <label for="day-modal-check" style="font-size:14px;">完了</label>
-    </div>
-    <div style="display:flex; gap:8px; margin-top:16px; justify-content:flex-end;">
-      <button onclick="saveDayModal()" style="padding:8px 20px; background:#4a90e2; color:white; border:none; border-radius:6px; cursor:pointer;">保存</button>
-      <button onclick="closeDayModal()" style="padding:8px 20px; border:1px solid #ccc; border-radius:6px; cursor:pointer;">閉じる</button>
-    </div>
-  </div>
-</div>
-
-<!-- ══ ファイルビューアモーダル ══ -->
-<div id="file-viewer-overlay" style="
-  display:none; position:fixed; inset:0;
-  background:rgba(0,0,0,0.88); z-index:600;
-  align-items:center; justify-content:center; flex-direction:column;">
-  <button onclick="closeFileViewer()" style="
-    position:absolute; top:16px; right:16px;
-    background:rgba(255,255,255,0.15); border:none; color:white;
-    font-size:22px; width:40px; height:40px; border-radius:50%;
-    cursor:pointer; display:flex; align-items:center; justify-content:center;">✕</button>
-  <div id="file-viewer-content" style="max-width:92vw; max-height:88vh; display:flex; align-items:center; justify-content:center;"></div>
-  <div id="file-viewer-name" style="color:rgba(255,255,255,0.7); font-size:12px; margin-top:10px; text-align:center;"></div>
-</div>
-
-<!-- ══ ポモドーロ起動モーダル ══ -->
-<div id="pomodoro-modal-overlay" class="modal-overlay" style="z-index:350;">
-  <div class="modal-box" style="text-align:center; max-width:340px;">
-    <div style="font-size:32px; margin-bottom:8px;">🍅</div>
-    <div id="pom-subject" style="font-size:16px; font-weight:bold; margin-bottom:6px;"></div>
-    <div id="pom-pages" style="font-size:12px; color:#7a9fd4; margin-bottom:20px;"></div>
-    <button id="pom-go-btn" onclick="pomGoToTimer()"
-      style="width:100%; padding:14px; background:#e05a2b; color:white; border:none; border-radius:10px; font-size:16px; font-weight:bold; cursor:pointer; margin-bottom:10px;">
-      ▶ ポモドーロタイマーへ
-    </button>
-    <div style="display:flex; gap:8px; justify-content:center; margin-top:4px;">
-      <button onclick="openCellModalFromPom()"
-        style="font-size:12px; color:#4a90e2; background:none; border:1px dashed #4a90e2; border-radius:6px; padding:5px 14px; cursor:pointer;">✏️ 予約を編集</button>
-      <button onclick="closePomodoroModal()"
-        style="font-size:12px; color:#aaa; background:none; border:1px solid #ddd; border-radius:6px; padding:5px 14px; cursor:pointer;">閉じる</button>
-    </div>
-  </div>
-</div>
-
-<!-- ══ セル編集モーダル ══ -->
-<div id="cell-modal-overlay" class="modal-overlay">
-  <div class="modal-box">
-    <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:14px;">
-      <div id="cell-modal-title" style="font-size:15px; font-weight:bold;"></div>
-      <div id="cell-modal-time" style="font-size:12px; color:#888; background:#f3f4f6; padding:3px 10px; border-radius:10px;"></div>
-    </div>
-    <div class="mode-tabs">
-      <button class="mode-tab active-study" id="mode-tab-study" onclick="switchCellMode('study')">📚 勉強予約</button>
-      <button class="mode-tab inactive"     id="mode-tab-event" onclick="switchCellMode('event')">📅 行事・予定</button>
-    </div>
-    <div id="panel-study">
-      <div style="font-size:12px; color:#777; margin-bottom:5px;">教材を選択（なしでもOK）</div>
-      <div id="mat-list" style="max-height:180px; overflow-y:auto; border:1px solid #e8eef8; border-radius:8px; padding:4px; margin-bottom:8px;"></div>
-      <button onclick="toggleNewMatForm()" id="new-mat-toggle"
-        style="font-size:12px; color:#4a90e2; border:1px dashed #4a90e2; background:#f0f6ff; border-radius:6px; padding:4px 12px; cursor:pointer; margin-bottom:4px;">
-        ＋ 新しい教材を追加
-      </button>
-      <div class="new-mat-form" id="new-mat-form" style="display:none;">
-        <input type="text" id="new-mat-name" placeholder="教材名（例：英単語帳、数学B）">
-        <div class="form-row">
-          <label style="font-size:12px;">色：</label>
-          <input type="color" id="new-mat-color" value="#4a90e2" style="width:38px;height:28px;border:none;cursor:pointer;">
-          <label style="font-size:12px; margin-left:6px;">カテゴリ：</label>
-          <input type="text" id="new-mat-category" placeholder="例：英語、数学" style="flex:1; padding:4px 8px; border:1px solid #ccc; border-radius:6px; font-size:12px;">
-          <button onclick="saveNewMaterial()" style="padding:5px 12px; background:#4a90e2; color:#fff; border:none; border-radius:6px; font-size:12px; cursor:pointer;">追加</button>
+      <div class="setting-row">
+        <label>通知音</label>
+        <div class="right">
+          <input type="checkbox" id="soundOn" checked style="width:18px;height:18px;cursor:pointer;">
         </div>
       </div>
-      <div class="progress-row">
-        <label>ページ予定：</label>
-        <input type="number" id="mat-page-from" min="0" placeholder="開始">
-        <span style="font-size:12px; color:#777;">〜</span>
-        <input type="number" id="mat-page-to" min="0" placeholder="終了">
-        <span style="font-size:12px; color:#777;">p</span>
+    </div>
+  </div>
+
+  <!-- 今日の集計 -->
+  <div class="card">
+    <div class="stats-title">📊 今日の集計</div>
+    <div class="stats-grid" style="margin-bottom:14px;">
+      <div class="stat-item">
+        <div class="stat-val" id="statSession">0</div>
+        <div class="stat-desc">ポモドーロ完了</div>
+      </div>
+      <div class="stat-item">
+        <div class="stat-val" id="statMinutes">0</div>
+        <div class="stat-desc">作業分数</div>
       </div>
     </div>
-    <div id="panel-event" style="display:none;">
-      <div style="margin-bottom:12px;">
-        <label style="font-size:12px; color:#777; display:block; margin-bottom:4px;">タイトル</label>
-        <input type="text" id="event-title" placeholder="例：部活、外出、塾、模試..."
-          style="width:100%; padding:8px 10px; border:1px solid #ccc; border-radius:8px; font-size:14px; box-sizing:border-box;">
-      </div>
-      <div style="margin-bottom:12px;">
-        <label style="font-size:12px; color:#777; display:block; margin-bottom:6px;">色</label>
-        <div id="event-color-swatches" style="display:flex; flex-wrap:wrap; gap:6px;"></div>
-      </div>
-      <div>
-        <label style="font-size:12px; color:#777; display:block; margin-bottom:4px;">メモ</label>
-        <textarea id="event-memo" rows="3"
-          style="width:100%; border:1px solid #ccc; border-radius:8px; padding:8px; font-size:13px; resize:none; font-family:sans-serif; box-sizing:border-box;"
-          placeholder="メモを入力..."></textarea>
-      </div>
-    </div>
-    <div style="display:flex; gap:8px; margin-top:18px; justify-content:flex-end; flex-wrap:wrap;">
-      <button onclick="clearCellRecord()" style="padding:7px 14px; border:1px solid #e88; color:#c44; border-radius:6px; cursor:pointer; background:#fff; font-size:13px;">消す</button>
-      <button onclick="saveCellModal()" id="cell-save-btn" style="padding:7px 22px; background:#4a90e2; color:white; border:none; border-radius:6px; cursor:pointer; font-size:13px; font-weight:bold;">保存</button>
-      <button onclick="closeMatModal()" style="padding:7px 16px; border:1px solid #ccc; border-radius:6px; cursor:pointer; font-size:13px;">閉じる</button>
-    </div>
+    <div id="matStatList"></div>
   </div>
-</div>
+</main>
 
-<!-- ══ 教材管理モーダル ══ -->
-<div id="mat-manage-overlay">
-  <div class="modal-box" style="max-width:460px;">
-    <h2 style="font-size:15px; margin:0 0 14px;">📚 教材管理</h2>
-    <div id="mat-manage-list" style="max-height:300px; overflow-y:auto; margin-bottom:14px;"></div>
-    <div class="new-mat-form">
-      <div style="font-size:12px; font-weight:bold; color:#555; margin-bottom:8px;">新しい教材を追加</div>
-      <input type="text" id="manage-mat-name" placeholder="教材名（例：古文単語、物理基礎）">
-      <div class="form-row">
-        <label style="font-size:12px;">色：</label>
-        <input type="color" id="manage-mat-color" value="#e07b54" style="width:38px;height:28px;border:none;cursor:pointer;">
-        <label style="font-size:12px; margin-left:6px;">カテゴリ：</label>
-        <input type="text" id="manage-mat-category" placeholder="例：英語、数学" style="flex:1; padding:4px 8px; border:1px solid #ccc; border-radius:6px; font-size:12px;">
-        <button onclick="addMaterialFromManage()" style="padding:5px 12px; background:#4a90e2; color:#fff; border:none; border-radius:6px; font-size:12px; cursor:pointer;">追加</button>
-      </div>
-    </div>
-    <div style="display:flex; justify-content:flex-end; margin-top:16px;">
-      <button onclick="closeMatManage()" style="padding:8px 22px; border:1px solid #ccc; border-radius:6px; cursor:pointer;">閉じる</button>
-    </div>
-  </div>
-</div>
+<div class="notif" id="notif"></div>
 
-<!-- ══ TOP BAR ══ -->
-<div id="top-bar">
-  <div id="left-controls">
-    <h1>週間スケジュール</h1>
-    <div class="ctrl-row">
-      <button id="btn-weekly" onclick="switchView('weekly')" style="font-weight:bold; outline:3px solid #333;">ウィークリー</button>
-      <button id="btn-monthly" onclick="switchView('monthly')">マンスリー</button>
-    </div>
-    <div class="ctrl-row" id="week-nav">
-      <button onclick="changeWeek(-1)">← 前の週</button>
-      <span id="week-label"></span>
-      <button onclick="changeWeek(1)">次の週 →</button>
-    </div>
-    <div class="ctrl-row" id="month-nav" style="display:none;">
-      <button onclick="changeMonth(-1)">← 前の月</button>
-      <span id="month-label"></span>
-      <button onclick="changeMonth(1)">次の月 →</button>
-    </div>
-    <div class="ctrl-row" id="color-btns-row">
-      <span style="font-size:11px; color:#888; margin-right:2px;">一括塗り：</span>
-      <div id="custom-colors" style="display:inline;"></div>
-      <button class="color-btn" id="btn-add"      onclick="addCustomColor()" style="font-size:11px;">＋追加</button>
-      <button class="color-btn" id="btn-clear"    onclick="setColor('clear')" style="font-size:11px;">消す</button>
-      <button class="color-btn" id="btn-deselect" onclick="deselectColor()"  style="font-size:11px;">解除</button>
-      <span id="current-color-label" style="font-size:11px; color:#888; margin-left:4px; background:#f3f3f3; padding:2px 7px; border-radius:8px;"></span>
-    </div>
-    <div class="ctrl-row">
-      <button onclick="openModal()">⚙️ 設定</button>
-      <button onclick="openMatManage()" style="background:#fff8e1; border:1px solid #ffd54f; border-radius:6px; padding:4px 10px; cursor:pointer; font-size:13px;">📚 教材管理</button>
-      <button id="btn-logout" onclick="logout()" style="background:#f44336; color:white; border:none; border-radius:6px; padding:4px 10px; cursor:pointer; font-size:13px;">ログアウト</button>
-      <button onclick="window.print()" style="font-size:12px;">🖨 印刷</button>
-      <span id="offline-indicator" style="display:none; font-size:12px; color:#e65100; background:#fff3e0; padding:3px 8px; border-radius:10px; border:1px solid #ffcc80;">📵 オフライン</span>
-      <span id="sync-indicator"   style="display:none; font-size:12px; color:#2e7d32; background:#e8f5e9; padding:3px 8px; border-radius:10px; border:1px solid #a5d6a7;">✅ 同期完了</span>
-    </div>
-  </div>
-  <div id="memo-area">
-    <div id="memo-label">📝 メモ</div>
-    <textarea id="global-memo" placeholder="ここにメモを書けます..."></textarea>
-  </div>
-</div>
-
-<!-- ウィークリー -->
-<div id="weekly-view">
-  <div class="calendar" id="calendar">
-    <div class="header"></div>
-    <div class="header" id="header-0"></div>
-    <div class="header" id="header-1"></div>
-    <div class="header" id="header-2"></div>
-    <div class="header" id="header-3"></div>
-    <div class="header" id="header-4"></div>
-    <div class="header" id="header-5"></div>
-    <div class="header" id="header-6"></div>
-    <script>
-      for (let i = 4; i < 24; i++) {
-        document.write(`<div class="time">${i}:00</div>`);
-        for (let j = 0; j < 7; j++) {
-          const id = `cell-${i}-${j}`;
-          document.write(`
-            <div class="cell-wrapper" id="wrapper-${id}" style="position:relative; cursor:pointer;">
-              <input type="checkbox" class="cell-check" id="check-${id}">
-              <div class="cell" id="${id}"></div>
-            </div>
-          `);
-        }
-      }
-    </script>
-  </div>
-  <div id="summary-panel">
-    <div id="summary-tabs">
-      <button class="summary-tab active" onclick="switchSummaryTab('bar',event)">📊 週間集計</button>
-      <button class="summary-tab"        onclick="switchSummaryTab('chart',event)">📈 日別グラフ</button>
-    </div>
-    <div id="summary-bar-view"><div id="summary-bars"></div></div>
-    <div id="summary-chart-view" style="display:none; max-width:600px;">
-      <canvas id="summary-chart" height="130"></canvas>
-    </div>
-  </div>
-</div>
-
-<!-- マンスリー -->
-<div id="monthly-view" style="display:none; padding:10px; box-sizing:border-box; width:100%;">
-  <div id="monthly-calendar" style="display:grid; grid-template-columns:repeat(7,1fr); width:100%; box-sizing:border-box; padding-right:10px;"></div>
-</div>
-
+<script src="nav.js"></script>
 <script>
-// ════════════════════════════════════════
-// Firebase
-// ════════════════════════════════════════
+// ── Firebase（既存アプリと同じ設定） ──
 const firebaseConfig = {
   apiKey: "AIzaSyDOi3w86aPi5R5XjGBaUJ_RvkTiS5WqwF0",
   authDomain: "achedule-app.firebaseapp.com",
@@ -556,1088 +423,312 @@ const firebaseConfig = {
   messagingSenderId: "823858682336",
   appId: "1:823858682336:web:ec4629dbe4ace91a7a7385"
 };
-firebase.initializeApp(firebaseConfig);
+if (!firebase.apps.length) firebase.initializeApp(firebaseConfig);
 const db = firebase.firestore();
-const storage = firebase.storage();
-const auth = firebase.auth();
 
-// ════════════════════════════════════════
-// IndexedDB
-// ════════════════════════════════════════
-function openIDB() {
-  return new Promise((res, rej) => {
-    const r = indexedDB.open("scheduleDB", 2);
-    r.onupgradeneeded = e => {
-      const idb = e.target.result;
-      if (!idb.objectStoreNames.contains("cells"))     idb.createObjectStore("cells",     { keyPath:"id" });
-      if (!idb.objectStoreNames.contains("pending"))   idb.createObjectStore("pending",   { keyPath:"id" });
-      if (!idb.objectStoreNames.contains("materials")) idb.createObjectStore("materials", { keyPath:"id" });
-    };
-    r.onsuccess = e => res(e.target.result);
-    r.onerror   = e => rej(e.target.error);
-  });
-}
-async function idbSet(store, val) {
-  const idb = await openIDB();
-  return new Promise((res, rej) => {
-    const tx = idb.transaction(store, "readwrite");
-    tx.objectStore(store).put(val);
-    tx.oncomplete = res;
-    tx.onerror = e => rej(e.target.error);
-  });
-}
-async function idbGetAll(store) {
-  const idb = await openIDB();
-  return new Promise((res, rej) => {
-    const tx = idb.transaction(store, "readonly");
-    const r  = tx.objectStore(store).getAll();
-    r.onsuccess = e => res(e.target.result);
-    r.onerror   = e => rej(e.target.error);
-  });
-}
-async function idbDelete(store, id) {
-  const idb = await openIDB();
-  return new Promise((res, rej) => {
-    const tx = idb.transaction(store, "readwrite");
-    tx.objectStore(store).delete(id);
-    tx.oncomplete = res;
-    tx.onerror = e => rej(e.target.error);
-  });
-}
+// ── 定数 ──
+const CIRCUMFERENCE = 2 * Math.PI * 85; // 534.07
 
-// ════════════════════════════════════════
-// オフライン
-// ════════════════════════════════════════
-function updateOnlineStatus() {
-  document.getElementById("offline-indicator").style.display = navigator.onLine ? "none" : "inline";
-}
-window.addEventListener("online",  updateOnlineStatus);
-window.addEventListener("offline", updateOnlineStatus);
-updateOnlineStatus();
+// ── 状態 ──
+let state = {
+  phase: 'work',      // 'work' | 'shortBreak' | 'longBreak'
+  running: false,
+  secondsLeft: 0,
+  totalSeconds: 0,
+  sessionCount: 0,
+  cyclePos: 0,        // 4サイクル内の位置
+  workMinutes: 0,
+  matSessions: {},    // { materialId: { name, color, minutes } }
+  interval: null,
+};
 
-window.addEventListener("online", async () => {
-  const pendings = await idbGetAll("pending");
-  if (!pendings.length) return;
-  for (const e of pendings) {
-    const u = {}; u[e.key] = { text:e.text, color:e.color, checked:e.checked, cell:e.cell||null };
-    try {
-      await db.collection("schedules2").doc(e.docId).set(u, { merge:true });
-      await idbDelete("pending", e.id);
-    } catch(err) { console.error("sync fail:", err); }
-  }
-  const s = document.getElementById("sync-indicator");
-  s.style.display = "inline";
-  setTimeout(() => s.style.display = "none", 2000);
-  loadWeek();
-});
+let materials = [];
 
-// ════════════════════════════════════════
-// 状態
-// ════════════════════════════════════════
-let currentColor    = "";
-let currentWeek     = 0;
-let currentWeekDocId = "";
-let currentView     = "weekly";
-let currentMonthDate = new Date();
-let weekStartDay    = parseInt(localStorage.getItem("weekStartDay") || "1");
-const allDayNames   = ["日","月","火","水","木","金","土"];
-let customColors    = JSON.parse(localStorage.getItem("customColors") || "[]");
-let currentDayKey   = "";
-let currentMonthDocId = "";
-let currentMonthData  = {};
-let materials       = [];
-let currentWeekData = {};
-let summaryChart    = null;
-
-let cellModalId     = null;
-let cellModalCol    = null;
-let cellModalHour   = null;
-let cellModalMode   = "study";
-let matSelectedId   = null;
-let eventSelColor   = "#ffadad";
-
-// ════════════════════════════════════════
-// グローバルメモ
-// ════════════════════════════════════════
-const memoEl = document.getElementById("global-memo");
-if (localStorage.getItem("global-memo")) memoEl.value = localStorage.getItem("global-memo");
-memoEl.addEventListener("input", () => localStorage.setItem("global-memo", memoEl.value));
-
-// ════════════════════════════════════════
-// ユーティリティ
-// ════════════════════════════════════════
-function adjustHeaderTop() {
-  const h = document.getElementById("top-bar").offsetHeight;
-  document.querySelectorAll(".header").forEach(el => el.style.top = h + "px");
-}
-function getTextColor(hex) {
-  if (!hex || hex.length < 4) return "#000";
-  let h = hex.replace("#","");
-  if (h.length === 3) h = h.split("").map(c=>c+c).join("");
-  const r=parseInt(h.substring(0,2),16), g=parseInt(h.substring(2,4),16), b=parseInt(h.substring(4,6),16);
-  return (0.299*r+0.587*g+0.114*b)/255 > 0.5 ? "#000" : "#fff";
-}
-function getColorStyle(colorKey) {
-  if (!colorKey) return "";
-  if (colorKey === "study") return "#a0c4ff";
-  if (colorKey === "club")  return "#ffadad";
-  if (colorKey === "rest")  return "#caffbf";
-  if (colorKey.startsWith("custom-")) {
-    const idx = parseInt(colorKey.split("-")[1]);
-    return customColors[idx] ? customColors[idx].color : "";
-  }
-  return "";
-}
-function deselectColor() {
-  currentColor = "";
-  document.querySelectorAll(".color-btn").forEach(b => { b.style.outline=""; b.style.fontWeight=""; });
-  document.getElementById("current-color-label").innerText = "";
-  document.getElementById("calendar").style.cursor = "";
-}
-function escHtml(str) {
-  return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
-}
-
-// ════════════════════════════════════════
-// ビュー切り替え
-// ════════════════════════════════════════
-function switchView(view) {
-  currentView = view;
-  document.getElementById("weekly-view").style.display  = view==="weekly"  ? "block" : "none";
-  document.getElementById("monthly-view").style.display = view==="monthly" ? "block" : "none";
-  document.getElementById("week-nav").style.display     = view==="weekly"  ? "flex"  : "none";
-  document.getElementById("month-nav").style.display    = view==="monthly" ? "flex"  : "none";
-  document.getElementById("btn-weekly").style.outline    = view==="weekly"  ? "3px solid #333" : "";
-  document.getElementById("btn-weekly").style.fontWeight = view==="weekly"  ? "bold" : "";
-  document.getElementById("btn-monthly").style.outline   = view==="monthly" ? "3px solid #333" : "";
-  document.getElementById("btn-monthly").style.fontWeight= view==="monthly" ? "bold" : "";
-  if (view==="monthly") loadMonthly();
-  setTimeout(adjustHeaderTop, 50);
-}
-function changeMonth(offset) {
-  currentMonthDate.setMonth(currentMonthDate.getMonth()+offset);
-  loadMonthly();
-}
-
-// ════════════════════════════════════════
-// マンスリー
-// ════════════════════════════════════════
-function loadMonthly() {
-  const year=currentMonthDate.getFullYear(), month=currentMonthDate.getMonth();
-  document.getElementById("month-label").innerText = `${year}年${month+1}月`;
-  const firstDay=new Date(year,month,1), lastDay=new Date(year,month+1,0);
-  const startOffset=(firstDay.getDay()-weekStartDay+7)%7;
-  const rows=Math.ceil((startOffset+lastDay.getDate())/7);
-  const topBarH=document.getElementById("top-bar").offsetHeight;
-  const cal=document.getElementById("monthly-calendar");
-  cal.innerHTML="";
-  for (let i=0;i<7;i++) {
-    const h=document.createElement("div");
-    h.innerText=allDayNames[(weekStartDay+i)%7];
-    h.style.cssText=`background:#333;color:white;text-align:center;padding:6px;font-size:13px;position:sticky;top:${topBarH}px;z-index:10;`;
-    cal.appendChild(h);
-  }
-  const today=new Date();
-  db.collection("monthly").doc(`monthly-${year}-${String(month+1).padStart(2,'0')}`).get().then(doc=>{
-    const md=doc.exists?doc.data():{};
-    for (let i=0;i<rows*7;i++) {
-      const cell=document.createElement("div");
-      const dayNum=i-startOffset+1, isValid=dayNum>=1&&dayNum<=lastDay.getDate();
-      cell.style.cssText="border:1px solid #ccc;min-height:80px;padding:4px;box-sizing:border-box;cursor:pointer;position:relative;font-size:12px;";
-      if (isValid) {
-        const dateObj=new Date(year,month,dayNum);
-        const isToday=dateObj.getFullYear()===today.getFullYear()&&dateObj.getMonth()===today.getMonth()&&dateObj.getDate()===today.getDate();
-        const dayKey=`${year}-${String(month+1).padStart(2,'0')}-${String(dayNum).padStart(2,'0')}`;
-        const saved=md[dayKey]||{memo:"",color:"",checked:false};
-        const bg=saved.color?getColorStyle(saved.color):(isToday?"#fffde7":"");
-        const tc=bg?getTextColor(bg):"#333";
-        if (bg) cell.style.background=bg;
-        
-        // 土日の背景色を設定
-        const dayOfWeek = dateObj.getDay();
-        if (dayOfWeek === 6) { // 土曜日
-          cell.classList.add("monthly-sat");
-        } else if (dayOfWeek === 0) { // 日曜日
-          cell.classList.add("monthly-sun");
-        }
-        const dl=document.createElement("div");
-        dl.style.cssText=`font-weight:bold;color:${isToday?'#f9a825':tc};margin-bottom:2px;`;
-        dl.innerText=dayNum;
-        if (saved.checked){const ck=document.createElement("span");ck.innerText=" ✓";ck.style.cssText="color:#4caf50;font-weight:bold;";dl.appendChild(ck);}
-        cell.appendChild(dl);
-        if (saved.memo){const mv=document.createElement("div");mv.style.cssText=`font-size:11px;color:${tc};overflow:hidden;max-height:48px;${saved.checked?'text-decoration:line-through;opacity:0.5;':''}`;mv.innerText=saved.memo;cell.appendChild(mv);}
-        cell.onclick=()=>openDayModal(dayKey,year,month,dayNum,md);
-      } else { cell.style.background="#f5f5f5"; cell.style.cursor="default"; }
-      cal.appendChild(cell);
-    }
-    // ファイルバッジを付加
-    setTimeout(attachFileBadges, 300);
-  }).catch(e=>console.error(e));
-}
-
-function openDayModal(dayKey,year,month,dayNum,monthData) {
-  currentDayKey=dayKey;
-  currentMonthDocId=`monthly-${year}-${String(month+1).padStart(2,'0')}`;
-  currentMonthData=monthData;
-  _fileDayKey=dayKey;
-  _fileMonthDocId=currentMonthDocId;
-
-  const saved=monthData[dayKey]||{memo:"",color:"",checked:false};
-  document.getElementById("day-modal-title").innerText=`${year}/${month+1}/${dayNum}`;
-  document.getElementById("day-modal-memo").value=saved.memo||"";
-  document.getElementById("day-modal-check").checked=saved.checked||false;
-  const cc=document.getElementById("day-modal-colors"); cc.innerHTML="";
-  [{key:"",label:"なし",bg:"#eee"},{key:"study",label:"勉強",bg:"#a0c4ff"},{key:"club",label:"部活",bg:"#ffadad"},{key:"rest",label:"休み",bg:"#caffbf"},...customColors.map((c,i)=>({key:`custom-${i}`,label:c.name,bg:c.color}))].forEach(opt=>{
-    const b=document.createElement("button");
-    b.innerText=opt.label;
-    b.style.cssText=`background:${opt.bg};color:${getTextColor(opt.bg)};border:${saved.color===opt.key?'3px solid #333':'1px solid #ccc'};border-radius:4px;padding:4px 8px;cursor:pointer;font-size:12px;`;
-    b.onclick=()=>{cc.querySelectorAll("button").forEach(x=>x.style.border="1px solid #ccc");b.style.border="3px solid #333";currentMonthData[currentDayKey]=currentMonthData[currentDayKey]||{};currentMonthData[currentDayKey].color=opt.key;};
-    cc.appendChild(b);
-  });
-  document.getElementById("day-modal-overlay").style.display="flex";
-  injectFileTabs();
-  loadFileList();
-}
-
-function saveDayModal() {
-  currentMonthData[currentDayKey]=currentMonthData[currentDayKey]||{};
-  currentMonthData[currentDayKey].memo=document.getElementById("day-modal-memo").value;
-  currentMonthData[currentDayKey].checked=document.getElementById("day-modal-check").checked;
-  const u={}; u[currentDayKey]=currentMonthData[currentDayKey];
-  db.collection("monthly").doc(currentMonthDocId).set(u,{merge:true}).then(()=>{closeDayModal();loadMonthly();}).catch(e=>console.error(e));
-}
-
-function closeDayModal() {
-  // タブとファイルパネルをリセット
-  const tabs = document.querySelector('.day-modal-tabs');
-  const filePanel = document.getElementById('day-file-panel');
-  if (tabs) tabs.remove();
-  if (filePanel) filePanel.remove();
-  // メモ関連要素を再表示
-  const box = document.querySelector('#day-modal-overlay .modal-box');
-  if (box) box.querySelectorAll('textarea, div').forEach(el => el.style.display = '');
-  document.getElementById("day-modal-overlay").style.display="none";
-}
-
-// ════════════════════════════════════════
-// ファイル添付機能
-// ════════════════════════════════════════
-let _fileDayKey = '';
-let _fileMonthDocId = '';
-
-function injectFileTabs() {
-  const box = document.querySelector('#day-modal-overlay .modal-box');
-  if (!box || box.querySelector('.day-modal-tabs')) return;
-
-  const tabs = document.createElement('div');
-  tabs.className = 'day-modal-tabs';
-  tabs.innerHTML = `
-    <button class="day-modal-tab active" id="tab-memo" onclick="switchDayTab('memo')">📝 メモ</button>
-    <button class="day-modal-tab"        id="tab-file" onclick="switchDayTab('file')">📎 ファイル</button>
-  `;
-  const title = box.querySelector('#day-modal-title');
-  title.after(tabs);
-
-  const filePanel = document.createElement('div');
-  filePanel.id = 'day-file-panel';
-  filePanel.style.display = 'none';
-  filePanel.innerHTML = `
-    <div class="upload-zone" id="upload-zone"
-         onclick="document.getElementById('file-input').click()"
-         ondragover="onDragOver(event)" ondragleave="onDragLeave(event)" ondrop="onDrop(event)">
-      <input type="file" id="file-input" multiple accept="image/*,.pdf" onchange="onFileSelect(event)">
-      <div class="uz-icon">📁</div>
-      <div class="uz-text">タップしてファイルを選択<br>または画像・PDFをここにドロップ</div>
-    </div>
-    <div class="upload-progress" id="upload-progress">
-      <div class="prog-bar-wrap"><div class="prog-bar" id="prog-bar" style="width:0%"></div></div>
-      <div class="prog-label" id="prog-label">アップロード中...</div>
-    </div>
-    <div class="file-grid" id="file-grid"></div>
-  `;
-  const memoArea = box.querySelector('textarea#day-modal-memo');
-  memoArea.parentElement.before(filePanel);
-}
-
-function switchDayTab(tab) {
-  const isMemo = tab === 'memo';
-  document.getElementById('tab-memo').className = 'day-modal-tab' + (isMemo ? ' active' : '');
-  document.getElementById('tab-file').className = 'day-modal-tab' + (!isMemo ? ' active' : '');
-  const box = document.querySelector('#day-modal-overlay .modal-box');
-  const memoEl2  = box.querySelector('textarea#day-modal-memo');
-  const checkRow = box.querySelector('div:has(#day-modal-check)');
-  const btnRow   = box.querySelector('div:has(button[onclick="saveDayModal()"])');
-  const colorDiv = document.getElementById('day-modal-colors');
-  const filePanel = document.getElementById('day-file-panel');
-  [memoEl2, checkRow, btnRow, colorDiv].forEach(el => { if (el) el.style.display = isMemo ? '' : 'none'; });
-  if (filePanel) filePanel.style.display = isMemo ? 'none' : 'block';
-}
-
-function onDragOver(e) { e.preventDefault(); document.getElementById('upload-zone').classList.add('dragover'); }
-function onDragLeave(e) { document.getElementById('upload-zone').classList.remove('dragover'); }
-function onDrop(e) { e.preventDefault(); document.getElementById('upload-zone').classList.remove('dragover'); uploadFiles([...e.dataTransfer.files]); }
-function onFileSelect(e) { uploadFiles([...e.target.files]); e.target.value = ''; }
-
-async function uploadFiles(files) {
-  const validFiles = files.filter(f => f.type.startsWith('image/') || f.type === 'application/pdf');
-  if (!validFiles.length) { alert('画像またはPDFを選択してください'); return; }
-  const prog = document.getElementById('upload-progress');
-  const bar  = document.getElementById('prog-bar');
-  const lbl  = document.getElementById('prog-label');
-  prog.style.display = 'block';
-  for (let i = 0; i < validFiles.length; i++) {
-    const file = validFiles[i];
-    const ext  = file.name.split('.').pop();
-    const path = `monthly/${_fileDayKey}/${Date.now()}_${Math.random().toString(36).slice(2,6)}.${ext}`;
-    const ref  = storage.ref(path);
-    lbl.textContent = `${i+1}/${validFiles.length} アップロード中: ${file.name}`;
-    await new Promise((resolve, reject) => {
-      const task = ref.put(file);
-      task.on('state_changed',
-        snap => { bar.style.width = Math.round(snap.bytesTransferred / snap.totalBytes * 100) + '%'; },
-        err  => { console.error(err); reject(err); },
-        resolve
-      );
-    });
-    const url  = await ref.getDownloadURL();
-    await saveFileMeta({ path, url, name: file.name, type: file.type, ts: Date.now() });
-  }
-  bar.style.width = '100%';
-  lbl.textContent = '完了！';
-  setTimeout(() => { prog.style.display = 'none'; bar.style.width = '0%'; }, 1200);
-  loadFileList();
-  attachFileBadges();
-}
-
-async function saveFileMeta(meta) {
-  const docRef = db.collection('monthly_files').doc(_fileMonthDocId);
-  const doc = await docRef.get();
-  const existing = doc.exists ? (doc.data()[_fileDayKey] || []) : [];
-  existing.push(meta);
-  const u = {}; u[_fileDayKey] = existing;
-  await docRef.set(u, { merge: true });
-}
-
-async function loadFileList() {
-  const grid = document.getElementById('file-grid');
-  if (!grid) return;
-  grid.innerHTML = '<div style="color:#bbb;font-size:12px;padding:8px 0;">読み込み中...</div>';
+// ── Firebase から教材を読み込む ──
+async function loadMaterials() {
   try {
-    const doc = await db.collection('monthly_files').doc(_fileMonthDocId).get();
-    const files = doc.exists ? (doc.data()[_fileDayKey] || []) : [];
-    if (!files.length) {
-      grid.innerHTML = '<div style="color:#bbb;font-size:12px;padding:8px 0;grid-column:1/-1;">まだファイルがありません</div>';
-      return;
-    }
-    grid.innerHTML = '';
-    files.forEach((f, idx) => {
-      const thumb = document.createElement('div');
-      thumb.className = 'file-thumb';
-      const isPdf = f.type === 'application/pdf';
-      thumb.innerHTML = isPdf
-        ? `<div class="pdf-thumb"><div class="pdf-icon">📄</div><div class="pdf-name">${escHtml(f.name)}</div></div>`
-        : `<img src="${f.url}" alt="${escHtml(f.name)}" loading="lazy">`;
-      const del = document.createElement('button');
-      del.className = 'del-btn'; del.textContent = '✕'; del.title = '削除';
-      del.onclick = async (e) => {
-        e.stopPropagation();
-        if (!confirm(`「${f.name}」を削除しますか？`)) return;
-        await deleteFile(f, idx);
-        loadFileList(); attachFileBadges();
-      };
-      thumb.appendChild(del);
-      thumb.onclick = () => openFileViewer(f);
-      grid.appendChild(thumb);
-    });
+    const doc = await db.collection("app_config").doc("materials").get();
+    materials = doc.exists ? (doc.data().list || []) : [];
   } catch(e) {
-    console.error(e);
-    grid.innerHTML = '<div style="color:#e88;font-size:12px;padding:8px 0;grid-column:1/-1;">読み込みに失敗しました</div>';
+    materials = [];
   }
+  const sel = document.getElementById('materialSelect');
+  materials.forEach(m => {
+    const opt = document.createElement('option');
+    opt.value = m.id;
+    opt.textContent = m.name + (m.category ? ` (${m.category})` : '');
+    opt.dataset.color = m.color;
+    opt.dataset.name  = m.name;
+    sel.appendChild(opt);
+  });
 }
 
-async function deleteFile(fileMeta, idx) {
-  try { await storage.ref(fileMeta.path).delete(); } catch(e) { console.warn(e); }
-  const docRef = db.collection('monthly_files').doc(_fileMonthDocId);
-  const doc = await docRef.get();
-  if (!doc.exists) return;
-  const files = doc.data()[_fileDayKey] || [];
-  files.splice(idx, 1);
-  const u = {}; u[_fileDayKey] = files;
-  await docRef.set(u, { merge: true });
+// ── 設定値 ──
+function getSettings() {
+  return {
+    work:       parseInt(document.getElementById('workMin').value)       * 60,
+    shortBreak: parseInt(document.getElementById('shortBreakMin').value) * 60,
+    longBreak:  parseInt(document.getElementById('longBreakMin').value)  * 60,
+    sound:      document.getElementById('soundOn').checked,
+  };
 }
 
-function openFileViewer(f) {
-  const overlay = document.getElementById('file-viewer-overlay');
-  const content = document.getElementById('file-viewer-content');
-  document.getElementById('file-viewer-name').textContent = f.name;
-  if (f.type === 'application/pdf') {
-    content.innerHTML = `<div style="text-align:center;"><div style="font-size:64px;margin-bottom:16px;">📄</div>
-      <a href="${f.url}" target="_blank" style="display:inline-block;padding:12px 28px;background:#4a90e2;color:white;border-radius:8px;text-decoration:none;font-weight:bold;font-size:14px;">PDFを開く（新しいタブ）</a></div>`;
+function getSelectedMat() {
+  const sel = document.getElementById('materialSelect');
+  const id  = sel.value;
+  if (!id) return null;
+  const opt = sel.options[sel.selectedIndex];
+  return { id, name: opt.dataset.name, color: opt.dataset.color };
+}
+
+// ── UI更新 ──
+function updateUI() {
+  const min = String(Math.floor(state.secondsLeft / 60)).padStart(2, '0');
+  const sec = String(state.secondsLeft % 60).padStart(2, '0');
+  document.getElementById('timerDisplay').textContent = `${min}:${sec}`;
+
+  const ratio  = state.totalSeconds > 0 ? state.secondsLeft / state.totalSeconds : 1;
+  const offset = CIRCUMFERENCE * (1 - ratio);
+  const ring   = document.getElementById('ringProgress');
+  ring.style.strokeDashoffset = offset;
+
+  const isWork    = state.phase === 'work';
+  const isShort   = state.phase === 'shortBreak';
+  ring.style.stroke = isWork ? 'var(--primary)' : 'var(--break-color)';
+
+  const modeLabel = document.getElementById('modeLabel');
+  const mainBtn   = document.getElementById('mainBtn');
+  if (state.phase === 'work') {
+    modeLabel.textContent = '作業中';
+    modeLabel.className   = 'mode-label';
+    mainBtn.className     = 'btn-main';
   } else {
-    content.innerHTML = `<img src="${f.url}" style="max-width:92vw;max-height:80vh;border-radius:8px;object-fit:contain;">`;
+    modeLabel.textContent = isShort ? '休憩中（短）' : '休憩中（長）';
+    modeLabel.className   = 'mode-label break';
+    mainBtn.className     = 'btn-main break-mode';
   }
-  overlay.style.display = 'flex';
-}
-function closeFileViewer() {
-  document.getElementById('file-viewer-overlay').style.display = 'none';
-  document.getElementById('file-viewer-content').innerHTML = '';
+  mainBtn.textContent = state.running ? '⏸' : '▶';
+
+  const hint = document.getElementById('phaseHint');
+  if (!state.running && state.secondsLeft === state.totalSeconds) hint.textContent = '準備完了';
+  else if (state.running) hint.textContent = state.phase === 'work' ? '集中して！' : 'ゆっくり休んで';
+  else hint.textContent = '一時停止中';
+
+  // トマト
+  for (let i = 0; i < 4; i++) {
+    document.getElementById('t' + i).classList.toggle('done', i < (state.cyclePos % 4));
+  }
+  document.getElementById('sessionNum').textContent = `${state.sessionCount}回`;
+  updateStats();
 }
 
-async function attachFileBadges() {
-  const year  = currentMonthDate.getFullYear();
-  const month = currentMonthDate.getMonth();
-  const docId = `monthly-${year}-${String(month+1).padStart(2,'0')}`;
-  try {
-    const doc = await db.collection('monthly_files').doc(docId).get();
-    if (!doc.exists) return;
-    const data = doc.data();
-    document.querySelectorAll('#monthly-calendar > div').forEach(cell => {
-      const dayEl = cell.querySelector('div[style*="font-weight:bold"]');
-      if (!dayEl) return;
-      const dayNum = parseInt(dayEl.textContent);
-      if (isNaN(dayNum)) return;
-      const dayKey = `${year}-${String(month+1).padStart(2,'0')}-${String(dayNum).padStart(2,'0')}`;
-      const count = (data[dayKey] || []).length;
-      cell.querySelectorAll('.cell-file-badge').forEach(b => b.remove());
-      if (count > 0) {
-        const badge = document.createElement('div');
-        badge.className = 'cell-file-badge';
-        badge.textContent = `📎${count}`;
-        cell.appendChild(badge);
+function updateStats() {
+  document.getElementById('statSession').textContent = state.sessionCount;
+  document.getElementById('statMinutes').textContent = state.workMinutes;
+
+  const el = document.getElementById('matStatList');
+  const entries = Object.values(state.matSessions);
+  if (!entries.length) {
+    el.innerHTML = '<div class="no-stat">まだ記録がありません</div>';
+    return;
+  }
+  el.innerHTML = entries.map(e =>
+    `<div class="mat-stat-row">
+      <div class="mat-dot" style="background:${e.color}"></div>
+      <div class="mat-stat-name">${e.name}</div>
+      <div class="mat-stat-time">${e.minutes}分</div>
+    </div>`
+  ).join('');
+}
+
+// ── フェーズ初期化 ──
+function initPhase(phase) {
+  state.phase = phase;
+  const s = getSettings();
+  state.totalSeconds = phase === 'work' ? s.work
+    : phase === 'shortBreak' ? s.shortBreak : s.longBreak;
+  state.secondsLeft = state.totalSeconds;
+  updateUI();
+}
+
+// ── タイマー制御 ──
+function startTimer() {
+  if (state.running) return;
+  state.running = true;
+  updateUI();
+  state.interval = setInterval(tick, 1000);
+}
+
+function pauseTimer() {
+  clearInterval(state.interval);
+  state.running = false;
+  updateUI();
+}
+
+function tick() {
+  state.secondsLeft--;
+  if (state.secondsLeft <= 0) onPhaseEnd();
+  else updateUI();
+}
+
+function onPhaseEnd() {
+  clearInterval(state.interval);
+  state.running = false;
+
+  if (state.phase === 'work') {
+    // 作業完了
+    state.sessionCount++;
+    state.cyclePos++;
+
+    const addMin = Math.round(getSettings().work / 60);
+    state.workMinutes += addMin;
+
+    // 教材別集計
+    const mat = getSelectedMat();
+    if (mat) {
+      if (!state.matSessions[mat.id]) {
+        state.matSessions[mat.id] = { name: mat.name, color: mat.color, minutes: 0 };
       }
+      state.matSessions[mat.id].minutes += addMin;
+    }
+
+    saveToday();
+    playSound('work');
+    showNotif('🍅 作業完了！お疲れさまです');
+
+    if (state.cyclePos % 4 === 0) initPhase('longBreak');
+    else                           initPhase('shortBreak');
+  } else {
+    playSound('break');
+    showNotif('⏰ 休憩終了！また頑張ろう');
+    initPhase('work');
+  }
+}
+
+function skip() {
+  if (!confirm('このフェーズをスキップしますか？')) return;
+  clearInterval(state.interval);
+  state.running = false;
+  state.secondsLeft = 0;
+  onPhaseEnd();
+}
+
+function reset() {
+  if (!confirm('タイマーをリセットしますか？')) return;
+  clearInterval(state.interval);
+  state.running = false;
+  initPhase('work');
+}
+
+// ── 音 ──
+function playSound(type) {
+  if (!document.getElementById('soundOn').checked) return;
+  try {
+    const ctx = new (window.AudioContext || window.webkitAudioContext)();
+    const freqs = type === 'work' ? [523, 659, 784] : [440, 520];
+    freqs.forEach((freq, i) => {
+      const o = ctx.createOscillator();
+      const g = ctx.createGain();
+      o.connect(g); g.connect(ctx.destination);
+      o.frequency.value = freq;
+      o.type = type === 'work' ? 'sine' : 'triangle';
+      const t = ctx.currentTime + i * 0.2;
+      g.gain.setValueAtTime(0.3, t);
+      g.gain.exponentialRampToValueAtTime(0.001, t + 0.55);
+      o.start(t); o.stop(t + 0.55);
     });
   } catch(e) {}
 }
 
-// ════════════════════════════════════════
-// 設定モーダル
-// ════════════════════════════════════════
-function openModal() {
-  document.getElementById("modal-overlay").style.display="flex";
-  const c=document.getElementById("day-select-buttons"); c.innerHTML="";
-  allDayNames.forEach((name,i)=>{
-    const b=document.createElement("button");
-    b.innerText=name;
-    b.style.cssText=`padding:8px 14px;border-radius:6px;cursor:pointer;font-size:14px;border:2px solid ${i===weekStartDay?'#333':'#ccc'};font-weight:${i===weekStartDay?'bold':'normal'};`;
-    b.onclick=()=>{weekStartDay=i;localStorage.setItem("weekStartDay",i);closeModal();currentWeek=0;loadWeek();};
-    c.appendChild(b);
-  });
-}
-function closeModal(){ document.getElementById("modal-overlay").style.display="none"; }
-
-// ════════════════════════════════════════
-// カスタム色ボタン
-// ════════════════════════════════════════
-function renderCustomColorButtons() {
-  const c=document.getElementById("custom-colors"); c.innerHTML="";
-  customColors.forEach((col,i)=>{
-    const wrap=document.createElement("span");
-    wrap.style.cssText="display:inline-flex; align-items:stretch; margin-right:4px; border-radius:6px; overflow:hidden; border:1px solid rgba(0,0,0,0.15);";
-    const b=document.createElement("button");
-    b.className="color-btn"; b.id="btn-custom-"+i;
-    b.style.cssText="background:"+col.color+"; color:"+getTextColor(col.color)+"; border:none; border-radius:0; margin:0;";
-    b.innerText=col.name;
-    b.onclick=()=>setColor("custom-"+i);
-    const del=document.createElement("button");
-    del.innerText="×"; del.title="削除";
-    del.style.cssText="background:"+col.color+"; color:"+getTextColor(col.color)+"; border:none; border-left:1px solid rgba(0,0,0,0.2); padding:0 5px; cursor:pointer; font-size:11px; font-weight:bold; border-radius:0; opacity:0.75;";
-    del.onmouseenter=()=>del.style.opacity="1";
-    del.onmouseleave=()=>del.style.opacity="0.75";
-    del.onclick=(e)=>{
-      e.stopPropagation();
-      if (!confirm("「"+col.name+"」を削除しますか？")) return;
-      if (currentColor==="custom-"+i) deselectColor();
-      customColors.splice(i,1);
-      localStorage.setItem("customColors",JSON.stringify(customColors));
-      renderCustomColorButtons();
-    };
-    wrap.appendChild(b); wrap.appendChild(del); c.appendChild(wrap);
-  });
-}
-function addCustomColor() {
-  const name=prompt("色の名前を入力してください"); if (!name) return;
-  const inp=document.createElement("input"); inp.type="color"; inp.value="#ffd6a5";
-  inp.style.cssText="position:fixed;top:-100px;left:-100px;opacity:0;"; document.body.appendChild(inp);
-  inp.addEventListener("change",()=>{ const col=inp.value; document.body.removeChild(inp); customColors.push({name,color:col}); localStorage.setItem("customColors",JSON.stringify(customColors)); renderCustomColorButtons(); });
-  inp.addEventListener("cancel",()=>{ if(document.body.contains(inp)) document.body.removeChild(inp); });
-  setTimeout(()=>inp.click(),50);
-}
-function setColor(color) {
-  currentColor=color;
-  document.querySelectorAll(".color-btn").forEach(b=>{b.style.outline="";b.style.fontWeight="";});
-  let ab=null;
-  if (color==="clear") ab=document.getElementById("btn-clear");
-  else if (color.startsWith("custom-")) ab=document.getElementById("btn-custom-"+color.split("-")[1]);
-  if (ab){ab.style.outline="3px solid #333";ab.style.fontWeight="bold";}
-  const lbl=document.getElementById("current-color-label");
-  if (color==="clear") lbl.innerText="✏️ 色を消す";
-  else if (color.startsWith("custom-")) { const idx=parseInt(color.split("-")[1]); lbl.innerText="✏️ "+customColors[idx].name; }
-  else lbl.innerText="";
-  document.getElementById("calendar").style.cursor = color ? "crosshair" : "";
+// ── 通知 ──
+function showNotif(msg) {
+  const el = document.getElementById('notif');
+  el.textContent = msg;
+  el.classList.add('show');
+  setTimeout(() => el.classList.remove('show'), 3000);
 }
 
-// ════════════════════════════════════════
-// 教材マスタ管理
-// ════════════════════════════════════════
-async function loadMaterials() {
+// ── 今日のデータ保存・読み込み ──
+const TODAY_KEY = 'pomodoro_today_v2';
+function saveToday() {
+  localStorage.setItem(TODAY_KEY, JSON.stringify({
+    date:        new Date().toDateString(),
+    sessions:    state.sessionCount,
+    minutes:     state.workMinutes,
+    cyclePos:    state.cyclePos,
+    matSessions: state.matSessions,
+  }));
+}
+function loadToday() {
   try {
-    const doc=await db.collection("app_config").doc("materials").get();
-    materials=doc.exists?(doc.data().list||[]):[];
-  } catch(e) {
-    const all=await idbGetAll("materials");
-    materials=all.length>0?(all[0].list||[]):[];
-  }
-  await idbSet("materials",{id:"materials",list:materials});
-}
-async function saveMaterials() {
-  try { await db.collection("app_config").doc("materials").set({list:materials}); } catch(e) { console.error(e); }
-  await idbSet("materials",{id:"materials",list:materials});
-}
-function genMatId(){ return "mat_"+Date.now()+"_"+Math.random().toString(36).slice(2,6); }
-
-function openMatManage(){  renderMatManageList(); document.getElementById("mat-manage-overlay").style.display="flex"; }
-function closeMatManage(){ document.getElementById("mat-manage-overlay").style.display="none"; }
-function renderMatManageList() {
-  const el=document.getElementById("mat-manage-list"); el.innerHTML="";
-  if (!materials.length){ el.innerHTML='<div style="color:#aaa;font-size:13px;padding:8px;">教材が登録されていません</div>'; return; }
-  materials.forEach((mat,idx)=>{
-    const row=document.createElement("div");
-    row.style.cssText="display:flex;align-items:center;gap:8px;padding:8px 10px;border-radius:8px;border:1px solid #eee;margin-bottom:6px;background:#fafafa;";
-    const dot=document.createElement("div"); dot.className="mat-color-dot"; dot.style.background=mat.color;
-    const info=document.createElement("div"); info.style.cssText="flex:1;font-size:13px;"; info.innerHTML=`<b>${mat.name}</b>${mat.category?` <span style="color:#999;font-size:11px;">${mat.category}</span>`:""}`;
-    const del=document.createElement("button"); del.innerText="削除"; del.style.cssText="font-size:11px;color:#c44;border:1px solid #e88;border-radius:4px;padding:3px 8px;cursor:pointer;background:#fff;";
-    del.onclick=async()=>{ if(!confirm(`「${mat.name}」を削除しますか？`))return; materials.splice(idx,1); await saveMaterials(); renderMatManageList(); };
-    row.appendChild(dot); row.appendChild(info); row.appendChild(del); el.appendChild(row);
-  });
-}
-async function addMaterialFromManage() {
-  const name=document.getElementById("manage-mat-name").value.trim(); if(!name){alert("教材名を入力してください");return;}
-  materials.push({id:genMatId(),name,color:document.getElementById("manage-mat-color").value,category:document.getElementById("manage-mat-category").value.trim()});
-  await saveMaterials();
-  document.getElementById("manage-mat-name").value=""; document.getElementById("manage-mat-category").value="";
-  renderMatManageList();
-}
-
-// ════════════════════════════════════════
-// セル編集モーダル
-// ════════════════════════════════════════
-const EVENT_COLORS = ["#ffadad","#ffb347","#ffe066","#caffbf","#a0c4ff","#c77dff","#f06292","#90caf9","#aaa","#555"];
-
-function openCellModal(cellId, colIndex, hour) {
-  cellModalId=cellId; cellModalCol=colIndex; cellModalHour=hour;
-  const start=getStartOfWeek();
-  const d=new Date(start); d.setDate(start.getDate()+colIndex);
-  document.getElementById("cell-modal-title").innerText=`${d.getMonth()+1}/${d.getDate()}（${allDayNames[d.getDay()]}）`;
-  document.getElementById("cell-modal-time").innerText=`${hour}:00〜${hour+1}:00`;
-  const key=getCellDateKey(hour,colIndex);
-  const saved=(currentWeekData[key]||{}).cell||null;
-  const mode=saved?(saved.mode||"study"):"study";
-  switchCellMode(mode,saved);
-  document.getElementById("cell-modal-overlay").style.display="flex";
-}
-
-function switchCellMode(mode,savedData) {
-  cellModalMode=mode;
-  const ts=document.getElementById("mode-tab-study"), te=document.getElementById("mode-tab-event");
-  if (mode==="study"){ ts.className="mode-tab active-study"; te.className="mode-tab inactive"; }
-  else { ts.className="mode-tab inactive"; te.className="mode-tab active-event"; }
-  document.getElementById("cell-save-btn").style.background=mode==="study"?"#4a90e2":"#f06292";
-  document.getElementById("panel-study").style.display=mode==="study"?"block":"none";
-  document.getElementById("panel-event").style.display=mode==="event"?"block":"none";
-  if (mode==="study") {
-    matSelectedId=savedData&&savedData.mode==="study"?(savedData.materialId||null):null;
-    renderMatList();
-    document.getElementById("mat-page-from").value=savedData&&savedData.mode==="study"?(savedData.pageFrom||""):"";
-    document.getElementById("mat-page-to").value=savedData&&savedData.mode==="study"?(savedData.pageTo||""):"";
-    document.getElementById("new-mat-form").style.display="none";
-    document.getElementById("new-mat-toggle").innerText="＋ 新しい教材を追加";
-  } else {
-    document.getElementById("event-title").value=savedData&&savedData.mode==="event"?(savedData.title||""):"";
-    document.getElementById("event-memo").value=savedData&&savedData.mode==="event"?(savedData.memo||""):"";
-    eventSelColor=savedData&&savedData.mode==="event"?(savedData.color||"#ffadad"):"#ffadad";
-    renderEventColorSwatches();
-  }
-}
-
-function renderMatList() {
-  const el=document.getElementById("mat-list"); el.innerHTML="";
-  const none=document.createElement("div");
-  none.className="mat-list-item"+(matSelectedId===null?" selected":"");
-  none.innerHTML=`<div class="mat-color-dot" style="background:#ddd;"></div><span class="mat-list-name">（教材なし）</span>`;
-  none.onclick=()=>{ matSelectedId=null; el.querySelectorAll(".mat-list-item").forEach(i=>i.classList.remove("selected")); none.classList.add("selected"); };
-  el.appendChild(none);
-  materials.forEach(mat=>{
-    const item=document.createElement("div");
-    item.className="mat-list-item"+(matSelectedId===mat.id?" selected":"");
-    item.innerHTML=`<div class="mat-color-dot" style="background:${mat.color};"></div><span class="mat-list-name"><b>${mat.name}</b>${mat.category?` <span style="color:#aaa;font-size:11px;">${mat.category}</span>`:""}</span>`;
-    item.onclick=()=>{ matSelectedId=mat.id; el.querySelectorAll(".mat-list-item").forEach(i=>i.classList.remove("selected")); item.classList.add("selected"); };
-    el.appendChild(item);
-  });
-}
-
-function renderEventColorSwatches() {
-  const el=document.getElementById("event-color-swatches"); el.innerHTML="";
-  [...EVENT_COLORS,...customColors.map(c=>c.color)].forEach(col=>{
-    const sw=document.createElement("div");
-    sw.className="color-swatch"+(col===eventSelColor?" selected":"");
-    sw.style.background=col;
-    sw.onclick=()=>{ eventSelColor=col; el.querySelectorAll(".color-swatch").forEach(s=>s.classList.remove("selected")); sw.classList.add("selected"); };
-    el.appendChild(sw);
-  });
-  const picker=document.createElement("div");
-  picker.style.cssText="width:28px;height:28px;border-radius:6px;border:2px dashed #ccc;display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:16px;";
-  picker.innerText="＋";
-  picker.onclick=()=>{
-    const inp=document.createElement("input"); inp.type="color"; inp.value=eventSelColor;
-    inp.style.cssText="position:fixed;top:-100px;left:-100px;opacity:0;"; document.body.appendChild(inp);
-    inp.addEventListener("change",()=>{ eventSelColor=inp.value; document.body.removeChild(inp); renderEventColorSwatches(); });
-    inp.addEventListener("cancel",()=>{ if(document.body.contains(inp)) document.body.removeChild(inp); });
-    setTimeout(()=>inp.click(),50);
-  };
-  el.appendChild(picker);
-}
-
-function toggleNewMatForm() {
-  const f=document.getElementById("new-mat-form"), b=document.getElementById("new-mat-toggle");
-  const hide=f.style.display==="none"; f.style.display=hide?"block":"none"; b.innerText=hide?"▲ 閉じる":"＋ 新しい教材を追加";
-}
-async function saveNewMaterial() {
-  const name=document.getElementById("new-mat-name").value.trim(); if(!name){alert("教材名を入力してください");return;}
-  const newMat={id:genMatId(),name,color:document.getElementById("new-mat-color").value,category:document.getElementById("new-mat-category").value.trim()};
-  materials.push(newMat); await saveMaterials();
-  matSelectedId=newMat.id;
-  document.getElementById("new-mat-name").value=""; document.getElementById("new-mat-category").value="";
-  document.getElementById("new-mat-form").style.display="none"; document.getElementById("new-mat-toggle").innerText="＋ 新しい教材を追加";
-  renderMatList();
-}
-
-async function saveCellModal() {
-  let cellRecord=null;
-  if (cellModalMode==="study") {
-    const mat=matSelectedId?materials.find(m=>m.id===matSelectedId):null;
-    cellRecord={mode:"study",materialId:mat?mat.id:null,materialName:mat?mat.name:null,materialColor:mat?mat.color:null,pageFrom:parseInt(document.getElementById("mat-page-from").value)||null,pageTo:parseInt(document.getElementById("mat-page-to").value)||null};
-  } else {
-    const title=document.getElementById("event-title").value.trim();
-    cellRecord={mode:"event",title:title||"予定",color:eventSelColor,memo:document.getElementById("event-memo").value};
-  }
-  await saveCellData(cellModalId,cellModalCol,cellModalHour,cellRecord);
-  closeMatModal();
-}
-async function clearCellRecord() { await saveCellData(cellModalId,cellModalCol,cellModalHour,null); closeMatModal(); }
-function closeMatModal() { document.getElementById("cell-modal-overlay").style.display="none"; }
-
-// ════════════════════════════════════════
-// 週ナビゲーション
-// ════════════════════════════════════════
-function changeWeek(offset) { currentWeek+=offset; loadWeek(); }
-function getWeekMondayBase() {
-  const today=new Date(), dow=today.getDay();
-  const diff=dow===0?-6:1-dow;
-  const m=new Date(today); m.setDate(today.getDate()+diff+currentWeek*7); m.setHours(0,0,0,0);
-  return m;
-}
-function getStartOfWeek() {
-  const mon=getWeekMondayBase();
-  const offset=weekStartDay===0?6:weekStartDay-1;
-  const s=new Date(mon); s.setDate(mon.getDate()-offset);
-  return s;
-}
-function formatDate(d){ return (d.getMonth()+1)+"/"+d.getDate(); }
-function getDateKey(d){ return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`; }
-function getWeekDocId(){ return getDateKey(getWeekMondayBase()); }
-function getCellDateKey(hour,col){
-  const s=getStartOfWeek(), d=new Date(s); d.setDate(s.getDate()+col); d.setHours(0,0,0,0);
-  return getDateKey(d)+`-${String(hour).padStart(2,'0')}`;
-}
-function updateHeaders() {
-  const today=new Date(), start=getStartOfWeek(), topBarH=document.getElementById("top-bar").offsetHeight;
-  for (let j=0;j<7;j++){
-    const d=new Date(start); d.setDate(start.getDate()+j);
-    const isToday=d.getFullYear()===today.getFullYear()&&d.getMonth()===today.getMonth()&&d.getDate()===today.getDate();
-    const h=document.getElementById("header-"+j);
-    h.innerText=formatDate(d)+" "+allDayNames[d.getDay()]; h.style.top=topBarH+"px";
-    isToday?h.classList.add("today-header"):h.classList.remove("today-header");
-  }
-  const eh=document.querySelector(".header:first-child"); if(eh) eh.style.top=topBarH+"px";
-}
-
-// ════════════════════════════════════════
-// セル保存
-// ════════════════════════════════════════
-async function saveCell(cellId,colIndex,hour,newText,newColor,newChecked) {
-  if (!currentWeekDocId) return;
-  const key=getCellDateKey(hour,colIndex);
-  const cell=document.getElementById(cellId);
-  const checkbox=document.getElementById("check-"+cellId);
-  const existing=currentWeekData[key]||{};
-  const entry={id:currentWeekDocId+"__"+key,docId:currentWeekDocId,key,text:newText!==null?newText:(cell?.innerText.trim()||""),color:newColor!==null?newColor:(existing.color||""),checked:newChecked!==null?newChecked:(checkbox?.checked||false),cell:existing.cell||null};
-  await idbSet("cells",entry);
-  if (navigator.onLine){ const u={}; u[key]={text:entry.text,color:entry.color,checked:entry.checked,cell:entry.cell}; db.collection("schedules2").doc(entry.docId).set(u,{merge:true}).catch(e=>console.error(e)); }
-  else await idbSet("pending",entry);
-  setTimeout(loadWeek,200);
-}
-async function saveCellData(cellId,colIndex,hour,cellRecord) {
-  if (!currentWeekDocId) return;
-  const key=getCellDateKey(hour,colIndex);
-  const cell=document.getElementById(cellId);
-  const checkbox=document.getElementById("check-"+cellId);
-  const existing=currentWeekData[key]||{};
-  const entry={id:currentWeekDocId+"__"+key,docId:currentWeekDocId,key,text:existing.text||(cell?.innerText.trim()||""),color:existing.color||"",checked:existing.checked||(checkbox?.checked||false),cell:cellRecord};
-  await idbSet("cells",entry);
-  if (navigator.onLine){ const u={}; u[key]={text:entry.text,color:entry.color,checked:entry.checked,cell:entry.cell}; db.collection("schedules2").doc(entry.docId).set(u,{merge:true}).catch(e=>console.error(e)); }
-  else await idbSet("pending",entry);
-  currentWeekData[key]=entry;
-  setTimeout(loadWeek,200);
-}
-
-// ════════════════════════════════════════
-// 週読み込み・セル描画
-// ════════════════════════════════════════
-async function loadWeek() {
-  const start=getStartOfWeek(), end=new Date(start); end.setDate(start.getDate()+6);
-  document.getElementById("week-label").innerText=formatDate(start)+" 〜 "+formatDate(end);
-  currentWeekDocId=getWeekDocId(); updateHeaders();
-  let data={};
-  if (navigator.onLine) {
-    try {
-      const doc=await db.collection("schedules2").doc(currentWeekDocId).get();
-      data=doc.exists?doc.data():{};
-      for (const [k,v] of Object.entries(data)) {
-        await idbSet("cells",{id:currentWeekDocId+"__"+k,docId:currentWeekDocId,key:k,text:v.text||"",color:v.color||"",checked:v.checked||false,cell:v.cell||null});
-      }
-    } catch(err){ data=await loadFromIDB(); }
-  } else { data=await loadFromIDB(); }
-  currentWeekData=data;
-  applyWeekData(data,start);
-  renderSummary(data,start);
-}
-async function loadFromIDB() {
-  const all=await idbGetAll("cells");
-  const data={};
-  all.filter(e=>e.docId===currentWeekDocId).forEach(e=>{ data[e.key]={text:e.text,color:e.color,checked:e.checked,cell:e.cell||null}; });
-  return data;
-}
-function applyWeekData(data,start) {
-  const today=new Date();
-  for (let i=4;i<24;i++){
-    for (let j=0;j<7;j++){
-      const cellId=`cell-${i}-${j}`;
-      const cell=document.getElementById(cellId);
-      const checkbox=document.getElementById("check-"+cellId);
-      const wrapper=document.getElementById("wrapper-"+cellId);
-      if (!cell||!checkbox||!wrapper) continue;
-      const key=getCellDateKey(i,j);
-      const saved=data[key]||{text:"",color:"",checked:false,cell:null};
-      const cellData=saved.cell||null;
-      let bgColor="", textCol="";
-      if (cellData&&cellData.mode==="event"){ bgColor=cellData.color||"#ffadad"; textCol=getTextColor(bgColor); }
-      else if (saved.color){ bgColor=getColorStyle(saved.color); textCol=bgColor?getTextColor(bgColor):""; }
-      wrapper.style.background=bgColor||"";
-      cell.style.color=textCol||"";
-      const d=new Date(start); d.setDate(start.getDate()+j);
-      const isToday=d.getFullYear()===today.getFullYear()&&d.getMonth()===today.getMonth()&&d.getDate()===today.getDate();
-      if (isToday&&!bgColor) wrapper.classList.add("today-col"); else wrapper.classList.remove("today-col");
-      if (cellData&&cellData.mode==="study"&&cellData.materialId&&!saved.color) wrapper.classList.add("cell-study-bg"); else wrapper.classList.remove("cell-study-bg");
-      checkbox.checked=saved.checked||false;
-      cell.style.textDecoration=saved.checked?"line-through":"";
-      cell.style.opacity=saved.checked?"0.5":"1";
-      wrapper.querySelectorAll(".cell-mat-badge,.cell-page-hint,.cell-event-title").forEach(el=>el.remove());
-      if (cellData){
-        if (cellData.mode==="study"&&cellData.materialId){
-          const badge=document.createElement("div"); badge.className="cell-mat-badge"; badge.style.background=cellData.materialColor; badge.style.color=getTextColor(cellData.materialColor); badge.innerText=cellData.materialName; wrapper.appendChild(badge);
-          if (cellData.pageFrom||cellData.pageTo){ const ph=document.createElement("div"); ph.className="cell-page-hint"; ph.innerText=`p${cellData.pageFrom||"?"}〜${cellData.pageTo||"?"}`; wrapper.appendChild(ph); }
-        } else if (cellData.mode==="event"){
-          const et=document.createElement("div"); et.className="cell-event-title"; et.style.color=getTextColor(cellData.color||"#ffadad"); et.innerText=cellData.title||"予定"; wrapper.appendChild(et);
-        }
-      }
-      wrapper.onclick=(e)=>{
-        if (e.target===checkbox) return;
-        if (currentColor){ const newColor=currentColor==="clear"?"":currentColor; const newBg=newColor?getColorStyle(newColor):""; cell.dataset.color=newColor; wrapper.style.background=newBg; cell.style.color=newBg?getTextColor(newBg):""; saveCell(cellId,j,i,null,newColor,null); }
-        else {
-          const key=getCellDateKey(i,j);
-          const savedEntry=currentWeekData[key]||{};
-          const cellRecord=savedEntry.cell||null;
-          if (cellRecord&&cellRecord.mode==="study") { openPomodoroModal(cellId,j,i,cellRecord); }
-          else { openCellModal(cellId,j,i); }
-        }
-      };
-      checkbox.onchange=()=>{ cell.style.textDecoration=checkbox.checked?"line-through":""; cell.style.opacity=checkbox.checked?"0.5":"1"; saveCell(cellId,j,i,null,null,checkbox.checked); };
+    const s = JSON.parse(localStorage.getItem(TODAY_KEY));
+    if (s && s.date === new Date().toDateString()) {
+      state.sessionCount = s.sessions    || 0;
+      state.workMinutes  = s.minutes     || 0;
+      state.cyclePos     = s.cyclePos    || 0;
+      state.matSessions  = s.matSessions || {};
     }
-  }
+  } catch(e) {}
 }
 
-// ════════════════════════════════════════
-// 集計
-// ════════════════════════════════════════
-function renderSummary(data,start) {
-  const totals={}, daily=Array(7).fill(0);
-  for (let i=4;i<24;i++){ for (let j=0;j<7;j++){ const k=getCellDateKey(i,j), s=data[k]; if (s&&s.cell&&s.cell.mode==="study"&&s.cell.materialId){ const id=s.cell.materialId; if (!totals[id]) totals[id]={name:s.cell.materialName,color:s.cell.materialColor,hours:0}; totals[id].hours+=1; daily[j]+=1; } } }
-  const barsEl=document.getElementById("summary-bars"); barsEl.innerHTML="";
-  const entries=Object.values(totals).sort((a,b)=>b.hours-a.hours);
-  const maxH=entries.length?entries[0].hours:1;
-  if (!entries.length){ barsEl.innerHTML='<div style="color:#bbb;font-size:12px;padding:4px 0;">この週の勉強予約はまだありません</div>'; }
-  else {
-    const totalH=entries.reduce((s,e)=>s+e.hours,0);
-    const tr=document.createElement("div"); tr.style.cssText="font-size:12px;color:#555;margin-bottom:8px;"; tr.innerHTML=`週間予約時間：<b style="color:#4a90e2;">${totalH}時間</b>`; barsEl.appendChild(tr);
-    entries.forEach(entry=>{ const row=document.createElement("div"); row.className="summary-row"; row.innerHTML=`<div class="summary-label" title="${entry.name}">${entry.name}</div><div class="summary-bar-wrap"><div class="summary-bar" style="width:${(entry.hours/maxH*100).toFixed(1)}%;background:${entry.color};"></div></div><div class="summary-time">${entry.hours}h</div>`; barsEl.appendChild(row); });
-  }
-  renderDailyChart(daily,start);
-}
-function renderDailyChart(daily,start){
-  const labels=[]; for (let j=0;j<7;j++){const d=new Date(start);d.setDate(start.getDate()+j);labels.push(`${d.getMonth()+1}/${d.getDate()}`);}
-  const ctx=document.getElementById("summary-chart").getContext("2d");
-  if (summaryChart) summaryChart.destroy();
-  summaryChart=new Chart(ctx,{type:"bar",data:{labels,datasets:[{label:"予約時間（h）",data:daily,backgroundColor:"rgba(74,144,226,0.7)",borderColor:"rgba(74,144,226,1)",borderWidth:1,borderRadius:4}]},options:{responsive:true,plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>`${c.parsed.y}時間`}}},scales:{y:{beginAtZero:true,ticks:{stepSize:1,font:{size:11}},title:{display:true,text:"時間",font:{size:11}}},x:{ticks:{font:{size:11}}}}}});
-}
-function switchSummaryTab(tab,e){
-  document.querySelectorAll(".summary-tab").forEach(t=>t.classList.remove("active"));
-  if (e&&e.target) e.target.classList.add("active");
-  document.getElementById("summary-bar-view").style.display=tab==="bar"?"block":"none";
-  document.getElementById("summary-chart-view").style.display=tab==="chart"?"block":"none";
-}
+// ── イベント ──
+document.getElementById('mainBtn').addEventListener('click',  () => state.running ? pauseTimer() : startTimer());
+document.getElementById('resetBtn').addEventListener('click', reset);
+document.getElementById('skipBtn').addEventListener('click',  skip);
 
-// ════════════════════════════════════════
-// 認証機能
-// ════════════════════════════════════════
-function setupAuth() {
-  // ログインボタン
-  document.getElementById('auth-login').addEventListener('click', () => {
-    const email = document.getElementById('auth-email').value;
-    const password = document.getElementById('auth-password').value;
-    const errorEl = document.getElementById('auth-error');
-    
-    if (!email || !password) {
-      errorEl.textContent = 'メールアドレスとパスワードを入力してください';
-      errorEl.style.display = 'block';
-      return;
-    }
-    
-    auth.signInWithEmailAndPassword(email, password)
-      .then((userCredential) => {
-        errorEl.style.display = 'none';
-        showApp();
-      })
-      .catch((error) => {
-        errorEl.textContent = 'ログインエラー: ' + error.message;
-        errorEl.style.display = 'block';
-      });
+document.getElementById('settingsHeader').addEventListener('click', () => {
+  document.getElementById('settingsBody').classList.toggle('open');
+  document.getElementById('settingsToggle').classList.toggle('open');
+});
+
+['workMin','shortBreakMin','longBreakMin'].forEach(id => {
+  document.getElementById(id).addEventListener('change', () => {
+    if (!state.running) initPhase(state.phase);
   });
-  
-  // 新規登録ボタン
-  document.getElementById('auth-signup').addEventListener('click', () => {
-    const email = document.getElementById('auth-email').value;
-    const password = document.getElementById('auth-password').value;
-    const errorEl = document.getElementById('auth-error');
-    
-    if (!email || !password) {
-      errorEl.textContent = 'メールアドレスとパスワードを入力してください';
-      errorEl.style.display = 'block';
-      return;
-    }
-    
-    if (password.length < 6) {
-      errorEl.textContent = 'パスワードは6文字以上にしてください';
-      errorEl.style.display = 'block';
-      return;
-    }
-    
-    auth.createUserWithEmailAndPassword(email, password)
-      .then((userCredential) => {
-        errorEl.style.display = 'none';
-        showApp();
-      })
-      .catch((error) => {
-        errorEl.textContent = '登録エラー: ' + error.message;
-        errorEl.style.display = 'block';
-      });
-  });
-  
-  // ログアウト機能
-  window.logout = function() {
-    auth.signOut().then(() => {
-      showLogin();
-    }).catch((error) => {
-      console.error('ログアウトエラー:', error);
-    });
-  };
-  
-  // 認証状態の監視
-  auth.onAuthStateChanged((user) => {
-    if (user) {
-      showApp();
-    } else {
-      showLogin();
-    }
-  });
-}
+});
 
-function showApp() {
-  document.getElementById('auth-container').style.display = 'none';
-  document.getElementById('app-content').style.display = 'block';
-}
-
-function showLogin() {
-  document.getElementById('auth-container').style.display = 'flex';
-  document.getElementById('app-content').style.display = 'none';
-}
-
-// ════════════════════════════════════════
-// プリセット機能
-// ════════════════════════════════════════
-let currentPresetType = '7class';
-let currentStudyMode = 'proceed';
-function switchSettingsTab(tab) {
-  const tabs = document.querySelectorAll('#modal-overlay .mode-tab');
-  const panels = ['panel-basic', 'panel-preset'];
-  
-  tabs.forEach(t => t.classList.remove('active-study'));
-  panels.forEach(p => document.getElementById(p).style.display = 'none');
-  
-  if (tab === 'basic') {
-    document.getElementById('tab-basic').classList.add('active-study');
-    document.getElementById('panel-basic').style.display = 'block';
-  } else {
-    document.getElementById('tab-preset').classList.add('active-study');
-    document.getElementById('panel-preset').style.display = 'block';
-  }
-}
-
-function applyPreset(type) {
-  currentPresetType = type;
-  document.querySelectorAll('#preset-6class, #preset-7class').forEach(btn => {
-    btn.style.background = '#e3f2fd';
-    btn.style.color = '#333';
-  });
-  document.getElementById('preset-' + type).style.background = '#2196f3';
-  document.getElementById('preset-' + type).style.color = 'white';
-}
-
-function setStudyMode(mode) {
-  currentStudyMode = mode;
-  document.querySelectorAll('#preset-proceed, #preset-bunpla').forEach(btn => {
-    btn.style.background = '#f3e5f5';
-    btn.style.color = '#333';
-  });
-  document.getElementById('preset-' + mode).style.background = '#9c27b0';
-  document.getElementById('preset-' + mode).style.color = 'white';
-}
-
-async function applyCurrentPreset() {
-  const checkedDays = Array.from(document.querySelectorAll('#preset-days input:checked')).map(cb => parseInt(cb.value));
-  if (checkedDays.length === 0) {
-    alert('対象曜日を少なくとも1つ選択してください');
-    return;
-  }
-  
-  const clubStart = currentPresetType === '6class' ? 15 : 16;
-  const studyEnd = currentStudyMode === 'bunpla' ? 22 : 21.33; // 22:00 or 21:20
-  
-  const presetSchedule = [
-    { hour: 6, minute: 0, duration: 60, type: 'event', title: '起床', color: '#ffeb3b' },
-    { hour: 7, minute: 0, duration: 60, type: 'study', title: '朝の勉強' },
-    { hour: 8, minute: 0, duration: 480, type: 'event', title: '学校', color: '#e3f2fd' },
-    { hour: clubStart, minute: 0, duration: 120, type: 'event', title: '部活', color: '#f3e5f5' },
-    { hour: 18, minute: 0, duration: (studyEnd - 18) * 60, type: 'study', title: '夜の勉強' },
-    { hour: Math.floor(studyEnd) + (studyEnd % 1 >= 0.33 ? 1 : 0), minute: (studyEnd % 1 >= 0.33 ? 20 : 40), duration: 80, type: 'event', title: '終支度', color: '#fff3e0' }
-  ];
-  
-  for (const day of checkedDays) {
-    for (const schedule of presetSchedule) {
-      await applyPresetToCell(day, schedule);
-    }
-  }
-  
-  setTimeout(loadWeek, 500);
-  alert('プリセットを適用しました');
-}
-
-async function applyPresetToCell(day, schedule) {
-  const startHour = Math.floor(schedule.hour);
-  const startMinute = schedule.minute;
-  const duration = schedule.duration;
-  
-  const hourSlots = Math.ceil(duration / 60);
-  
-  for (let i = 0; i < hourSlots; i++) {
-    const hour = startHour + i;
-    if (hour < 4 || hour >= 24) continue; // 表示範囲外
-    
-    const cellId = `cell-${hour}-${day}`;
-    const colIndex = day;
-    
-    if (schedule.type === 'study') {
-      const cellRecord = {
-        mode: "study",
-        materialId: null, 
-        materialName: "教材未設定",
-        materialColor: "#4a90e2",
-        pageFrom: null,
-        pageTo: null
-      };
-      await saveCellData(cellId, colIndex, hour, cellRecord);
-    } else {
-      const cellRecord = {
-        mode: "event",
-        title: schedule.title,
-        color: schedule.color || "#ffadad",
-        memo: ""
-      };
-      await saveCellData(cellId, colIndex, hour, cellRecord);
-    }
-  }
-}
-
-// ════════════════════════════════════════
-// ポモドーロ連携
-// ════════════════════════════════════════
-let pomCellId = null, pomCellCol = null, pomCellHour = null;
-let pomCellData = null;
-
-function openPomodoroModal(cellId, colIndex, hour, cellData) {
-  pomCellId = cellId; pomCellCol = colIndex; pomCellHour = hour;
-  pomCellData = cellData;
-  const matName = cellData.materialId ? cellData.materialName : "（教材なし）";
-  document.getElementById("pom-subject").innerText = "📚 " + matName;
-  const from = cellData.pageFrom, to = cellData.pageTo;
-  document.getElementById("pom-pages").innerText = (from || to) ? `p${from||"?"}〜${to||"?"} ページ` : "";
-  document.getElementById("pomodoro-modal-overlay").style.display = "flex";
-}
-
-function closePomodoroModal() {
-  document.getElementById("pomodoro-modal-overlay").style.display = "none";
-}
-
-function openCellModalFromPom() {
-  closePomodoroModal();
-  openCellModal(pomCellId, pomCellCol, pomCellHour);
-}
-
-function pomGoToTimer() {
-  if (!pomCellData) return;
-  const params = new URLSearchParams();
-  if (pomCellData.materialId)   params.set("matId",    pomCellData.materialId);
-  if (pomCellData.materialName) params.set("matName",  pomCellData.materialName);
-  if (pomCellData.materialColor)params.set("matColor", pomCellData.materialColor);
-  if (pomCellData.pageFrom)     params.set("from",     pomCellData.pageFrom);
-  if (pomCellData.pageTo)       params.set("to",       pomCellData.pageTo);
-  window.location.href = "pomodoro.html?" + params.toString();
-}
-
-
-(async()=>{
-  setupAuth();
-  renderCustomColorButtons();
+// ── 起動 ──
+(async () => {
+  loadToday();
   await loadMaterials();
-  await loadWeek();
-  window.addEventListener("resize", adjustHeaderTop);
-  setTimeout(adjustHeaderTop,100);
+  applyUrlParams();
+  initPhase('work');
 })();
 
-if ("serviceWorker" in navigator){
-  navigator.serviceWorker.register("./sw.js").then(()=>console.log("SW OK")).catch(e=>console.error(e));
+// ── URLパラメータからスケジュール情報を反映 ──
+function applyUrlParams() {
+  const p = new URLSearchParams(location.search);
+  const matId    = p.get('matId');
+  const matName  = p.get('matName');
+  const matColor = p.get('matColor');
+  const from     = p.get('from');
+  const to       = p.get('to');
+
+  // 教材セレクト：IDが一致するoptionを選択、なければ仮optionを挿入
+  if (matId || matName) {
+    const sel = document.getElementById('materialSelect');
+    let found = false;
+    for (const opt of sel.options) {
+      if (opt.value === matId) { opt.selected = true; found = true; break; }
+    }
+    if (!found && matName) {
+      const opt = document.createElement('option');
+      opt.value        = matId || '__from_schedule__';
+      opt.textContent  = matName;
+      opt.dataset.name  = matName;
+      opt.dataset.color = matColor || '#4a90e2';
+      opt.selected = true;
+      sel.appendChild(opt);
+    }
+  }
+
+  // ページ情報カード
+  if (from || to) {
+    document.getElementById('page-info-card').style.display = 'block';
+    document.getElementById('page-info-text').textContent =
+      `p${from || '?'} 〜 p${to || '?'}`;
+  }
 }
 </script>
-
-<script src="nav.js"></script>
 </body>
 </html>
