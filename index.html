@@ -1615,12 +1615,46 @@ function openCellModalFromPom() {
 function pomGoToTimer() {
   if (!pomCellData) return;
   const params = new URLSearchParams();
-  if (pomCellData.materialId)   params.set("matId",    pomCellData.materialId);
-  if (pomCellData.materialName) params.set("matName",  pomCellData.materialName);
-  if (pomCellData.materialColor)params.set("matColor", pomCellData.materialColor);
-  if (pomCellData.pageFrom)     params.set("from",     pomCellData.pageFrom);
-  if (pomCellData.pageTo)       params.set("to",       pomCellData.pageTo);
+  if (pomCellData.materialId)    params.set("matId",    pomCellData.materialId);
+  if (pomCellData.materialName)  params.set("matName",  pomCellData.materialName);
+  if (pomCellData.materialColor) params.set("matColor", pomCellData.materialColor);
+  if (pomCellData.pageFrom)      params.set("from",     pomCellData.pageFrom);
+  if (pomCellData.pageTo)        params.set("to",       pomCellData.pageTo);
+
+  // ── 次の勉強予約セルを探してURLに追加 ──
+  const nextCell = findNextStudyCell(pomCellCol, pomCellHour);
+  if (nextCell) {
+    if (nextCell.materialId)    params.set("nextMatId",    nextCell.materialId);
+    if (nextCell.materialName)  params.set("nextMatName",  nextCell.materialName);
+    if (nextCell.materialColor) params.set("nextMatColor", nextCell.materialColor);
+    if (nextCell.pageFrom)      params.set("nextFrom",     nextCell.pageFrom);
+    if (nextCell.pageTo)        params.set("nextTo",       nextCell.pageTo);
+  }
+
   window.location.href = "pomodoro.html?" + params.toString();
+}
+
+// 指定のコマより後で、最も近い勉強予約セルを探す
+function findNextStudyCell(colIndex, hour) {
+  // 同じ日の後の時間帯を先に探す
+  for (let h = hour + 1; h < 24; h++) {
+    const key = getCellDateKey(h, colIndex);
+    const entry = currentWeekData[key];
+    if (entry && entry.cell && entry.cell.mode === "study" && entry.cell.materialId) {
+      return entry.cell;
+    }
+  }
+  // 次の日以降も探す（今週内）
+  for (let col = colIndex + 1; col < 7; col++) {
+    for (let h = 4; h < 24; h++) {
+      const key = getCellDateKey(h, col);
+      const entry = currentWeekData[key];
+      if (entry && entry.cell && entry.cell.mode === "study" && entry.cell.materialId) {
+        return entry.cell;
+      }
+    }
+  }
+  return null;
 }
 
 
