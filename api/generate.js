@@ -2,32 +2,28 @@ export default async function handler(req, res) {
   try {
     const { prompt } = req.body;
 
-    const response = await fetch("https://api.anthropic.com/v1/messages", {
+    const response = await fetch("https://api.cohere.ai/v1/chat", {
       method: "POST",
       headers: {
-        "Content-Type": "application/json",
-        "x-api-key": process.env.ANTHROPIC_API_KEY,
-        "anthropic-version": "2023-06-01"
+        "Authorization": `Bearer ${process.env.COHERE_API_KEY}`,
+        "Content-Type": "application/json"
       },
       body: JSON.stringify({
-        model: "claude-sonnet-4-20250514",
-        max_tokens: 1000,
-        messages: [{ role: "user", content: prompt }]
+        model: "command-r",
+        message: prompt,
+        temperature: 0.7
       })
     });
 
     const data = await response.json();
 
-    if (!data.content) {
-      throw new Error("APIエラー: " + JSON.stringify(data));
+    if (!data.text) {
+      return res.status(500).json({ error: data });
     }
 
-    const text = data.content.map(c => c.text || "").join("");
-
-    res.status(200).json({ text });
+    res.json({ text: data.text });
 
   } catch (err) {
-    console.error(err);
     res.status(500).json({ error: err.message });
   }
 }
