@@ -19,14 +19,15 @@ export default async function handler(req, res) {
     const data = await response.json();
 
     if (!data.content) {
-      return res.status(500).json({ error: data });
+      throw new Error("APIエラー: " + JSON.stringify(data));
     }
 
     const text = data.content.map(c => c.text || "").join("");
 
-    res.json({ text });
+    res.status(200).json({ text });
 
   } catch (err) {
+    console.error(err);
     res.status(500).json({ error: err.message });
   }
 }
