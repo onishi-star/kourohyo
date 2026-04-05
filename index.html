@@ -514,7 +514,8 @@
     <div class="header" id="header-6"></div>
     <script>
       for (let i = 4; i < 24; i++) {
-        document.write(`<div class="time">${i}:00</div>`);
+        const label = i === 4 ? '備考' : `${i}:00`;
+        document.write(`<div class="time">${label}</div>`);
         for (let j = 0; j < 7; j++) {
           const id = `cell-${i}-${j}`;
           document.write(`
@@ -803,8 +804,14 @@ function saveDayModal() {
   currentMonthData[currentDayKey]=currentMonthData[currentDayKey]||{};
   currentMonthData[currentDayKey].memo=document.getElementById("day-modal-memo").value;
   currentMonthData[currentDayKey].checked=document.getElementById("day-modal-check").checked;
+  const memo=currentMonthData[currentDayKey].memo;
   const u={}; u[currentDayKey]=currentMonthData[currentDayKey];
-  db.collection("monthly").doc(currentMonthDocId).set(u,{merge:true}).then(()=>{closeDayModal();loadMonthly();}).catch(e=>console.error(e));
+  db.collection("monthly").doc(currentMonthDocId).set(u,{merge:true}).then(()=>{
+    // マンスリーのmemoをウィークリー備考行（4:00）にも同期
+    syncMonthlyToWeekly(currentDayKey, memo);
+    closeDayModal();
+    loadMonthly();
+  }).catch(e=>console.error(e));
 }
 
 function closeDayModal() {
@@ -1274,6 +1281,8 @@ async function saveCell(cellId,colIndex,hour,newText,newColor,newChecked) {
   await idbSet("cells",entry);
   if (navigator.onLine){ const u={}; u[key]={text:entry.text,color:entry.color,checked:entry.checked,cell:entry.cell}; db.collection("schedules2").doc(entry.docId).set(u,{merge:true}).catch(e=>console.error(e)); }
   else await idbSet("pending",entry);
+  // 備考行（hour===4）のテキストをマンスリーのmemoに同期
+  if (hour===4 && navigator.onLine) { syncWeeklyToMonthly(colIndex, entry.text); }
   setTimeout(loadWeek,200);
 }
 async function saveCellData(cellId,colIndex,hour,cellRecord) {
@@ -1310,6 +1319,7 @@ async function loadWeek() {
   currentWeekData=data;
   applyWeekData(data,start);
   renderSummary(data,start);
+  if (navigator.onLine) syncMonthlyMemoToWeekRow(data, start);
 }
 async function loadFromIDB() {
   const all=await idbGetAll("cells");
@@ -1657,6 +1667,75 @@ function findNextStudyCell(colIndex, hour) {
   return null;
 }
 
+
+// ════════════════════════════════════════
+// 備考（4:00行）↔ マンスリー memo 双方向同期
+// ════════════════════════════════════════
+
+// ウィークリー備考 → マンスリーmemo に書く
+function syncWeeklyToMonthly(colIndex, text) {
+  const start = getStartOfWeek();
+  const d = new Date(start); d.setDate(start.getDate() + colIndex);
+  const dayKey = getDateKey(d);
+  const monthDocId = `monthly-${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
+  const u = {}; u[dayKey] = { memo: text };
+  db.collection("monthly").doc(monthDocId).set(u, { merge: true }).catch(e => console.error(e));
+}
+
+// マンスリーmemo → ウィークリー備考（4:00行）に書く
+async function syncMonthlyToWeekly(dayKey, memo) {
+  const d = new Date(dayKey);
+  if (isNaN(d)) return;
+  const start = getStartOfWeek();
+  let colIndex = -1;
+  for (let j = 0; j < 7; j++) {
+    const wd = new Date(start); wd.setDate(start.getDate() + j);
+    if (getDateKey(wd) === dayKey) { colIndex = j; break; }
+  }
+  if (colIndex === -1) return;
+  const cellId = `cell-4-${colIndex}`;
+  const key = getCellDateKey(4, colIndex);
+  const existing = currentWeekData[key] || {};
+  const entry = {
+    id: currentWeekDocId + "__" + key,
+    docId: currentWeekDocId,
+    key,
+    text: memo,
+    color: existing.color || "",
+    checked: existing.checked || false,
+    cell: existing.cell || null
+  };
+  await idbSet("cells", entry);
+  if (navigator.onLine) {
+    const u = {}; u[key] = { text: entry.text, color: entry.color, checked: entry.checked, cell: entry.cell };
+    db.collection("schedules2").doc(entry.docId).set(u, { merge: true }).catch(e => console.error(e));
+  }
+  currentWeekData[key] = entry;
+  const cellEl = document.getElementById(cellId);
+  if (cellEl) cellEl.innerText = memo;
+}
+
+// ウィークリー読み込み時、4:00行が空ならmonthlyのmemoを引っ張ってくる
+async function syncMonthlyMemoToWeekRow(data, start) {
+  for (let j = 0; j < 7; j++) {
+    const d = new Date(start); d.setDate(start.getDate() + j);
+    const dayKey = getDateKey(d);
+    const key = getCellDateKey(4, j);
+    const existing = data[key];
+    if (existing && existing.text) continue;
+    const monthDocId = `monthly-${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
+    try {
+      const doc = await db.collection("monthly").doc(monthDocId).get();
+      if (!doc.exists) continue;
+      const memo = (doc.data()[dayKey] || {}).memo || "";
+      if (!memo) continue;
+      if (!currentWeekData[key]) currentWeekData[key] = {};
+      currentWeekData[key].text = memo;
+      const cellEl = document.getElementById(`cell-4-${j}`);
+      if (cellEl && !cellEl.innerText.trim()) cellEl.innerText = memo;
+    } catch(e) {}
+  }
+}
 
 (async()=>{
   setupAuth();
