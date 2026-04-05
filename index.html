@@ -289,6 +289,18 @@
     <div id="panel-basic">
       <h3 style="margin-bottom:12px; font-size:14px;">週の開始曜日</h3>
       <div id="day-select-buttons" style="display:flex; flex-wrap:wrap; gap:8px; justify-content:center; margin-bottom:20px;"></div>
+
+      <h3 style="margin-bottom:10px; font-size:14px;">🎨 一括色塗り</h3>
+      <div style="margin-bottom:8px;">
+        <div style="font-size:12px; color:#888; margin-bottom:6px;">色を選んでセルをタップすると塗れます</div>
+        <div id="custom-colors" style="display:flex; flex-wrap:wrap; gap:6px; margin-bottom:8px;"></div>
+        <div style="display:flex; gap:6px; flex-wrap:wrap; align-items:center;">
+          <button class="color-btn" id="btn-add"      onclick="addCustomColor()" style="font-size:12px; padding:5px 12px;">＋色を追加</button>
+          <button class="color-btn" id="btn-clear"    onclick="setColor('clear'); closeModal();" style="font-size:12px; padding:5px 12px;">🗑 色を消す</button>
+          <button class="color-btn" id="btn-deselect" onclick="deselectColor(); closeModal();" style="font-size:12px; padding:5px 12px;">解除</button>
+        </div>
+        <div id="current-color-label" style="font-size:12px; color:#4a90e2; margin-top:6px; font-weight:bold;"></div>
+      </div>
     </div>
     
     <!-- プリセットパネル -->
@@ -477,14 +489,6 @@
       <button onclick="changeMonth(-1)">← 前の月</button>
       <span id="month-label"></span>
       <button onclick="changeMonth(1)">次の月 →</button>
-    </div>
-    <div class="ctrl-row" id="color-btns-row">
-      <span style="font-size:11px; color:#888; margin-right:2px;">一括塗り：</span>
-      <div id="custom-colors" style="display:inline;"></div>
-      <button class="color-btn" id="btn-add"      onclick="addCustomColor()" style="font-size:11px;">＋追加</button>
-      <button class="color-btn" id="btn-clear"    onclick="setColor('clear')" style="font-size:11px;">消す</button>
-      <button class="color-btn" id="btn-deselect" onclick="deselectColor()"  style="font-size:11px;">解除</button>
-      <span id="current-color-label" style="font-size:11px; color:#888; margin-left:4px; background:#f3f3f3; padding:2px 7px; border-radius:8px;"></span>
     </div>
     <div class="ctrl-row">
       <button onclick="openModal()">⚙️ 設定</button>
@@ -1029,6 +1033,12 @@ function openModal() {
     b.onclick=()=>{weekStartDay=i;localStorage.setItem("weekStartDay",i);closeModal();currentWeek=0;loadWeek();};
     c.appendChild(b);
   });
+  renderCustomColorButtons();
+  // 現在選択中の色を表示
+  const lbl=document.getElementById("current-color-label");
+  if (currentColor==="clear") lbl.innerText="✏️ 色を消すモード中";
+  else if (currentColor.startsWith("custom-")) { const idx=parseInt(currentColor.split("-")[1]); lbl.innerText=`✏️ 塗り色：${customColors[idx]?.name||""} 選択中`; }
+  else lbl.innerText="";
 }
 function closeModal(){ document.getElementById("modal-overlay").style.display="none"; }
 
@@ -1044,7 +1054,7 @@ function renderCustomColorButtons() {
     b.className="color-btn"; b.id="btn-custom-"+i;
     b.style.cssText="background:"+col.color+"; color:"+getTextColor(col.color)+"; border:none; border-radius:0; margin:0;";
     b.innerText=col.name;
-    b.onclick=()=>setColor("custom-"+i);
+    b.onclick=()=>{ setColor("custom-"+i); closeModal(); };
     const del=document.createElement("button");
     del.innerText="×"; del.title="削除";
     del.style.cssText="background:"+col.color+"; color:"+getTextColor(col.color)+"; border:none; border-left:1px solid rgba(0,0,0,0.2); padding:0 5px; cursor:pointer; font-size:11px; font-weight:bold; border-radius:0; opacity:0.75;";
@@ -1244,14 +1254,18 @@ function getWeekMondayBase() {
   return m;
 }
 function getStartOfWeek() {
-  const mon=getWeekMondayBase();
-  const offset=weekStartDay===0?6:weekStartDay-1;
-  const s=new Date(mon); s.setDate(mon.getDate()-offset);
+  const today=new Date();
+  today.setHours(0,0,0,0);
+  const dow=today.getDay(); // 0=日〜6=土
+  // 今日からweekStartDayまで何日前か
+  const diff=((dow - weekStartDay) + 7) % 7;
+  const s=new Date(today);
+  s.setDate(today.getDate() - diff + currentWeek*7);
   return s;
 }
 function formatDate(d){ return (d.getMonth()+1)+"/"+d.getDate(); }
 function getDateKey(d){ return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`; }
-function getWeekDocId(){ return getDateKey(getWeekMondayBase()); }
+function getWeekDocId(){ return getDateKey(getStartOfWeek()); }
 function getCellDateKey(hour,col){
   const s=getStartOfWeek(), d=new Date(s); d.setDate(s.getDate()+col); d.setHours(0,0,0,0);
   return getDateKey(d)+`-${String(hour).padStart(2,'0')}`;
