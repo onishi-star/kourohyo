@@ -414,10 +414,50 @@ let currentQIndex = 0;
 
 async function generateQuestions() {
   const btn = document.getElementById('aiBtn');
+
   if (!todayPlans.length) {
-    alert('今日の計画がありません。スケジュールページで教材を予約してください。');
+    alert('今日の計画がありません。');
     return;
   }
+
+  // ローディング表示
+  btn.disabled = true;
+  btn.innerHTML = '問題を生成中...';
+
+  // ▼ ダミー問題
+  questions = [
+    {
+      q: "sin²θ + cos²θ = ?",
+      a: "1",
+      hint: "三角関数の基本公式です",
+      subject: "数学"
+    },
+    {
+      q: "一次関数 y = 2x + 3 の傾きは？",
+      a: "2",
+      hint: "xの係数が傾きです",
+      subject: "数学"
+    },
+    {
+      q: "英単語 'important' の意味は？",
+      a: "重要な",
+      hint: "テストによく出る単語です",
+      subject: "英語"
+    }
+  ];
+
+  // ランダムに並び替え（任意だけどおすすめ）
+  questions.sort(() => Math.random() - 0.5);
+
+  currentQIndex = 0;
+
+  // 少し待ってから表示（AIっぽく）
+  setTimeout(() => {
+    renderQuestion();
+    btn.innerHTML = '✨ もう一度生成する';
+    btn.disabled = false;
+  }, 800);
+}
 
   // 教材情報と「学んだこと」を収集
   const matGroups = {};
