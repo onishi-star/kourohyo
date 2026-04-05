@@ -188,6 +188,30 @@
     .loading-dots span:nth-child(3) { animation-delay: 0.4s; }
     @keyframes blink { 0%,80%,100%{opacity:0.2} 40%{opacity:1} }
 
+    /* ── 学んだこと入力 ── */
+    .learned-toggle {
+      font-size: 12px; color: var(--primary-dk);
+      background: none; border: none; cursor: pointer;
+      padding: 4px 0; font-family: inherit;
+      text-decoration: underline;
+    }
+    .learned-area {
+      display: none;
+      margin-top: 8px;
+    }
+    .learned-area textarea {
+      width: 100%;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 8px 10px;
+      font-size: 13px; font-family: inherit;
+      resize: none; background: var(--bg);
+      min-height: 64px;
+      transition: border-color .15s;
+    }
+    .learned-area textarea:focus { outline: none; border-color: var(--primary); }
+    .learned-area .char-hint { font-size: 11px; color: var(--text-sub); margin-top: 3px; }
+
     /* ── 空状態 ── */
     .empty-state {
       text-align: center; padding: 32px 16px; color: var(--text-sub);
@@ -315,21 +339,37 @@ function renderPlanList() {
     return;
   }
   el.innerHTML = '';
-  todayPlans.forEach(p => {
+  todayPlans.forEach((p, idx) => {
     const item = document.createElement('div');
-    item.className = 'plan-item' + (p.done ? ' done' : '');
+    item.style.cssText = 'margin-bottom:10px;';
     const pages = p.pageFrom && p.pageTo
       ? ` <span style="color:var(--text-sub)">p${p.pageFrom}〜${p.pageTo}</span>` : '';
+    const savedLearned = localStorage.getItem(`review_learned_${dateStr}_${p.key}`) || '';
     item.innerHTML = `
-      <div class="plan-dot" style="background:${p.matColor}"></div>
-      <div class="plan-info">
-        <div class="plan-name">${p.matName}</div>
-        <div class="plan-sub">${p.hour}:00〜${p.hour+1}:00${pages}</div>
+      <div class="plan-item${p.done ? ' done' : ''}" id="planItem-${idx}" onclick="toggleDone(${idx})">
+        <div class="plan-dot" style="background:${p.matColor}"></div>
+        <div class="plan-info">
+          <div class="plan-name">${p.matName}</div>
+          <div class="plan-sub">${p.hour}:00〜${p.hour+1}:00${pages}</div>
+        </div>
+        <div class="plan-check">${p.done ? '✓' : ''}</div>
       </div>
-      <div class="plan-check">${p.done ? '✓' : ''}</div>
+      <div style="padding:0 4px;">
+        <button class="learned-toggle" onclick="toggleLearnedArea(${idx})">📝 学んだことを記入する</button>
+        <div class="learned-area" id="learnedArea-${idx}">
+          <textarea id="learnedText-${idx}"
+            placeholder="例：三角関数の加法定理、sin(A+B)=sinAcosB+cosAsinBを覚えた。微分の基本公式も確認した。"
+            oninput="saveLearnedText(${idx})"
+          >${savedLearned}</textarea>
+          <div class="char-hint">ここに記入した内容をもとにAIが問題を作ります</div>
+        </div>
+      </div>
     `;
-    item.onclick = () => toggleDone(p);
     el.appendChild(item);
+    // すでに内容があれば欄を開いておく
+    if (savedLearned) {
+      document.getElementById(`learnedArea-${idx}`).style.display = 'block';
+    }
   });
 
   // 進捗
@@ -346,7 +386,21 @@ function renderPlanList() {
     ? `対象：${matNames}` : '今日学習した教材の範囲から問題を作成します';
 }
 
-function toggleDone(plan) {
+function toggleLearnedArea(idx) {
+  const area = document.getElementById(`learnedArea-${idx}`);
+  const isOpen = area.style.display === 'block';
+  area.style.display = isOpen ? 'none' : 'block';
+  if (!isOpen) document.getElementById(`learnedText-${idx}`).focus();
+}
+
+function saveLearnedText(idx) {
+  const p = todayPlans[idx];
+  const text = document.getElementById(`learnedText-${idx}`).value;
+  localStorage.setItem(`review_learned_${dateStr}_${p.key}`, text);
+}
+
+function toggleDone(idx) {
+  const plan = todayPlans[idx];
   plan.done = !plan.done;
   if (plan.done) doneSet.add(plan.key);
   else           doneSet.delete(plan.key);
@@ -365,15 +419,22 @@ async function generateQuestions() {
     return;
   }
 
-  // 教材情報を収集
+  // 教材情報と「学んだこと」を収集
   const matGroups = {};
-  todayPlans.forEach(p => {
-    if (!matGroups[p.matId]) matGroups[p.matId] = { name: p.matName, ranges: [] };
+  todayPlans.forEach((p, idx) => {
+    const learned = (localStorage.getItem(`review_learned_${dateStr}_${p.key}`) || '').trim();
+    if (!matGroups[p.matId]) matGroups[p.matId] = { name: p.matName, ranges: [], learnedList: [] };
     if (p.pageFrom && p.pageTo) matGroups[p.matId].ranges.push(`p${p.pageFrom}〜${p.pageTo}`);
+    if (learned) matGroups[p.matId].learnedList.push(learned);
   });
-  const matSummary = Object.values(matGroups).map(m =>
-    m.name + (m.ranges.length ? `（${m.ranges.join('、')}）` : '')
-  ).join('、');
+
+  const hasLearned = Object.values(matGroups).some(m => m.learnedList.length > 0);
+  const matDetails = Object.values(matGroups).map(m => {
+    let detail = m.name;
+    if (m.ranges.length) detail += `（${m.ranges.join('、')}）`;
+    if (m.learnedList.length) detail += `\n　今日学んだこと：${m.learnedList.join('／')}`;
+    return detail;
+  }).join('\n');
 
   // ローディング表示
   btn.disabled = true;
@@ -383,14 +444,18 @@ async function generateQuestions() {
 
   try {
     const prompt = `あなたは日本の高校生・受験生向けの学習アシスタントです。
-今日の学習内容：${matSummary}
+今日の学習内容：
+${matDetails}
 
-上記の教材・範囲から、復習に適した問題を3問作成してください。
+${hasLearned
+  ? '上記の「今日学んだこと」の内容を最優先にして、その内容を正確に問うような復習問題を3問作成してください。'
+  : '上記の教材・範囲から、復習に適した問題を3問作成してください。'
+}
 
-以下のJSON形式のみで返答してください（説明文や```は不要）：
+以下のJSON形式のみで返答してください（説明文や\`\`\`は不要）：
 [
   {
-    "q": "問題文（具体的で答えやすい形式）",
+    "q": "問題文",
     "a": "模範解答（簡潔に）",
     "hint": "ヒント（1文）",
     "subject": "教材名"
@@ -398,8 +463,8 @@ async function generateQuestions() {
 ]
 
 注意：
-- 実際の入試問題や教科書の問題に似た形式で
-- 記述式または選択肢なしの短答式で
+- 学んだことに記載された具体的な内容・用語・公式を直接問う形式で
+- 記述式または短答式で
 - 高校レベルの難易度で`;
 
     const res = await fetch('https://api.anthropic.com/v1/messages', {
