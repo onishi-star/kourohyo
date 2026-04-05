@@ -548,7 +548,6 @@
           const id = `cell-${i}-${j}`;
           document.write(`
             <div class="cell-wrapper" id="wrapper-${id}" style="position:relative; cursor:pointer;">
-              <input type="checkbox" class="cell-check" id="check-${id}">
               <div class="cell" id="${id}"></div>
             </div>
           `);
@@ -1380,15 +1379,14 @@ function updateHeaders() {
 // ════════════════════════════════════════
 // セル保存
 // ════════════════════════════════════════
-async function saveCell(cellId,colIndex,hour,newText,newColor,newChecked) {
+async function saveCell(cellId,colIndex,hour,newText,newColor) {
   if (!currentWeekDocId) return;
   const key=getCellDateKey(hour,colIndex);
   const cell=document.getElementById(cellId);
-  const checkbox=document.getElementById("check-"+cellId);
   const existing=currentWeekData[key]||{};
-  const entry={id:currentWeekDocId+"__"+key,docId:currentWeekDocId,key,text:newText!==null?newText:(cell?.innerText.trim()||""),color:newColor!==null?newColor:(existing.color||""),checked:newChecked!==null?newChecked:(checkbox?.checked||false),cell:existing.cell||null};
+  const entry={id:currentWeekDocId+"__"+key,docId:currentWeekDocId,key,text:newText!==null?newText:(cell?.innerText.trim()||""),color:newColor!==null?newColor:(existing.color||""),cell:existing.cell||null};
   await idbSet("cells",entry);
-  if (navigator.onLine){ const u={}; u[key]={text:entry.text,color:entry.color,checked:entry.checked,cell:entry.cell}; db.collection("schedules2").doc(entry.docId).set(u,{merge:true}).catch(e=>console.error(e)); }
+  if (navigator.onLine){ const u={}; u[key]={text:entry.text,color:entry.color,cell:entry.cell}; db.collection("schedules2").doc(entry.docId).set(u,{merge:true}).catch(e=>console.error(e)); }
   else await idbSet("pending",entry);
   // 備考行（hour===4）のテキストをマンスリーのmemoに同期
   if (hour===4 && navigator.onLine) { syncWeeklyToMonthly(colIndex, entry.text); }
@@ -1398,11 +1396,10 @@ async function saveCellData(cellId,colIndex,hour,cellRecord) {
   if (!currentWeekDocId) return;
   const key=getCellDateKey(hour,colIndex);
   const cell=document.getElementById(cellId);
-  const checkbox=document.getElementById("check-"+cellId);
   const existing=currentWeekData[key]||{};
-  const entry={id:currentWeekDocId+"__"+key,docId:currentWeekDocId,key,text:existing.text||(cell?.innerText.trim()||""),color:existing.color||"",checked:existing.checked||(checkbox?.checked||false),cell:cellRecord};
+  const entry={id:currentWeekDocId+"__"+key,docId:currentWeekDocId,key,text:existing.text||(cell?.innerText.trim()||""),color:existing.color||"",cell:cellRecord};
   await idbSet("cells",entry);
-  if (navigator.onLine){ const u={}; u[key]={text:entry.text,color:entry.color,checked:entry.checked,cell:entry.cell}; db.collection("schedules2").doc(entry.docId).set(u,{merge:true}).catch(e=>console.error(e)); }
+  if (navigator.onLine){ const u={}; u[key]={text:entry.text,color:entry.color,cell:entry.cell}; db.collection("schedules2").doc(entry.docId).set(u,{merge:true}).catch(e=>console.error(e)); }
   else await idbSet("pending",entry);
   currentWeekData[key]=entry;
   setTimeout(loadWeek,200);
@@ -1421,7 +1418,7 @@ async function loadWeek() {
       const doc=await db.collection("schedules2").doc(currentWeekDocId).get();
       data=doc.exists?doc.data():{};
       for (const [k,v] of Object.entries(data)) {
-        await idbSet("cells",{id:currentWeekDocId+"__"+k,docId:currentWeekDocId,key:k,text:v.text||"",color:v.color||"",checked:v.checked||false,cell:v.cell||null});
+        await idbSet("cells",{id:currentWeekDocId+"__"+k,docId:currentWeekDocId,key:k,text:v.text||"",color:v.color||"",cell:v.cell||null});
       }
     } catch(err){ data=await loadFromIDB(); }
   } else { data=await loadFromIDB(); }
@@ -1433,7 +1430,7 @@ async function loadWeek() {
 async function loadFromIDB() {
   const all=await idbGetAll("cells");
   const data={};
-  all.filter(e=>e.docId===currentWeekDocId).forEach(e=>{ data[e.key]={text:e.text,color:e.color,checked:e.checked,cell:e.cell||null}; });
+  all.filter(e=>e.docId===currentWeekDocId).forEach(e=>{ data[e.key]={text:e.text,color:e.color,cell:e.cell||null}; });
   return data;
 }
 function applyWeekData(data,start) {
@@ -1442,11 +1439,10 @@ function applyWeekData(data,start) {
     for (let j=0;j<7;j++){
       const cellId=`cell-${i}-${j}`;
       const cell=document.getElementById(cellId);
-      const checkbox=document.getElementById("check-"+cellId);
       const wrapper=document.getElementById("wrapper-"+cellId);
-      if (!cell||!checkbox||!wrapper) continue;
+      if (!cell||!wrapper) continue;
       const key=getCellDateKey(i,j);
-      const saved=data[key]||{text:"",color:"",checked:false,cell:null};
+      const saved=data[key]||{text:"",color:"",cell:null};
       const cellData=saved.cell||null;
       let bgColor="", textCol="";
       if (cellData&&cellData.mode==="event"){ bgColor=cellData.cellColor||cellData.color||"#ffadad"; textCol=getTextColor(bgColor); }
@@ -1457,9 +1453,6 @@ function applyWeekData(data,start) {
       const isToday=d.getFullYear()===today.getFullYear()&&d.getMonth()===today.getMonth()&&d.getDate()===today.getDate();
       if (isToday&&!bgColor) wrapper.classList.add("today-col"); else wrapper.classList.remove("today-col");
       if (cellData&&cellData.mode==="study"&&cellData.materialId&&!saved.color) wrapper.classList.add("cell-study-bg"); else wrapper.classList.remove("cell-study-bg");
-      checkbox.checked=saved.checked||false;
-      cell.style.textDecoration=saved.checked?"line-through":"";
-      cell.style.opacity=saved.checked?"0.5":"1";
       // テキストを必ずリセット（週切り替え時に前週の内容が残らないよう）
       if (i===4) { cell.innerText = saved.text || ""; }
       wrapper.querySelectorAll(".cell-mat-badge,.cell-page-hint,.cell-event-title").forEach(el=>el.remove());
@@ -1472,8 +1465,7 @@ function applyWeekData(data,start) {
         }
       }
       wrapper.onclick=(e)=>{
-        if (e.target===checkbox) return;
-        if (currentColor){ const newColor=currentColor==="clear"?"":currentColor; const newBg=newColor?getColorStyle(newColor):""; cell.dataset.color=newColor; wrapper.style.background=newBg; cell.style.color=newBg?getTextColor(newBg):""; saveCell(cellId,j,i,null,newColor,null); }
+        if (currentColor){ const newColor=currentColor==="clear"?"":currentColor; const newBg=newColor?getColorStyle(newColor):""; cell.dataset.color=newColor; wrapper.style.background=newBg; cell.style.color=newBg?getTextColor(newBg):""; saveCell(cellId,j,i,null,newColor); }
         else {
           const key=getCellDateKey(i,j);
           const savedEntry=currentWeekData[key]||{};
@@ -1482,7 +1474,6 @@ function applyWeekData(data,start) {
           else { openCellModal(cellId,j,i); }
         }
       };
-      checkbox.onchange=()=>{ cell.style.textDecoration=checkbox.checked?"line-through":""; cell.style.opacity=checkbox.checked?"0.5":"1"; saveCell(cellId,j,i,null,null,checkbox.checked); };
     }
   }
 }
