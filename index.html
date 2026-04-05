@@ -1360,7 +1360,7 @@ function getStartOfWeek() {
 }
 function formatDate(d){ return (d.getMonth()+1)+"/"+d.getDate(); }
 function getDateKey(d){ return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`; }
-function getWeekDocId(){ return getDateKey(getStartOfWeek()); }
+function getWeekDocId(){ return getDateKey(getWeekMondayBase()); }
 function getCellDateKey(hour,col){
   const s=getStartOfWeek(), d=new Date(s); d.setDate(s.getDate()+col); d.setHours(0,0,0,0);
   return getDateKey(d)+`-${String(hour).padStart(2,'0')}`;
@@ -1673,8 +1673,10 @@ async function applyDayPreset(dayOfWeek) {
 
 async function applyAllDayPresets() {
   if (!confirm('月〜金すべての曜日を一括設定しますか？')) return;
-  for (const [dow, preset] of Object.entries(DAY_PRESETS)) {
-    const colIndex = colIndexOfDayOfWeek(parseInt(dow));
+  for (const dow of [1, 2, 3, 4, 5]) {  // 月〜金のみ
+    const preset = DAY_PRESETS[dow];
+    if (!preset) continue;
+    const colIndex = colIndexOfDayOfWeek(dow);
     if (colIndex === -1) continue;
     const schedule = buildScheduleForDay(preset.classType, preset.studyMode);
     for (const s of schedule) {
