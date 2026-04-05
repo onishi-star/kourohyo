@@ -627,20 +627,96 @@ function initPhase(phase) {
 function startTimer() {
   if (state.running) return;
   state.running = true;
+  // 開始時刻を記録（スリープ復帰後のズレ補正に使う）
+  state.startedAt     = Date.now();
+  state.secondsAtStart = state.secondsLeft;
+  saveTimerState();
   updateUI();
-  state.interval = setInterval(tick, 1000);
+  state.interval = setInterval(tick, 500); // 0.5秒ごとに補正
 }
 
 function pauseTimer() {
   clearInterval(state.interval);
-  state.running = false;
+  state.running    = false;
+  state.startedAt  = null;
+  clearTimerState();
   updateUI();
 }
 
 function tick() {
-  state.secondsLeft--;
-  if (state.secondsLeft <= 0) onPhaseEnd();
-  else updateUI();
+  if (!state.running || !state.startedAt) return;
+  // 経過秒数を実時間から計算（スリープ中のズレを自動補正）
+  const elapsed = Math.floor((Date.now() - state.startedAt) / 1000);
+  state.secondsLeft = Math.max(0, state.secondsAtStart - elapsed);
+  if (state.secondsLeft <= 0) {
+    clearInterval(state.interval);
+    state.running = false;
+    state.startedAt = null;
+    clearTimerState();
+    onPhaseEnd();
+  } else {
+    updateUI();
+  }
+}
+
+// ── タイマー状態の永続化（スリープ復帰対応） ──
+const TIMER_STATE_KEY = 'pomodoro_timer_state_v1';
+
+function saveTimerState() {
+  if (!state.running || !state.startedAt) return;
+  localStorage.setItem(TIMER_STATE_KEY, JSON.stringify({
+    phase:           state.phase,
+    startedAt:       state.startedAt,
+    secondsAtStart:  state.secondsAtStart,
+    totalSeconds:    state.totalSeconds,
+    sessionCount:    state.sessionCount,
+    cyclePos:        state.cyclePos,
+    workMinutes:     state.workMinutes,
+    matSessions:     state.matSessions,
+  }));
+}
+
+function clearTimerState() {
+  localStorage.removeItem(TIMER_STATE_KEY);
+}
+
+// 起動時にタイマーが動いていた場合を復元
+function restoreTimerState() {
+  try {
+    const saved = JSON.parse(localStorage.getItem(TIMER_STATE_KEY));
+    if (!saved || !saved.startedAt) return false;
+
+    const elapsed     = Math.floor((Date.now() - saved.startedAt) / 1000);
+    const secondsLeft = saved.secondsAtStart - elapsed;
+
+    // 状態を復元
+    state.phase        = saved.phase;
+    state.totalSeconds = saved.totalSeconds;
+    state.sessionCount = saved.sessionCount;
+    state.cyclePos     = saved.cyclePos;
+    state.workMinutes  = saved.workMinutes;
+    state.matSessions  = saved.matSessions || {};
+
+    if (secondsLeft <= 0) {
+      // スリープ中に終了していた
+      clearTimerState();
+      state.secondsLeft = 0;
+      updateUI();
+      showNotif('⏰ スリープ中にタイマーが終了しました');
+      onPhaseEnd();
+      return true;
+    } else {
+      // まだ残り時間がある → タイマー再開
+      state.secondsLeft    = secondsLeft;
+      state.secondsAtStart = saved.secondsAtStart;
+      state.startedAt      = saved.startedAt;
+      state.running        = true;
+      updateUI();
+      state.interval = setInterval(tick, 500);
+      showNotif('▶ タイマーを再開しました');
+      return true;
+    }
+  } catch(e) { return false; }
 }
 
 function onPhaseEnd() {
@@ -688,7 +764,9 @@ function skip() {
 function reset() {
   if (!confirm('タイマーをリセットしますか？')) return;
   clearInterval(state.interval);
-  state.running = false;
+  state.running   = false;
+  state.startedAt = null;
+  clearTimerState();
   initPhase('work');
 }
 
@@ -730,6 +808,8 @@ function saveToday() {
     cyclePos:    state.cyclePos,
     matSessions: state.matSessions,
   }));
+  // タイマー動作中なら状態も保存
+  if (state.running) saveTimerState();
 }
 function loadToday() {
   try {
@@ -759,12 +839,18 @@ document.getElementById('settingsHeader').addEventListener('click', () => {
   });
 });
 
+// タイマー動作中は定期的に状態保存（5秒ごと）
+setInterval(() => { if (state.running) saveTimerState(); }, 5000);
+
 // ── 起動 ──
 (async () => {
   loadToday();
   await loadMaterials();
   applyUrlParams();
-  initPhase('work');
+  // タイマー状態が残っていれば復元、なければ通常起動
+  if (!restoreTimerState()) {
+    initPhase('work');
+  }
 })();
 
 // ── URLパラメータからスケジュール情報を反映 ──
