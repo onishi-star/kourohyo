@@ -294,8 +294,13 @@
       <div style="margin-bottom:8px;">
         <div style="font-size:12px; color:#888; margin-bottom:6px;">色を選んでセルをタップすると塗れます</div>
         <div id="custom-colors" style="display:flex; flex-wrap:wrap; gap:6px; margin-bottom:8px;"></div>
+        <!-- 新しい色を追加するフォーム（常時表示） -->
+        <div style="display:flex; gap:6px; align-items:center; flex-wrap:wrap; padding:10px; background:#f5f7ff; border-radius:8px; margin-bottom:8px;">
+          <input type="color" id="new-color-picker" value="#ffd6a5" style="width:36px;height:36px;border:none;cursor:pointer;border-radius:6px;padding:0;">
+          <input type="text" id="new-color-name" placeholder="色の名前（例：英語）" style="flex:1;min-width:80px;padding:6px 10px;border:1px solid #ccc;border-radius:6px;font-size:13px;">
+          <button onclick="addCustomColor()" style="padding:6px 14px;background:#4a90e2;color:white;border:none;border-radius:6px;cursor:pointer;font-size:13px;white-space:nowrap;">＋追加</button>
+        </div>
         <div style="display:flex; gap:6px; flex-wrap:wrap; align-items:center;">
-          <button class="color-btn" id="btn-add"      onclick="addCustomColor()" style="font-size:12px; padding:5px 12px;">＋色を追加</button>
           <button class="color-btn" id="btn-clear"    onclick="setColor('clear'); closeModal();" style="font-size:12px; padding:5px 12px;">🗑 色を消す</button>
           <button class="color-btn" id="btn-deselect" onclick="deselectColor(); closeModal();" style="font-size:12px; padding:5px 12px;">解除</button>
         </div>
@@ -426,6 +431,15 @@
       </div>
     </div>
     <div id="panel-event" style="display:none;">
+      <!-- 時間範囲 -->
+      <div style="margin-bottom:12px;">
+        <label style="font-size:12px; color:#777; display:block; margin-bottom:6px;">⏰ 時間</label>
+        <div style="display:flex; align-items:center; gap:8px;">
+          <select id="event-time-from" style="flex:1; padding:7px 8px; border:1px solid #ccc; border-radius:8px; font-size:14px; font-family:inherit;"></select>
+          <span style="color:#888; font-size:13px;">〜</span>
+          <select id="event-time-to" style="flex:1; padding:7px 8px; border:1px solid #ccc; border-radius:8px; font-size:14px; font-family:inherit;"></select>
+        </div>
+      </div>
       <div style="margin-bottom:12px;">
         <label style="font-size:12px; color:#777; display:block; margin-bottom:4px;">タイトル</label>
         <input type="text" id="event-title" placeholder="例：部活、外出、塾、模試..."
@@ -435,9 +449,25 @@
         <label style="font-size:12px; color:#777; display:block; margin-bottom:6px;">色</label>
         <div id="event-color-swatches" style="display:flex; flex-wrap:wrap; gap:6px;"></div>
       </div>
+      <!-- セルの背景色・テキスト変更 -->
+      <div style="background:#f8f9fb; border-radius:8px; padding:10px; margin-bottom:12px;">
+        <label style="font-size:12px; color:#777; display:block; margin-bottom:6px;">🎨 セルの見た目（任意）</label>
+        <div style="display:flex; gap:8px; align-items:center; margin-bottom:8px;">
+          <label style="font-size:12px; color:#555; white-space:nowrap;">背景色：</label>
+          <input type="color" id="event-cell-color" value="#ffffff" style="width:36px;height:28px;border:none;cursor:pointer;border-radius:4px;">
+          <label style="display:flex; align-items:center; gap:4px; font-size:12px; color:#555;">
+            <input type="checkbox" id="event-cell-color-on"> 適用する
+          </label>
+        </div>
+        <div style="display:flex; gap:8px; align-items:center;">
+          <label style="font-size:12px; color:#555; white-space:nowrap;">メモ：</label>
+          <input type="text" id="event-cell-text" placeholder="セル内に表示するテキスト（任意）"
+            style="flex:1; padding:5px 8px; border:1px solid #ccc; border-radius:6px; font-size:12px;">
+        </div>
+      </div>
       <div>
         <label style="font-size:12px; color:#777; display:block; margin-bottom:4px;">メモ</label>
-        <textarea id="event-memo" rows="3"
+        <textarea id="event-memo" rows="2"
           style="width:100%; border:1px solid #ccc; border-radius:8px; padding:8px; font-size:13px; resize:none; font-family:sans-serif; box-sizing:border-box;"
           placeholder="メモを入力..."></textarea>
       </div>
@@ -1072,12 +1102,14 @@ function renderCustomColorButtons() {
   });
 }
 function addCustomColor() {
-  const name=prompt("色の名前を入力してください"); if (!name) return;
-  const inp=document.createElement("input"); inp.type="color"; inp.value="#ffd6a5";
-  inp.style.cssText="position:fixed;top:-100px;left:-100px;opacity:0;"; document.body.appendChild(inp);
-  inp.addEventListener("change",()=>{ const col=inp.value; document.body.removeChild(inp); customColors.push({name,color:col}); localStorage.setItem("customColors",JSON.stringify(customColors)); renderCustomColorButtons(); });
-  inp.addEventListener("cancel",()=>{ if(document.body.contains(inp)) document.body.removeChild(inp); });
-  setTimeout(()=>inp.click(),50);
+  const name = document.getElementById("new-color-name").value.trim();
+  const col  = document.getElementById("new-color-picker").value;
+  if (!name) { alert("色の名前を入力してください"); return; }
+  customColors.push({name, color: col});
+  localStorage.setItem("customColors", JSON.stringify(customColors));
+  document.getElementById("new-color-name").value = "";
+  document.getElementById("new-color-picker").value = "#ffd6a5";
+  renderCustomColorButtons();
 }
 function setColor(color) {
   currentColor=color;
@@ -1149,8 +1181,34 @@ function openCellModal(cellId, colIndex, hour) {
   const key=getCellDateKey(hour,colIndex);
   const saved=(currentWeekData[key]||{}).cell||null;
   const mode=saved?(saved.mode||"study"):"study";
+
+  // 時間セレクトを初期化（行事タブ用）
+  initEventTimeSelects(hour, saved);
+
   switchCellMode(mode,saved);
   document.getElementById("cell-modal-overlay").style.display="flex";
+}
+
+function initEventTimeSelects(hour, saved) {
+  const fromSel = document.getElementById("event-time-from");
+  const toSel   = document.getElementById("event-time-to");
+  fromSel.innerHTML = "";
+  toSel.innerHTML   = "";
+  for (let h = 4; h < 24; h++) {
+    const o1 = document.createElement("option");
+    o1.value = h; o1.textContent = `${h}:00`;
+    if (h === (saved?.timeFrom ?? hour)) o1.selected = true;
+    fromSel.appendChild(o1);
+    const o2 = document.createElement("option");
+    o2.value = h + 1; o2.textContent = `${h+1}:00`;
+    if ((h + 1) === (saved?.timeTo ?? hour + 1)) o2.selected = true;
+    toSel.appendChild(o2);
+  }
+  // 終了は24:00まで
+  const o24 = document.createElement("option");
+  o24.value = 24; o24.textContent = "24:00";
+  if ((saved?.timeTo ?? hour + 1) === 24) o24.selected = true;
+  toSel.appendChild(o24);
 }
 
 function switchCellMode(mode,savedData) {
@@ -1172,6 +1230,11 @@ function switchCellMode(mode,savedData) {
     document.getElementById("event-title").value=savedData&&savedData.mode==="event"?(savedData.title||""):"";
     document.getElementById("event-memo").value=savedData&&savedData.mode==="event"?(savedData.memo||""):"";
     eventSelColor=savedData&&savedData.mode==="event"?(savedData.color||"#ffadad"):"#ffadad";
+    // セルの見た目
+    const hasCellColor = savedData?.mode==="event" && savedData.cellColor;
+    document.getElementById("event-cell-color").value = savedData?.cellColor || "#ffffff";
+    document.getElementById("event-cell-color-on").checked = !!hasCellColor;
+    document.getElementById("event-cell-text").value = savedData?.cellText || "";
     renderEventColorSwatches();
   }
 }
@@ -1233,14 +1296,52 @@ async function saveCellModal() {
   if (cellModalMode==="study") {
     const mat=matSelectedId?materials.find(m=>m.id===matSelectedId):null;
     cellRecord={mode:"study",materialId:mat?mat.id:null,materialName:mat?mat.name:null,materialColor:mat?mat.color:null,pageFrom:parseInt(document.getElementById("mat-page-from").value)||null,pageTo:parseInt(document.getElementById("mat-page-to").value)||null};
+    await saveCellData(cellModalId,cellModalCol,cellModalHour,cellRecord);
   } else {
-    const title=document.getElementById("event-title").value.trim();
-    cellRecord={mode:"event",title:title||"予定",color:eventSelColor,memo:document.getElementById("event-memo").value};
+    const title     = document.getElementById("event-title").value.trim();
+    const memo      = document.getElementById("event-memo").value;
+    const cellText  = document.getElementById("event-cell-text").value.trim();
+    const cellColorOn = document.getElementById("event-cell-color-on").checked;
+    const cellColor = cellColorOn ? document.getElementById("event-cell-color").value : null;
+    const timeFrom  = parseInt(document.getElementById("event-time-from").value);
+    const timeTo    = parseInt(document.getElementById("event-time-to").value);
+    const clampedTo = Math.min(timeTo, 24);
+
+    cellRecord = {
+      mode:"event", title:title||"予定", color:eventSelColor, memo,
+      timeFrom, timeTo:clampedTo,
+      cellColor, cellText,
+    };
+
+    // 時間範囲内の全セルに書き込む
+    for (let h = timeFrom; h < clampedTo; h++) {
+      if (h < 4 || h >= 24) continue;
+      const id = `cell-${h}-${cellModalCol}`;
+      await saveCellData(id, cellModalCol, h, cellRecord);
+    }
+    // 範囲外になった元のセルが含まれない場合はクリア不要（上書き済み）
   }
-  await saveCellData(cellModalId,cellModalCol,cellModalHour,cellRecord);
   closeMatModal();
 }
-async function clearCellRecord() { await saveCellData(cellModalId,cellModalCol,cellModalHour,null); closeMatModal(); }
+
+async function clearCellRecord() {
+  if (cellModalMode === "event") {
+    // 行事の場合は時間範囲全体をクリア
+    const key = getCellDateKey(cellModalHour, cellModalCol);
+    const existing = (currentWeekData[key]||{}).cell;
+    const timeFrom = existing?.timeFrom ?? cellModalHour;
+    const timeTo   = existing?.timeTo   ?? cellModalHour + 1;
+    for (let h = timeFrom; h < timeTo; h++) {
+      if (h < 4 || h >= 24) continue;
+      const id = `cell-${h}-${cellModalCol}`;
+      await saveCellData(id, cellModalCol, h, null);
+    }
+    closeMatModal();
+  } else {
+    await saveCellData(cellModalId, cellModalCol, cellModalHour, null);
+    closeMatModal();
+  }
+}
 function closeMatModal() { document.getElementById("cell-modal-overlay").style.display="none"; }
 
 // ════════════════════════════════════════
@@ -1354,7 +1455,7 @@ function applyWeekData(data,start) {
       const saved=data[key]||{text:"",color:"",checked:false,cell:null};
       const cellData=saved.cell||null;
       let bgColor="", textCol="";
-      if (cellData&&cellData.mode==="event"){ bgColor=cellData.color||"#ffadad"; textCol=getTextColor(bgColor); }
+      if (cellData&&cellData.mode==="event"){ bgColor=cellData.cellColor||cellData.color||"#ffadad"; textCol=getTextColor(bgColor); }
       else if (saved.color){ bgColor=getColorStyle(saved.color); textCol=bgColor?getTextColor(bgColor):""; }
       wrapper.style.background=bgColor||"";
       cell.style.color=textCol||"";
@@ -1373,7 +1474,7 @@ function applyWeekData(data,start) {
           const badge=document.createElement("div"); badge.className="cell-mat-badge"; badge.style.background=cellData.materialColor; badge.style.color=getTextColor(cellData.materialColor); badge.innerText=cellData.materialName; wrapper.appendChild(badge);
           if (cellData.pageFrom||cellData.pageTo){ const ph=document.createElement("div"); ph.className="cell-page-hint"; ph.innerText=`p${cellData.pageFrom||"?"}〜${cellData.pageTo||"?"}`; wrapper.appendChild(ph); }
         } else if (cellData.mode==="event"){
-          const et=document.createElement("div"); et.className="cell-event-title"; et.style.color=getTextColor(cellData.color||"#ffadad"); et.innerText=cellData.title||"予定"; wrapper.appendChild(et);
+          const et=document.createElement("div"); et.className="cell-event-title"; et.style.color=getTextColor(cellData.cellColor||cellData.color||"#ffadad"); et.innerText=cellData.cellText||cellData.title||"予定"; wrapper.appendChild(et);
         }
       }
       wrapper.onclick=(e)=>{
