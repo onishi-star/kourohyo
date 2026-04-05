@@ -1351,6 +1351,8 @@ function applyWeekData(data,start) {
       checkbox.checked=saved.checked||false;
       cell.style.textDecoration=saved.checked?"line-through":"";
       cell.style.opacity=saved.checked?"0.5":"1";
+      // テキストを必ずリセット（週切り替え時に前週の内容が残らないよう）
+      if (i===4) { cell.innerText = saved.text || ""; }
       wrapper.querySelectorAll(".cell-mat-badge,.cell-page-hint,.cell-event-title").forEach(el=>el.remove());
       if (cellData){
         if (cellData.mode==="study"&&cellData.materialId){
