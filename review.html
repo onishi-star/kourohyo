@@ -413,14 +413,67 @@ let questions     = [];
 let currentQIndex = 0;
 
 async function generateQuestions() {
-const res = await fetch("/api/generate", {
-  method: "POST",
-  headers: {
-    "Content-Type": "application/json"
-  },
-  body: JSON.stringify({ prompt })
-});
+async function generateQuestions() {
+  const btn = document.getElementById('aiBtn');
 
+  // 教材情報と「学んだこと」を収集
+  const matGroups = {};
+  todayPlans.forEach((p, idx) => {
+    const learned = (localStorage.getItem(`review_learned_${dateStr}_${p.key}`) || '').trim();
+    if (!matGroups[p.matId]) matGroups[p.matId] = { name: p.matName, ranges: [], learnedList: [] };
+    if (p.pageFrom && p.pageTo) matGroups[p.matId].ranges.push(`p${p.pageFrom}〜${p.pageTo}`);
+    if (learned) matGroups[p.matId].learnedList.push(learned);
+  });
+
+  const hasLearned = Object.values(matGroups).some(m => m.learnedList.length > 0);
+  const matDetails = Object.values(matGroups).map(m => {
+    let detail = m.name;
+    if (m.ranges.length) detail += `（${m.ranges.join('、')}）`;
+    if (m.learnedList.length) detail += `\n　今日学んだこと：${m.learnedList.join('／')}`;
+    return detail;
+  }).join('\n');
+
+  btn.disabled = true;
+  btn.innerHTML = `<div class="loading-dots"><span></span><span></span><span></span></div> 問題を生成中...`;
+
+  document.getElementById('aiEmptyState').style.display = 'none';
+  document.getElementById('questionArea').style.display = 'none';
+
+  try {
+    const prompt = `高校生向けの復習問題を3問、日本語でJSON形式で出してください。
+以下の形式のみで：
+[
+  {"q":"問題","a":"答え","hint":"ヒント","subject":"科目"}
+]
+
+内容：
+${matDetails}`;
+
+    const res = await fetch("/api/generate", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({ prompt })
+    });
+
+    const data = await res.json();
+
+    const clean = data.text.replace(/```json|```/g, "").trim();
+    questions = JSON.parse(clean);
+
+    currentQIndex = 0;
+    renderQuestion();
+
+    btn.innerHTML = '✨ もう一度生成する';
+
+  } catch (e) {
+    console.error(e);
+    btn.innerHTML = '⚠️ 生成に失敗しました';
+  }
+
+  btn.disabled = false;
+}
 const data = await res.json();
 
 const clean = data.text.replace(/```json|```/g, "").trim();
