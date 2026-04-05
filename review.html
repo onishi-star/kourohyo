@@ -409,42 +409,45 @@ function toggleDone(idx) {
 }
 
 // ── AI問題生成 ──
-let questions     = [];
+<script>
+// ── AI問題生成（完全修正版） ──
+let questions = [];
 let currentQIndex = 0;
 
 async function generateQuestions() {
-async function generateQuestions() {
   const btn = document.getElementById('aiBtn');
 
-  // 教材情報と「学んだこと」を収集
+  // 教材＋学習内容まとめ
   const matGroups = {};
   todayPlans.forEach((p, idx) => {
     const learned = (localStorage.getItem(`review_learned_${dateStr}_${p.key}`) || '').trim();
-    if (!matGroups[p.matId]) matGroups[p.matId] = { name: p.matName, ranges: [], learnedList: [] };
-    if (p.pageFrom && p.pageTo) matGroups[p.matId].ranges.push(`p${p.pageFrom}〜${p.pageTo}`);
-    if (learned) matGroups[p.matId].learnedList.push(learned);
+    if (!matGroups[p.matId]) {
+      matGroups[p.matId] = { name: p.matName, ranges: [], learnedList: [] };
+    }
+    if (p.pageFrom && p.pageTo) {
+      matGroups[p.matId].ranges.push(`p${p.pageFrom}〜${p.pageTo}`);
+    }
+    if (learned) {
+      matGroups[p.matId].learnedList.push(learned);
+    }
   });
 
-  const hasLearned = Object.values(matGroups).some(m => m.learnedList.length > 0);
   const matDetails = Object.values(matGroups).map(m => {
     let detail = m.name;
     if (m.ranges.length) detail += `（${m.ranges.join('、')}）`;
-    if (m.learnedList.length) detail += `\n　今日学んだこと：${m.learnedList.join('／')}`;
+    if (m.learnedList.length) detail += `\n学んだこと：${m.learnedList.join('／')}`;
     return detail;
   }).join('\n');
 
+  // UI更新
   btn.disabled = true;
-  btn.innerHTML = `<div class="loading-dots"><span></span><span></span><span></span></div> 問題を生成中...`;
-
+  btn.innerHTML = '生成中...';
   document.getElementById('aiEmptyState').style.display = 'none';
   document.getElementById('questionArea').style.display = 'none';
 
   try {
     const prompt = `高校生向けの復習問題を3問、日本語でJSON形式で出してください。
-以下の形式のみで：
-[
-  {"q":"問題","a":"答え","hint":"ヒント","subject":"科目"}
-]
+[{"q":"問題","a":"答え","hint":"ヒント","subject":"科目"}]
 
 内容：
 ${matDetails}`;
@@ -459,204 +462,24 @@ ${matDetails}`;
 
     const data = await res.json();
 
+    if (!data.text) {
+      throw new Error("APIレスポンス異常");
+    }
+
     const clean = data.text.replace(/```json|```/g, "").trim();
     questions = JSON.parse(clean);
 
     currentQIndex = 0;
     renderQuestion();
 
-    btn.innerHTML = '✨ もう一度生成する';
+    btn.innerHTML = '✨ もう一度生成';
 
   } catch (e) {
     console.error(e);
-    btn.innerHTML = '⚠️ 生成に失敗しました';
+    alert("問題生成に失敗しました");
+    btn.innerHTML = '⚠️ エラー';
   }
 
   btn.disabled = false;
 }
-const data = await res.json();
-
-const clean = data.text.replace(/```json|```/g, "").trim();
-questions = JSON.parse(clean);
-
-  // ランダムに並び替え（任意だけどおすすめ）
-  questions.sort(() => Math.random() - 0.5);
-
-  currentQIndex = 0;
-
-  // 少し待ってから表示（AIっぽく）
-  setTimeout(() => {
-    renderQuestion();
-    btn.innerHTML = '✨ もう一度生成する';
-    btn.disabled = false;
-  }, 800);
-}
-
-  // 教材情報と「学んだこと」を収集
-  const matGroups = {};
-  todayPlans.forEach((p, idx) => {
-    const learned = (localStorage.getItem(`review_learned_${dateStr}_${p.key}`) || '').trim();
-    if (!matGroups[p.matId]) matGroups[p.matId] = { name: p.matName, ranges: [], learnedList: [] };
-    if (p.pageFrom && p.pageTo) matGroups[p.matId].ranges.push(`p${p.pageFrom}〜${p.pageTo}`);
-    if (learned) matGroups[p.matId].learnedList.push(learned);
-  });
-
-  const hasLearned = Object.values(matGroups).some(m => m.learnedList.length > 0);
-  const matDetails = Object.values(matGroups).map(m => {
-    let detail = m.name;
-    if (m.ranges.length) detail += `（${m.ranges.join('、')}）`;
-    if (m.learnedList.length) detail += `\n　今日学んだこと：${m.learnedList.join('／')}`;
-    return detail;
-  }).join('\n');
-
-  // ローディング表示
-  btn.disabled = true;
-  btn.innerHTML = `<div class="loading-dots"><span></span><span></span><span></span></div> 問題を生成中...`;
-  document.getElementById('aiEmptyState').style.display = 'none';
-  document.getElementById('questionArea').style.display = 'none';
-
-  try {
-    const prompt = `あなたは日本の高校生・受験生向けの学習アシスタントです。
-今日の学習内容：
-${matDetails}
-
-${hasLearned
-  ? '上記の「今日学んだこと」の内容を最優先にして、その内容を正確に問うような復習問題を3問作成してください。'
-  : '上記の教材・範囲から、復習に適した問題を3問作成してください。'
-}
-
-以下のJSON形式のみで返答してください（説明文や\`\`\`は不要）：
-[
-  {
-    "q": "問題文",
-    "a": "模範解答（簡潔に）",
-    "hint": "ヒント（1文）",
-    "subject": "教材名"
-  }
-]
-
-注意：
-- 学んだことに記載された具体的な内容・用語・公式を直接問う形式で
-- 記述式または短答式で
-- 高校レベルの難易度で`;
-
-    const res = await fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        model: 'claude-sonnet-4-20250514',
-        max_tokens: 1000,
-        messages: [{ role: 'user', content: prompt }]
-      })
-    });
-    const data = await res.json();
-    const text = data.content.map(c => c.text || '').join('');
-    const clean = text.replace(/```json|```/g, '').trim();
-    questions = JSON.parse(clean);
-    currentQIndex = 0;
-    renderQuestion();
-    btn.innerHTML = '✨ もう一度生成する';
-  } catch(e) {
-    console.error(e);
-    btn.innerHTML = '⚠️ 生成に失敗しました。再試行';
-  }
-  btn.disabled = false;
-}
-
-function renderQuestion() {
-  const area = document.getElementById('questionArea');
-  if (!questions.length) return;
-
-  const q = questions[currentQIndex];
-  area.style.display = 'block';
-  area.innerHTML = `
-    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
-      <span style="font-size:12px;color:var(--text-sub);">問題 ${currentQIndex+1} / ${questions.length}</span>
-      <span style="font-size:11px;background:var(--primary-soft);color:var(--primary-dk);padding:3px 10px;border-radius:10px;">${q.subject}</span>
-    </div>
-    <div class="question-card">
-      <div class="q-label">Q${currentQIndex+1}</div>
-      <div class="q-text">${q.q}</div>
-    </div>
-    <div class="answer-area">
-      <textarea id="answerInput" placeholder="ここに答えを書いてください..."></textarea>
-      <div id="hintArea" style="font-size:12px;color:var(--text-sub);margin-top:4px;cursor:pointer;text-decoration:underline;" onclick="showHint()">
-        💡 ヒントを見る
-      </div>
-      <div class="answer-btn-row">
-        <button class="btn-check" onclick="checkAnswer()">答え合わせ</button>
-        <button class="btn-skip"  onclick="nextQuestion()">スキップ</button>
-      </div>
-      <div id="feedbackBox" style="display:none;"></div>
-    </div>
-  `;
-}
-
-function showHint() {
-  const q = questions[currentQIndex];
-  document.getElementById('hintArea').innerHTML =
-    `<span style="color:var(--primary-dk);">💡 ${q.hint}</span>`;
-}
-
-function checkAnswer() {
-  const ans = document.getElementById('answerInput').value.trim();
-  const q   = questions[currentQIndex];
-  const fb  = document.getElementById('feedbackBox');
-  fb.style.display = 'block';
-
-  // 簡易判定（空欄チェック）
-  if (!ans) {
-    fb.className = 'feedback-box wrong';
-    fb.innerHTML = `<b>答えを入力してください</b>`;
-    return;
-  }
-
-  fb.className = 'feedback-box correct';
-  fb.innerHTML = `
-    <b>✅ 模範解答</b><br>
-    <span style="margin-top:4px;display:block;">${q.a}</span>
-    <div style="margin-top:8px;display:flex;gap:8px;">
-      <button onclick="markResult(true)"  style="flex:1;padding:7px;background:#27ae71;color:white;border:none;border-radius:8px;cursor:pointer;font-weight:bold;">⭕ 合ってた</button>
-      <button onclick="markResult(false)" style="flex:1;padding:7px;background:#e74c3c;color:white;border:none;border-radius:8px;cursor:pointer;font-weight:bold;">❌ 違った</button>
-    </div>
-  `;
-}
-
-function markResult(correct) {
-  // 将来: 正誤記録をFirestoreに保存
-  saveResult(questions[currentQIndex], correct);
-  nextQuestion();
-}
-
-function nextQuestion() {
-  if (currentQIndex < questions.length - 1) {
-    currentQIndex++;
-    renderQuestion();
-  } else {
-    document.getElementById('questionArea').innerHTML = `
-      <div class="empty-state">
-        <div class="emoji">🎉</div>
-        <p>全問終了！<br>お疲れさまでした</p>
-      </div>
-    `;
-  }
-}
-
-// 将来: 正誤記録の保存（Firestoreに蓄積→弱点分析に使う）
-async function saveResult(q, correct) {
-  try {
-    await db.collection('review_results').add({
-      date:    dateStr,
-      subject: q.subject,
-      question: q.q,
-      correct,
-      ts: firebase.firestore.FieldValue.serverTimestamp(),
-    });
-  } catch(e) {}
-}
-
-// ── 初期化 ──
-loadTodayPlans();
 </script>
-</body>
-</html>
