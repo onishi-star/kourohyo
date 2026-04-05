@@ -310,34 +310,28 @@
     
     <!-- プリセットパネル -->
     <div id="panel-preset" style="display:none;">
-      <h3 style="margin-bottom:12px; font-size:14px;">放課後学習プリセット</h3>
-      <div style="margin-bottom:15px;">
-        <label style="font-size:12px; color:#666; display:block; margin-bottom:5px;">学校タイプ</label>
-        <div style="display:flex; gap:8px;">
-          <button id="preset-6class" onclick="applyPreset('6class')" style="flex:1; padding:8px; background:#e3f2fd; border:1px solid #2196f3; border-radius:6px; cursor:pointer; font-size:12px;">6限タイプ</button>
-          <button id="preset-7class" onclick="applyPreset('7class')" style="flex:1; padding:8px; background:#e3f2fd; border:1px solid #2196f3; border-radius:6px; cursor:pointer; font-size:12px;">7限タイプ</button>
-        </div>
+      <h3 style="margin-bottom:10px; font-size:14px;">📅 曜日別ワンタッチ設定</h3>
+      <div style="font-size:12px; color:#888; margin-bottom:12px;">ボタンを押すとその曜日のスケジュールを一括で設定します</div>
+      <div style="display:flex; flex-direction:column; gap:8px; margin-bottom:16px;">
+        <button onclick="applyDayPreset(1)" style="padding:12px 16px; border-radius:8px; border:none; background:linear-gradient(135deg,#4a90e2,#357abd); color:white; font-size:14px; font-weight:bold; cursor:pointer; text-align:left;">
+          月曜日　<span style="font-size:12px; font-weight:normal; opacity:0.85;">7限・プロシード</span>
+        </button>
+        <button onclick="applyDayPreset(2)" style="padding:12px 16px; border-radius:8px; border:none; background:linear-gradient(135deg,#9c27b0,#7b1fa2); color:white; font-size:14px; font-weight:bold; cursor:pointer; text-align:left;">
+          火曜日　<span style="font-size:12px; font-weight:normal; opacity:0.85;">7限・文プラ</span>
+        </button>
+        <button onclick="applyDayPreset(3)" style="padding:12px 16px; border-radius:8px; border:none; background:linear-gradient(135deg,#43a047,#2e7d32); color:white; font-size:14px; font-weight:bold; cursor:pointer; text-align:left;">
+          水曜日　<span style="font-size:12px; font-weight:normal; opacity:0.85;">6限・プロシード</span>
+        </button>
+        <button onclick="applyDayPreset(4)" style="padding:12px 16px; border-radius:8px; border:none; background:linear-gradient(135deg,#43a047,#2e7d32); color:white; font-size:14px; font-weight:bold; cursor:pointer; text-align:left;">
+          木曜日　<span style="font-size:12px; font-weight:normal; opacity:0.85;">6限・プロシード</span>
+        </button>
+        <button onclick="applyDayPreset(5)" style="padding:12px 16px; border-radius:8px; border:none; background:linear-gradient(135deg,#4a90e2,#357abd); color:white; font-size:14px; font-weight:bold; cursor:pointer; text-align:left;">
+          金曜日　<span style="font-size:12px; font-weight:normal; opacity:0.85;">7限・プロシード</span>
+        </button>
+        <button onclick="applyAllDayPresets()" style="padding:12px 16px; border-radius:8px; border:2px solid #ff9800; background:#fff8e1; color:#e65100; font-size:14px; font-weight:bold; cursor:pointer; text-align:center; margin-top:4px;">
+          🗓 月〜金まとめて設定
+        </button>
       </div>
-      <div style="margin-bottom:15px;">
-        <label style="font-size:12px; color:#666; display:block; margin-bottom:5px;">勉強モード</label>
-        <div style="display:flex; gap:8px;">
-          <button id="preset-proceed" onclick="setStudyMode('proceed')" style="flex:1; padding:8px; background:#f3e5f5; border:1px solid #9c27b0; border-radius:6px; cursor:pointer; font-size:12px;">プロシード</button>
-          <button id="preset-bunpla" onclick="setStudyMode('bunpla')" style="flex:1; padding:8px; background:#f3e5f5; border:1px solid #9c27b0; border-radius:6px; cursor:pointer; font-size:12px;">文プラ</button>
-        </div>
-      </div>
-      <div style="margin-bottom:15px;">
-        <label style="font-size:12px; color:#666; display:block; margin-bottom:5px;">対象曜日</label>
-        <div id="preset-days" style="display:flex; gap:6px; flex-wrap:wrap;">
-          <label style="font-size:12px;"><input type="checkbox" value="1" checked> 月</label>
-          <label style="font-size:12px;"><input type="checkbox" value="2" checked> 火</label>
-          <label style="font-size:12px;"><input type="checkbox" value="3" checked> 水</label>
-          <label style="font-size:12px;"><input type="checkbox" value="4" checked> 木</label>
-          <label style="font-size:12px;"><input type="checkbox" value="5" checked> 金</label>
-          <label style="font-size:12px;"><input type="checkbox" value="6"> 土</label>
-          <label style="font-size:12px;"><input type="checkbox" value="0"> 日</label>
-        </div>
-      </div>
-      <button onclick="applyCurrentPreset()" style="width:100%; padding:10px; background:#4caf50; color:white; border:none; border-radius:6px; cursor:pointer; font-size:14px; margin-bottom:10px;">プリセットを適用</button>
     </div>
     
     <button onclick="closeModal()" style="padding:8px 24px; border-radius:6px; border:1px solid #ccc; cursor:pointer;">閉じる</button>
@@ -1608,18 +1602,11 @@ function showLogin() {
   document.getElementById('app-content').style.display = 'none';
 }
 
-// ════════════════════════════════════════
-// プリセット機能
-// ════════════════════════════════════════
-let currentPresetType = '7class';
-let currentStudyMode = 'proceed';
 function switchSettingsTab(tab) {
   const tabs = document.querySelectorAll('#modal-overlay .mode-tab');
   const panels = ['panel-basic', 'panel-preset'];
-  
   tabs.forEach(t => t.classList.remove('active-study'));
   panels.forEach(p => document.getElementById(p).style.display = 'none');
-  
   if (tab === 'basic') {
     document.getElementById('tab-basic').classList.add('active-study');
     document.getElementById('panel-basic').style.display = 'block';
@@ -1629,87 +1616,103 @@ function switchSettingsTab(tab) {
   }
 }
 
-function applyPreset(type) {
-  currentPresetType = type;
-  document.querySelectorAll('#preset-6class, #preset-7class').forEach(btn => {
-    btn.style.background = '#e3f2fd';
-    btn.style.color = '#333';
-  });
-  document.getElementById('preset-' + type).style.background = '#2196f3';
-  document.getElementById('preset-' + type).style.color = 'white';
-}
+// ════════════════════════════════════════
+// プリセット機能（曜日別ワンタッチ）
+// ════════════════════════════════════════
 
-function setStudyMode(mode) {
-  currentStudyMode = mode;
-  document.querySelectorAll('#preset-proceed, #preset-bunpla').forEach(btn => {
-    btn.style.background = '#f3e5f5';
-    btn.style.color = '#333';
-  });
-  document.getElementById('preset-' + mode).style.background = '#9c27b0';
-  document.getElementById('preset-' + mode).style.color = 'white';
-}
+// 曜日ごとの設定定義
+// dayOfWeek: 1=月,2=火,...,5=金（JavaScriptのgetDay()準拠）
+const DAY_PRESETS = {
+  1: { classType: '7class', studyMode: 'proceed' }, // 月
+  2: { classType: '7class', studyMode: 'bunpla'  }, // 火
+  3: { classType: '6class', studyMode: 'proceed' }, // 水
+  4: { classType: '6class', studyMode: 'proceed' }, // 木
+  5: { classType: '7class', studyMode: 'proceed' }, // 金
+};
 
-async function applyCurrentPreset() {
-  const checkedDays = Array.from(document.querySelectorAll('#preset-days input:checked')).map(cb => parseInt(cb.value));
-  if (checkedDays.length === 0) {
-    alert('対象曜日を少なくとも1つ選択してください');
-    return;
-  }
-  
-  const clubStart = currentPresetType === '6class' ? 15 : 16;
-  const studyEnd = currentStudyMode === 'bunpla' ? 22 : 21.33; // 22:00 or 21:20
-  
-  const presetSchedule = [
-    { hour: 6, minute: 0, duration: 60, type: 'event', title: '起床', color: '#ffeb3b' },
-    { hour: 7, minute: 0, duration: 60, type: 'study', title: '朝の勉強' },
-    { hour: 8, minute: 0, duration: 480, type: 'event', title: '学校', color: '#e3f2fd' },
-    { hour: clubStart, minute: 0, duration: 120, type: 'event', title: '部活', color: '#f3e5f5' },
-    { hour: 18, minute: 0, duration: (studyEnd - 18) * 60, type: 'study', title: '夜の勉強' },
-    { hour: Math.floor(studyEnd) + (studyEnd % 1 >= 0.33 ? 1 : 0), minute: (studyEnd % 1 >= 0.33 ? 20 : 40), duration: 80, type: 'event', title: '終支度', color: '#fff3e0' }
+function buildScheduleForDay(classType, studyMode) {
+  const clubStart = classType === '6class' ? 15 : 16;
+  const studyEnd  = studyMode  === 'bunpla' ? 22 : 21.33;
+  return [
+    { hour: 6,  duration: 60,                    type: 'event', title: '起床',    color: '#ffeb3b' },
+    { hour: 7,  duration: 60,                    type: 'study', title: '朝の勉強' },
+    { hour: 8,  duration: 480,                   type: 'event', title: '学校',    color: '#e3f2fd' },
+    { hour: clubStart, duration: 120,             type: 'event', title: '部活',    color: '#f3e5f5' },
+    { hour: 18, duration: (studyEnd - 18) * 60,  type: 'study', title: '夜の勉強' },
+    { hour: Math.floor(studyEnd) + (studyEnd % 1 >= 0.33 ? 1 : 0),
+      duration: 80, type: 'event', title: '終支度', color: '#fff3e0' },
   ];
-  
-  for (const day of checkedDays) {
-    for (const schedule of presetSchedule) {
-      await applyPresetToCell(day, schedule);
+}
+
+// 今週のcolIndex（0〜6）を曜日番号(0=日〜6=土)から求める
+function colIndexOfDayOfWeek(dayOfWeek) {
+  const start = getStartOfWeek();
+  for (let j = 0; j < 7; j++) {
+    const d = new Date(start); d.setDate(start.getDate() + j);
+    if (d.getDay() === dayOfWeek) return j;
+  }
+  return -1;
+}
+
+async function applyDayPreset(dayOfWeek) {
+  const preset = DAY_PRESETS[dayOfWeek];
+  if (!preset) return;
+  const colIndex = colIndexOfDayOfWeek(dayOfWeek);
+  if (colIndex === -1) { alert('今週にその曜日がありません'); return; }
+
+  if (!confirm(`${['日','月','火','水','木','金','土'][dayOfWeek]}曜日のスケジュールを設定しますか？`)) return;
+
+  const schedule = buildScheduleForDay(preset.classType, preset.studyMode);
+  for (const s of schedule) {
+    await applyPresetToCell(colIndex, s);
+  }
+  closeModal();
+  setTimeout(loadWeek, 300);
+  alert('設定しました！');
+}
+
+async function applyAllDayPresets() {
+  if (!confirm('月〜金すべての曜日を一括設定しますか？')) return;
+  for (const [dow, preset] of Object.entries(DAY_PRESETS)) {
+    const colIndex = colIndexOfDayOfWeek(parseInt(dow));
+    if (colIndex === -1) continue;
+    const schedule = buildScheduleForDay(preset.classType, preset.studyMode);
+    for (const s of schedule) {
+      await applyPresetToCell(colIndex, s);
     }
   }
-  
-  setTimeout(loadWeek, 500);
-  alert('プリセットを適用しました');
+  closeModal();
+  setTimeout(loadWeek, 300);
+  alert('月〜金を設定しました！');
 }
 
-async function applyPresetToCell(day, schedule) {
+// 旧関数（互換性のため残す）
+function applyPreset(type) { currentPresetType = type; }
+function setStudyMode(mode) { currentStudyMode = mode; }
+async function applyCurrentPreset() {}
+let currentPresetType = '7class';
+let currentStudyMode  = 'proceed';
+
+async function applyPresetToCell(colIndex, schedule) {
   const startHour = Math.floor(schedule.hour);
-  const startMinute = schedule.minute;
-  const duration = schedule.duration;
-  
+  const duration  = schedule.duration;
   const hourSlots = Math.ceil(duration / 60);
-  
+
   for (let i = 0; i < hourSlots; i++) {
     const hour = startHour + i;
-    if (hour < 4 || hour >= 24) continue; // 表示範囲外
-    
-    const cellId = `cell-${hour}-${day}`;
-    const colIndex = day;
-    
+    if (hour < 4 || hour >= 24) continue;
+    const cellId = `cell-${hour}-${colIndex}`;
     if (schedule.type === 'study') {
-      const cellRecord = {
-        mode: "study",
-        materialId: null, 
-        materialName: "教材未設定",
-        materialColor: "#4a90e2",
-        pageFrom: null,
-        pageTo: null
-      };
-      await saveCellData(cellId, colIndex, hour, cellRecord);
+      await saveCellData(cellId, colIndex, hour, {
+        mode: "study", materialId: null,
+        materialName: "教材未設定", materialColor: "#4a90e2",
+        pageFrom: null, pageTo: null
+      });
     } else {
-      const cellRecord = {
-        mode: "event",
-        title: schedule.title,
-        color: schedule.color || "#ffadad",
-        memo: ""
-      };
-      await saveCellData(cellId, colIndex, hour, cellRecord);
+      await saveCellData(cellId, colIndex, hour, {
+        mode: "event", title: schedule.title,
+        color: schedule.color || "#ffadad", memo: ""
+      });
     }
   }
 }
