@@ -9,7 +9,7 @@ export default async function handler(req, res) {
         "Content-Type": "application/json"
       },
       body: JSON.stringify({
-        model: "command-r",
+        model: ""command-r-08-2024"",
         message: prompt,
         temperature: 0.7
       })
