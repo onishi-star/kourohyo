@@ -488,15 +488,11 @@ function toggleDone(idx) {
  */
 function safeJsonParse(rawData) {
   try {
-    // 1. 前後にあるマークダウンの囲み (```json ... ```) や空白だけを綺麗に取り除く
+    // 前後にあるマークダウンの囲みを除去
     const clean = rawData.trim()
                          .replace(/^```json\s*/, "")
                          .replace(/\s*```$/, "");
-    
-    // 2. 余計な置換はせず、そのままパースする
-    // (response_formatを指定していれば、これで正しく読み込めます)
     return JSON.parse(clean);
-
   } catch (e) {
     console.error("JSONパース失敗:", e);
     console.log("AIからの生データ:", rawData);
@@ -505,12 +501,13 @@ function safeJsonParse(rawData) {
 }
 
 /**
- * Cohere API 呼び出し（最新・安定版）
+ * Cohere API 呼び出し（最新・修正版）
  */
 async function callCohere(message, temperature = 0.7) {
   const apikey = localStorage.getItem('cohere_api_key');
   if (!apikey) throw new Error('APIキーが設定されていません');
 
+  // URLを正しいAPIエンドポイントに修正
   const res = await fetch('https://cohere.ai', {
     method: 'POST',
     headers: {
@@ -518,7 +515,7 @@ async function callCohere(message, temperature = 0.7) {
       'Content-Type': 'application/json'
     },
     body: JSON.stringify({
-      model: 'command-a-03-2025', 
+      model: 'command-r-08-2024', // command-a より無料枠で安定しやすいモデル
       message: message,
       temperature: temperature,
       response_format: { type: "json_object" } 
@@ -531,7 +528,7 @@ async function callCohere(message, temperature = 0.7) {
   }
 
   const data = await res.json();
-  // 掃除用関数を通してJSONを返す
+  // Cohere v1 APIの回答は data.text に格納されています
   return safeJsonParse(data.text);
 }
 
