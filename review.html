@@ -483,21 +483,45 @@ function toggleDone(idx) {
 // ══════════════════════════════════════════════════════════
 // Cohere API ヘルパー
 // ══════════════════════════════════════════════════════════
+/**
+ * AIの回答文字列を安全にJSONオブジェクトに変換する（修正版）
+ */
+function safeJsonParse(rawData) {
+  try {
+    // 1. 前後にあるマークダウンの囲み (```json ... ```) や空白だけを綺麗に取り除く
+    const clean = rawData.trim()
+                         .replace(/^```json\s*/, "")
+                         .replace(/\s*```$/, "");
+    
+    // 2. 余計な置換はせず、そのままパースする
+    // (response_formatを指定していれば、これで正しく読み込めます)
+    return JSON.parse(clean);
+
+  } catch (e) {
+    console.error("JSONパース失敗:", e);
+    console.log("AIからの生データ:", rawData);
+    throw new Error("データの解析に失敗しました。もう一度生成してください。");
+  }
+}
+
+/**
+ * Cohere API 呼び出し（最新・安定版）
+ */
 async function callCohere(message, temperature = 0.7) {
   const apikey = localStorage.getItem('cohere_api_key');
   if (!apikey) throw new Error('APIキーが設定されていません');
 
-  const res = await fetch('https://api.cohere.ai/v1/chat', {
+  const res = await fetch('https://cohere.ai', {
     method: 'POST',
     headers: {
       'Authorization': `Bearer ${apikey}`,
       'Content-Type': 'application/json'
     },
     body: JSON.stringify({
-      model: 'command-a-03-2025', // 最新の推奨モデル
+      model: 'command-a-03-2025', 
       message: message,
       temperature: temperature,
-      response_format: { type: "json_object" } // 出力をJSONに固定
+      response_format: { type: "json_object" } 
     }),
   });
 
@@ -507,33 +531,10 @@ async function callCohere(message, temperature = 0.7) {
   }
 
   const data = await res.json();
-  if (!data.text) throw new Error('APIレスポンスにtextがありません');
-
-  // AIの回答からJSONを安全に取り出す処理
+  // 掃除用関数を通してJSONを返す
   return safeJsonParse(data.text);
 }
 
-/**
- * AIの回答文字列を安全にJSONオブジェクトに変換する
- */
-function safeJsonParse(rawData) {
-  try {
-    // 1. マークダウンの装飾 (```json ... ```) を除去
-    let clean = rawData.replace(/```json/g, "").replace(/```/g, "").trim();
-    
-    // 2. 文字列内の「本物の改行」がパースを壊すため、エスケープ文字(\\n)に変換
-    //    これにより、解説文の中に改行があってもエラーにならなくなります
-    clean = clean.replace(/[\n\r]/g, "\\n");
-
-    // 3. 極稀に混入する制御文字を除去
-    clean = clean.replace(/[\u0000-\u001F\u007F-\u009F]/g, "");
-
-    return JSON.parse(clean);
-  } catch (e) {
-    console.error("JSON Parse Error. Raw Data:", rawData);
-    throw new Error("AIの回答を解析できませんでした。もう一度試してください。");
-  }
-}
 // ══════════════════════════════════════════════════════════
 // AI問題生成
 // ══════════════════════════════════════════════════════════
