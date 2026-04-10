@@ -3,168 +3,94 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>復習ツール - 最新版</title>
-  <script src="https://gstatic.com"></script>
-  <script src="https://gstatic.com"></script>
+  <title>復習ツール</title>
   <style>
-    :root {
-      --primary:      #2ecc87;
-      --primary-dk:   #27ae71;
-      --primary-soft: #e0f7ef;
-      --bg:           #f2f7f5;
-      --surface:      #ffffff;
-      --border:       #d8e8e0;
-      --text:         #1a2e26;
-      --text-sub:     #7a9a8a;
-      --shadow:       0 2px 14px rgba(0,0,0,0.07);
-      --radius:       16px;
-    }
-    * { box-sizing: border-box; margin: 0; padding: 0; }
-    body {
-      font-family: 'Hiragino Kaku Gothic ProN','Hiragino Sans','Meiryo',sans-serif;
-      background: var(--bg); color: var(--text);
-      min-height: 100vh; display: flex; flex-direction: column;
-      padding-bottom: 60px;
-    }
-    header {
-      background: var(--surface); border-bottom: 1px solid var(--border);
-      padding: 12px 16px; display: flex; align-items: center; gap: 10px;
-      position: sticky; top: 0; z-index: 10;
-      box-shadow: 0 1px 4px rgba(0,0,0,0.05);
-    }
-    header h1 { font-size: 17px; font-weight: 700; flex:1; }
-    main { flex: 1; padding: 16px; max-width: 480px; margin: 0 auto; width: 100%; }
-    .card { background: var(--surface); border-radius: var(--radius); padding: 16px; box-shadow: var(--shadow); margin-bottom: 14px; }
-    .api-key-section { background: #fffbea; border: 1px solid #ffe082; border-radius: 10px; padding: 12px; margin-bottom: 12px; }
-    .api-key-row { display: flex; gap: 8px; }
-    .api-key-row input { flex: 1; padding: 7px 10px; border: 1px solid #ddd; border-radius: 8px; font-size: 13px; }
-    .api-key-row button { padding: 7px 14px; background: var(--primary); color: white; border: none; border-radius: 8px; cursor: pointer; }
-    .ai-btn { width: 100%; padding: 14px; border: none; border-radius: 12px; background: linear-gradient(135deg, #2ecc87, #27ae71); color: white; font-size: 15px; font-weight: 700; cursor: pointer; box-shadow: 0 4px 16px rgba(46,204,135,0.35); }
-    .ai-btn:disabled { background: #ccc; box-shadow: none; cursor: not-allowed; }
-    .question-card { border-left: 4px solid var(--primary); padding: 14px; border-radius: 0 12px 12px 0; background: var(--primary-soft); margin-top: 14px; display: none; }
-    .q-text { font-size: 14px; line-height: 1.7; white-space: pre-wrap; }
-    #result-area { font-size: 13px; margin-top: 10px; padding: 10px; border-radius: 8px; display: none; }
-    .correct { background: #e8f5e9; color: #2e7d32; border: 1px solid #c8e6c9; }
+    :root { --primary: #2ecc87; --bg: #f2f7f5; --surface: #ffffff; --text: #1a2e26; }
+    body { font-family: sans-serif; background: var(--bg); color: var(--text); padding: 20px; }
+    .card { background: var(--surface); border-radius: 16px; padding: 20px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); max-width: 500px; margin: 0 auto; }
+    .api-section { background: #fffbea; border: 1px solid #ffe082; padding: 15px; border-radius: 10px; margin-bottom: 20px; }
+    input { width: 100%; padding: 10px; margin: 10px 0; border: 1px solid #ddd; border-radius: 8px; box-sizing: border-box; }
+    .btn { width: 100%; padding: 15px; border: none; border-radius: 12px; background: var(--primary); color: white; font-weight: bold; cursor: pointer; }
+    .btn:disabled { background: #ccc; }
+    #q-card { margin-top: 20px; padding: 15px; border-left: 5px solid var(--primary); background: #e0f7ef; display: none; }
   </style>
 </head>
 <body>
 
-<header>
-  <h1>学習復習ツール</h1>
-</header>
-
-<main>
-  <div class="card">
-    <div class="api-key-section">
-      <p style="font-size: 11px; margin-bottom: 5px;">Cohere APIキーを入力してください</p>
-      <div class="api-key-row">
-        <input type="password" id="api-key-input" placeholder="trial_key_..." />
-        <button onclick="saveApiKey()">保存</button>
-      </div>
-      <div id="key-status" style="font-size: 10px; margin-top: 5px; color: var(--primary-dk); cursor: pointer;" onclick="clearApiKey()"></div>
-    </div>
-
-    <button id="generate-btn" class="ai-btn" onclick="generateQuestion()">問題を生成する</button>
-
-    <div id="loading" style="display:none; text-align:center; margin-top:10px; font-size:12px; color:var(--text-sub);">AIが問題を考えています...</div>
-
-    <div id="q-card" class="question-card">
-      <div style="font-size: 11px; font-weight:700; color:var(--primary-dk); margin-bottom:5px;">AI GENERATED QUESTION</div>
-      <div id="q-text" class="q-text"></div>
-      <div id="result-area"></div>
-    </div>
+<div class="card">
+  <h2>学習復習ツール</h2>
+  <div class="api-section">
+    <p style="font-size: 12px;">Cohere APIキーを入力してください</p>
+    <input type="password" id="api-key-input" placeholder="trial_key_...">
+    <button class="btn" style="padding: 8px;" onclick="saveApiKey()">キーを保存</button>
+    <p id="key-status" style="font-size: 11px; margin-top: 5px; color: green; cursor: pointer;" onclick="clearApiKey()"></p>
   </div>
-</main>
+
+  <button id="generate-btn" class="btn" onclick="generateQuestion()">問題を生成する</button>
+  <div id="loading" style="display:none; text-align:center; margin-top:10px;">AIが考え中...</div>
+
+  <div id="q-card">
+    <strong>【問題】</strong>
+    <div id="q-text" style="margin: 10px 0; line-height: 1.6;"></div>
+  </div>
+</div>
 
 <script>
-  // ── APIキー管理 ──
   function saveApiKey() {
     const key = document.getElementById('api-key-input').value.trim();
-    if (key) {
-      localStorage.setItem('cohere_api_key', key);
-      updateKeyStatus();
-      alert('保存しました');
-    }
+    if(key) { localStorage.setItem('cohere_api_key', key); updateStatus(); alert('保存完了'); }
   }
-  function clearApiKey() {
-    if(confirm('APIキーを削除しますか？')) {
-      localStorage.removeItem('cohere_api_key');
-      updateKeyStatus();
-    }
-  }
-  function updateKeyStatus() {
+  function clearApiKey() { if(confirm('削除しますか？')) { localStorage.removeItem('cohere_api_key'); updateStatus(); } }
+  function updateStatus() {
     const key = localStorage.getItem('cohere_api_key');
-    const status = document.getElementById('key-status');
-    const input = document.getElementById('api-key-input');
-    if (key) {
-      status.innerText = '✅ APIキー保存済み (タップで削除)';
-      input.value = '';
-    } else {
-      status.innerText = '';
-    }
+    document.getElementById('key-status').innerText = key ? '✅ 保存済み（クリックで削除）' : '';
   }
-  updateKeyStatus();
+  updateStatus();
 
-  // ── コヒーアAPI呼び出し ──
-  async function callCohere(prompt) {
-    const apiKey = localStorage.getItem('cohere_api_key');
-    if (!apiKey) throw new Error('APIキーを設定してください');
-
-    // 接続先を修正し、最新の v2 API 形式で送信します
-    const response = await fetch('https://cohere.ai', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${apiKey}`,
-        'Content-Type': 'application/json',
-        'Accept': 'application/json'
-      },
-      body: JSON.stringify({
-        model: 'command-r-08-2024', // 安定した最新モデル
-        messages: [{ role: 'user', content: prompt + "\n必ず有効なJSON形式だけで回答してください。" }],
-        response_format: { type: "json_object" }
-      })
-    });
-
-    if (!response.ok) {
-      const err = await response.json().catch(() => ({}));
-      throw new Error(err.message || `通信エラー: ${response.status}`);
-    }
-
-    const data = await response.json();
-    return data.message.content[0].text; // v2 APIのレスポンス形式
-  }
-
-  // ── 問題生成メイン ──
   async function generateQuestion() {
     const btn = document.getElementById('generate-btn');
     const loader = document.getElementById('loading');
     const qCard = document.getElementById('q-card');
-    const qText = document.getElementById('q-text');
+    const apiKey = localStorage.getItem('cohere_api_key');
+
+    if(!apiKey) return alert('先にAPIキーを保存してください');
 
     btn.disabled = true;
     loader.style.display = 'block';
     qCard.style.display = 'none';
 
     try {
-      const prompt = "中学生向けの歴史の問題を1問、問題文(question)と答え(answer)のJSON形式で作ってください。";
-      const aiResponse = await callCohere(prompt);
-      
-      // JSONのパース（掃除付き）
-      const cleanJson = aiResponse.trim().replace(/^```json\s*/, "").replace(/\s*```$/, "");
-      const quiz = JSON.parse(cleanJson);
+      // 最新の API v2 エンドポイントを使用
+      const res = await fetch('https://cohere.ai', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${apiKey}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          model: 'command-r7b-12-2024',
+          messages: [{ role: 'user', content: '中学生向け歴史クイズを1問、問題(question)と答え(answer)のJSON形式で作成してください。' }],
+          response_format: { type: "json_object" }
+        })
+      });
 
-      qText.innerText = quiz.question + "\n\n答え: " + quiz.answer;
+      if (!res.ok) throw new Error('通信エラー（Status: ' + res.status + '）');
+
+      const data = await res.json();
+      const aiText = data.message.content[0].text; // v2のレスポンス構造に修正
+      const quiz = JSON.parse(aiText);
+
+      document.getElementById('q-text').innerText = quiz.question + "\n\n答え: " + quiz.answer;
       qCard.style.display = 'block';
 
     } catch (err) {
       console.error(err);
-      alert('エラーが発生しました: ' + err.message);
+      alert('エラー: ' + err.message + '\n※APIキーが正しいか確認してください。');
     } finally {
       btn.disabled = false;
       loader.style.display = 'none';
     }
   }
 </script>
-
 </body>
 </html>
