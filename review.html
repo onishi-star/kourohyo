@@ -485,11 +485,11 @@ function toggleDone(idx) {
 // ══════════════════════════════════════════════════════════
 async function callCohere(message, temperature = 0.7) {
   const apiKey = localStorage.getItem('cohere_api_key');
-  if (!apiKey) throw new Error('APIキーが設定されていません');
+  if (!apiKey) throw new Error('APIキーがありません');
   const res = await fetch('https://api.cohere.ai/v1/chat', {
     method: 'POST',
     headers: { 'Authorization': `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
-    body: JSON.stringify({ model: 'command-r', message, temperature }),
+    body: JSON.stringify({ model: 'command-a-03-2025', message, temperature }),
   });
   if (!res.ok) {
     const e = await res.json().catch(() => ({}));
