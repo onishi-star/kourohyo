@@ -485,11 +485,11 @@ function toggleDone(idx) {
 // ══════════════════════════════════════════════════════════
 async function callCohere(message, temperature = 0.7) {
   const apiKey = localStorage.getItem('cohere_api_key');
-  if (!apiKey) throw new Error('APIキーがありません');
+  if (!apiKey) throw new Error('APIキーが設定されていません');
   const res = await fetch('https://api.cohere.ai/v1/chat', {
     method: 'POST',
     headers: { 'Authorization': `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
-    body: JSON.stringify({ model: 'command-a-03-2025', message, temperature }),
+    body: JSON.stringify({ model: 'command-r', message, temperature }),
   });
   if (!res.ok) {
     const e = await res.json().catch(() => ({}));
@@ -538,8 +538,14 @@ async function generateQuestions() {
 
     if (currentMode === 'choice') {
       // ── 選択問題プロンプト ──
-      prompt = `あなたは高校生向けの復習問題を作成する先生です。
+      prompt = `あなたは日本の高校生向けの復習問題を作成するベテランの先生です。
 以下の教材・学習内容をもとに、4択の選択問題を3問作成してください。
+
+【対象レベルの厳守】
+- 日本の高校生（高校1〜3年生）が解けるレベルにしてください
+- 大学入試（共通テスト・センター試験）レベルを意識してください
+- 大学レベル・専門的すぎる内容は避けてください
+- 用語・概念は高校の教科書に載っている範囲に収めてください
 
 【教材・学習内容】
 ${matDetails}
@@ -560,8 +566,14 @@ ${matDetails}
 ]`;
     } else {
       // ── 記述問題プロンプト ──
-      prompt = `あなたは高校生向けの復習問題を作成する先生です。
+      prompt = `あなたは日本の高校生向けの復習問題を作成するベテランの先生です。
 以下の教材・学習内容をもとに、記述式の復習問題を3問作成してください。
+
+【対象レベルの厳守】
+- 日本の高校生（高校1〜3年生）が解けるレベルにしてください
+- 大学入試（共通テスト・センター試験）レベルを意識してください
+- 大学レベル・専門的すぎる内容は避けてください
+- 用語・概念は高校の教科書に載っている範囲に収めてください
 
 【教材・学習内容】
 ${matDetails}
