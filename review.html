@@ -74,8 +74,6 @@
     .plan-item.done .plan-check {
       background: var(--primary); border-color: var(--primary); color: white;
     }
-
-    /* ── 進捗バー ── */
     .progress-wrap {
       background: var(--border); border-radius: 6px; height: 8px;
       overflow: hidden; margin-top: 8px;
@@ -86,6 +84,21 @@
       transition: width 0.5s ease;
     }
     .progress-label { font-size: 12px; color: var(--text-sub); margin-top: 5px; }
+
+    /* ── 学んだこと ── */
+    .learned-toggle {
+      font-size: 12px; color: var(--primary-dk);
+      background: none; border: none; cursor: pointer;
+      padding: 4px 0; font-family: inherit; text-decoration: underline;
+    }
+    .learned-area { display: none; margin-top: 8px; }
+    .learned-area textarea {
+      width: 100%; border: 1px solid var(--border); border-radius: 8px;
+      padding: 8px 10px; font-size: 13px; font-family: inherit;
+      resize: none; background: var(--bg); min-height: 64px;
+    }
+    .learned-area textarea:focus { outline: none; border-color: var(--primary); }
+    .learned-area .char-hint { font-size: 11px; color: var(--text-sub); margin-top: 3px; }
 
     /* ── APIキー設定 ── */
     .api-key-section {
@@ -106,7 +119,24 @@
     }
     .api-key-saved {
       font-size: 11px; color: var(--primary-dk); margin-top: 6px;
-      cursor: pointer; text-decoration: underline;
+      cursor: pointer; text-decoration: underline; display: none;
+    }
+
+    /* ── 問題モード切り替え ── */
+    .mode-switch {
+      display: flex; gap: 8px; margin-bottom: 14px;
+    }
+    .mode-btn {
+      flex: 1; padding: 9px 4px;
+      border: 2px solid var(--border); border-radius: 10px;
+      background: var(--surface); color: var(--text-sub);
+      font-size: 13px; font-weight: 700; cursor: pointer;
+      font-family: inherit; transition: all 0.15s;
+      text-align: center;
+    }
+    .mode-btn.active {
+      border-color: var(--primary); background: var(--primary-soft);
+      color: var(--primary-dk);
     }
 
     /* ── AIボタン ── */
@@ -118,22 +148,23 @@
       box-shadow: 0 4px 16px rgba(46,204,135,0.35);
       transition: transform 0.12s, box-shadow 0.12s; font-family: inherit;
     }
-    .ai-btn:hover  { transform: scale(1.02); box-shadow: 0 6px 20px rgba(46,204,135,0.4); }
+    .ai-btn:hover  { transform: scale(1.02); }
     .ai-btn:active { transform: scale(0.98); }
     .ai-btn:disabled { background: #ccc; box-shadow: none; cursor: not-allowed; transform: none; }
 
     /* ── 問題カード ── */
+    .q-nav { font-size: 11px; color: var(--text-sub); margin-bottom: 6px; }
     .question-card {
       border-left: 4px solid var(--primary);
       padding: 14px 14px 14px 16px;
       border-radius: 0 12px 12px 0;
       background: var(--primary-soft); margin-bottom: 10px;
     }
-    .q-nav   { font-size: 11px; color: var(--text-sub); margin-bottom: 6px; }
     .q-label { font-size: 11px; font-weight: 700; color: var(--primary-dk); margin-bottom: 6px; letter-spacing: 0.06em; }
-    .q-text  { font-size: 14px; line-height: 1.65; }
-    .q-hint  { font-size: 12px; color: var(--text-sub); margin-top: 6px; }
+    .q-text  { font-size: 14px; line-height: 1.7; }
+    .q-hint  { font-size: 12px; color: var(--text-sub); margin-top: 8px; }
 
+    /* ── 記述回答欄 ── */
     .answer-area { margin-top: 8px; }
     .answer-area textarea {
       width: 100%; border: 1px solid var(--border); border-radius: 10px;
@@ -156,6 +187,26 @@
       font-size: 13px; cursor: pointer; font-family: inherit;
     }
 
+    /* ── 選択肢ボタン ── */
+    .choices-area { display: flex; flex-direction: column; gap: 8px; margin-top: 8px; }
+    .choice-btn {
+      width: 100%; padding: 11px 14px; text-align: left;
+      border: 2px solid var(--border); border-radius: 10px;
+      background: var(--surface); font-size: 13px; font-family: inherit;
+      cursor: pointer; transition: all 0.15s; line-height: 1.5;
+    }
+    .choice-btn:hover:not(:disabled)  { border-color: var(--primary); background: var(--primary-soft); }
+    .choice-btn:disabled              { cursor: not-allowed; }
+    .choice-btn.correct-choice {
+      border-color: var(--primary-dk) !important;
+      background: #d4f5e5 !important; font-weight: 700;
+    }
+    .choice-btn.wrong-choice {
+      border-color: #e05555 !important;
+      background: #ffe5e5 !important;
+    }
+
+    /* ── フィードバック ── */
     .feedback-box {
       margin-top: 10px; padding: 12px;
       border-radius: 10px; font-size: 13px; line-height: 1.7;
@@ -181,24 +232,9 @@
     .loading-dots span:nth-child(3) { animation-delay: 0.4s; }
     @keyframes blink { 0%,80%,100%{opacity:0.2} 40%{opacity:1} }
 
-    /* ── 学んだこと入力 ── */
-    .learned-toggle {
-      font-size: 12px; color: var(--primary-dk);
-      background: none; border: none; cursor: pointer;
-      padding: 4px 0; font-family: inherit; text-decoration: underline;
-    }
-    .learned-area { display: none; margin-top: 8px; }
-    .learned-area textarea {
-      width: 100%; border: 1px solid var(--border); border-radius: 8px;
-      padding: 8px 10px; font-size: 13px; font-family: inherit;
-      resize: none; background: var(--bg); min-height: 64px;
-    }
-    .learned-area textarea:focus { outline: none; border-color: var(--primary); }
-    .learned-area .char-hint { font-size: 11px; color: var(--text-sub); margin-top: 3px; }
-
     /* ── 空状態 ── */
-    .empty-state { text-align: center; padding: 32px 16px; color: var(--text-sub); }
-    .empty-state .emoji { font-size: 44px; margin-bottom: 12px; }
+    .empty-state { text-align: center; padding: 24px 16px; color: var(--text-sub); }
+    .empty-state .emoji { font-size: 40px; margin-bottom: 10px; }
     .empty-state p { font-size: 14px; line-height: 1.6; }
   </style>
 </head>
@@ -211,7 +247,7 @@
 
 <main>
 
-  <!-- 今日の計画チェック -->
+  <!-- 今日の計画 -->
   <div class="card">
     <div class="card-title">📋 今日の計画</div>
     <div id="planList">
@@ -230,24 +266,37 @@
   <div class="card">
     <div class="card-title">🤖 AI復習問題</div>
 
-    <!-- Cohere APIキー設定 -->
+    <!-- APIキー設定 -->
     <div class="api-key-section" id="apiKeySection">
-      <p>⚙️ Cohere APIキーを入力してください（一度入力するとブラウザに保存されます）<br>
-        <a href="https://dashboard.cohere.com/api-keys" target="_blank">→ APIキーはこちらから取得できます</a>
+      <p>⚙️ Cohere APIキーを入力してください（一度保存するとブラウザに記憶されます）<br>
+        <a href="https://dashboard.cohere.com/api-keys" target="_blank">→ APIキーの取得はこちら</a>
       </p>
       <div class="api-key-row">
         <input type="password" id="apiKeyInput" placeholder="APIキーを入力..." />
         <button onclick="saveApiKey()">保存</button>
       </div>
-      <div class="api-key-saved" id="apiKeySaved" style="display:none"
-           onclick="resetApiKey()">✅ APIキー保存済み（タップして削除・変更）</div>
+      <div class="api-key-saved" id="apiKeySaved" onclick="resetApiKey()">
+        ✅ APIキー保存済み（タップして削除・変更）
+      </div>
     </div>
 
+    <!-- 問題モード切り替え -->
+    <div class="mode-switch">
+      <button class="mode-btn active" id="modeWritten" onclick="setMode('written')">
+        ✏️ 記述問題
+      </button>
+      <button class="mode-btn" id="modeChoice" onclick="setMode('choice')">
+        🔘 選択問題
+      </button>
+    </div>
+
+    <!-- 空状態 -->
     <div id="aiEmptyState" class="empty-state" style="padding:16px 0;">
       <div class="emoji">💡</div>
       <p>今日やった教材をもとに<br>AIが復習問題を出題します</p>
     </div>
 
+    <!-- 問題表示エリア -->
     <div id="questionArea" style="display:none;"></div>
 
     <button class="ai-btn" id="aiBtn" onclick="generateQuestions()">
@@ -303,17 +352,22 @@ function refreshApiKeyUI() {
   const key     = localStorage.getItem('cohere_api_key');
   const section = document.getElementById('apiKeySection');
   const saved   = document.getElementById('apiKeySaved');
-  if (key) {
-    saved.style.display        = 'block';
-    section.style.background   = '#f0fff6';
-    section.style.borderColor  = '#a8dfc0';
-  } else {
-    saved.style.display        = 'none';
-    section.style.background   = '';
-    section.style.borderColor  = '';
-  }
+  saved.style.display       = key ? 'block' : 'none';
+  section.style.background  = key ? '#f0fff6' : '';
+  section.style.borderColor = key ? '#a8dfc0' : '';
 }
 refreshApiKeyUI();
+
+// ══════════════════════════════════════════════════════════
+// 問題モード
+// ══════════════════════════════════════════════════════════
+let currentMode = 'written'; // 'written' | 'choice'
+
+function setMode(mode) {
+  currentMode = mode;
+  document.getElementById('modeWritten').classList.toggle('active', mode === 'written');
+  document.getElementById('modeChoice').classList.toggle('active',  mode === 'choice');
+}
 
 // ══════════════════════════════════════════════════════════
 // 今日の計画
@@ -340,8 +394,7 @@ async function loadTodayPlans() {
       if (!val.cell || val.cell.mode !== 'study' || !val.cell.materialId) return;
       const hour = parseInt(key.split('-')[3]);
       plans.push({
-        key,
-        hour,
+        key, hour,
         matId:    val.cell.materialId,
         matName:  val.cell.materialName,
         matColor: val.cell.materialColor,
@@ -353,9 +406,7 @@ async function loadTodayPlans() {
     plans.sort((a, b) => a.hour - b.hour);
     todayPlans = plans;
     renderPlanList();
-  } catch(e) {
-    console.error('loadTodayPlans error:', e);
-  }
+  } catch(e) { console.error(e); }
 }
 
 function renderPlanList() {
@@ -368,11 +419,10 @@ function renderPlanList() {
     document.getElementById('progressWrap').style.display = 'none';
     return;
   }
-
   el.innerHTML = '';
   todayPlans.forEach((p, idx) => {
     const item = document.createElement('div');
-    item.style.cssText = 'margin-bottom:10px;';
+    item.style.marginBottom = '10px';
     const pages = p.pageFrom && p.pageTo
       ? ` <span style="color:var(--text-sub)">p${p.pageFrom}〜${p.pageTo}</span>` : '';
     const savedLearned = localStorage.getItem(`review_learned_${dateStr}_${p.key}`) || '';
@@ -394,12 +444,9 @@ function renderPlanList() {
           >${savedLearned}</textarea>
           <div class="char-hint">ここに記入した内容をもとにAIが問題を作ります</div>
         </div>
-      </div>
-    `;
+      </div>`;
     el.appendChild(item);
-    if (savedLearned) {
-      document.getElementById(`learnedArea-${idx}`).style.display = 'block';
-    }
+    if (savedLearned) document.getElementById(`learnedArea-${idx}`).style.display = 'block';
   });
 
   const done  = todayPlans.filter(p => p.done).length;
@@ -420,13 +467,10 @@ function toggleLearnedArea(idx) {
   area.style.display = isOpen ? 'none' : 'block';
   if (!isOpen) document.getElementById(`learnedText-${idx}`).focus();
 }
-
 function saveLearnedText(idx) {
-  const p    = todayPlans[idx];
   const text = document.getElementById(`learnedText-${idx}`).value;
-  localStorage.setItem(`review_learned_${dateStr}_${p.key}`, text);
+  localStorage.setItem(`review_learned_${dateStr}_${todayPlans[idx].key}`, text);
 }
-
 function toggleDone(idx) {
   const plan = todayPlans[idx];
   plan.done  = !plan.done;
@@ -437,54 +481,51 @@ function toggleDone(idx) {
 }
 
 // ══════════════════════════════════════════════════════════
-// AI問題生成 ── Cohere API をフロントエンドから直接呼ぶ
+// Cohere API ヘルパー
+// ══════════════════════════════════════════════════════════
+async function callCohere(message, temperature = 0.7) {
+  const apiKey = localStorage.getItem('cohere_api_key');
+  if (!apiKey) throw new Error('APIキーが設定されていません');
+  const res = await fetch('https://api.cohere.ai/v1/chat', {
+    method: 'POST',
+    headers: { 'Authorization': `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ model: 'command-r', message, temperature }),
+  });
+  if (!res.ok) {
+    const e = await res.json().catch(() => ({}));
+    throw new Error(e.message || `HTTPエラー ${res.status}`);
+  }
+  const data = await res.json();
+  if (!data.text) throw new Error('APIレスポンスにtextがありません');
+  return data.text;
+}
+
+// ══════════════════════════════════════════════════════════
+// AI問題生成
 // ══════════════════════════════════════════════════════════
 let questions     = [];
 let currentQIndex = 0;
 
 async function generateQuestions() {
-  const apiKey = localStorage.getItem('cohere_api_key');
-  if (!apiKey) {
+  if (!localStorage.getItem('cohere_api_key')) {
     alert('先にAPIキーを入力・保存してください');
     return;
   }
 
-  // 教材＋学習内容まとめ
+  // 教材内容まとめ
   const matGroups = {};
   todayPlans.forEach((p) => {
     const learned = (localStorage.getItem(`review_learned_${dateStr}_${p.key}`) || '').trim();
-    if (!matGroups[p.matId]) {
-      matGroups[p.matId] = { name: p.matName, ranges: [], learnedList: [] };
-    }
+    if (!matGroups[p.matId]) matGroups[p.matId] = { name: p.matName, ranges: [], learnedList: [] };
     if (p.pageFrom && p.pageTo) matGroups[p.matId].ranges.push(`p${p.pageFrom}〜${p.pageTo}`);
-    if (learned)                matGroups[p.matId].learnedList.push(learned);
+    if (learned) matGroups[p.matId].learnedList.push(learned);
   });
-
   const matDetails = Object.values(matGroups).map(m => {
     let d = m.name;
     if (m.ranges.length)      d += `（${m.ranges.join('、')}）`;
     if (m.learnedList.length) d += `\n学んだこと：${m.learnedList.join('／')}`;
     return d;
-  }).join('\n');
-
-  const contentDesc = matDetails.trim() || '（本日の教材。一般的な高校の学習内容）';
-
-  const prompt = `あなたは高校生向けの復習問題を作成する先生です。
-以下の教材・学習内容をもとに、復習問題を3問作成してください。
-
-【教材・学習内容】
-${contentDesc}
-
-【重要な出力ルール】
-- 必ず以下のJSON配列のみを返してください
-- 説明文・マークダウン記法（\`\`\`など）は一切不要です
-- JSONのみを出力してください
-
-[
-  {"q":"問題文","a":"模範解答","hint":"解くためのヒント","subject":"科目名"},
-  {"q":"問題文","a":"模範解答","hint":"解くためのヒント","subject":"科目名"},
-  {"q":"問題文","a":"模範解答","hint":"解くためのヒント","subject":"科目名"}
-]`;
+  }).join('\n') || '（本日の教材。一般的な高校の学習内容）';
 
   const btn = document.getElementById('aiBtn');
   btn.disabled = true;
@@ -493,42 +534,69 @@ ${contentDesc}
   document.getElementById('questionArea').style.display = 'none';
 
   try {
-    const res = await fetch('https://api.cohere.ai/v1/chat', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${apiKey}`,
-        'Content-Type':  'application/json',
-      },
-      body: JSON.stringify({
-        model:       'command-r-08-2024',
-        message:     prompt,
-        temperature: 0.7,
-      }),
-    });
+    let prompt;
 
-    if (!res.ok) {
-      const errBody = await res.json().catch(() => ({}));
-      throw new Error(errBody.message || `HTTPエラー ${res.status}`);
+    if (currentMode === 'choice') {
+      // ── 選択問題プロンプト ──
+      prompt = `あなたは高校生向けの復習問題を作成する先生です。
+以下の教材・学習内容をもとに、4択の選択問題を3問作成してください。
+
+【教材・学習内容】
+${matDetails}
+
+【重要な出力ルール】
+- 必ず以下のJSON配列のみを返してください（説明文・\`\`\`などマークダウン不要）
+- "correct" は 0〜3 のインデックスで正解の選択肢番号を示します
+- 不正解の選択肢は「惜しい間違い」や「よくある誤解」を含めると良い問題になります
+
+[
+  {
+    "q": "問題文",
+    "choices": ["選択肢A","選択肢B","選択肢C","選択肢D"],
+    "correct": 0,
+    "explanation": "正解の理由を1〜2文で説明",
+    "subject": "科目名"
+  }
+]`;
+    } else {
+      // ── 記述問題プロンプト ──
+      prompt = `あなたは高校生向けの復習問題を作成する先生です。
+以下の教材・学習内容をもとに、記述式の復習問題を3問作成してください。
+
+【教材・学習内容】
+${matDetails}
+
+【重要な出力ルール】
+- 必ず以下のJSON配列のみを返してください（説明文・\`\`\`などマークダウン不要）
+- "a" には模範解答を書いてください（キーワードのみでも可）
+- "keywords" には採点に使うキーワードを配列で列挙してください（表記ゆれも含めて）
+
+[
+  {
+    "q": "問題文",
+    "a": "模範解答（フル）",
+    "keywords": ["キーワード1","キーワード2"],
+    "hint": "ヒント",
+    "subject": "科目名"
+  }
+]`;
     }
 
-    const data = await res.json();
-    if (!data.text) throw new Error('APIレスポンスにtextがありません');
+    const raw   = await callCohere(prompt, 0.7);
+    const match = raw.match(/\[[\s\S]*\]/);
+    if (!match) throw new Error('JSONが見つかりません。受信内容：' + raw.slice(0, 300));
 
-    // JSON配列を抽出してパース
-    const match = data.text.match(/\[[\s\S]*\]/);
-    if (!match) throw new Error('JSONが見つかりません。\n受信内容：' + data.text.slice(0, 300));
     questions     = JSON.parse(match[0]);
     currentQIndex = 0;
     renderQuestion();
     btn.innerHTML = '✨ もう一度生成';
 
   } catch(e) {
-    console.error('generateQuestions error:', e);
+    console.error(e);
     document.getElementById('aiEmptyState').style.display = 'block';
     alert('問題生成に失敗しました。\n\n' + e.message);
     btn.innerHTML = '⚠️ 再試行する';
   }
-
   btn.disabled = false;
 }
 
@@ -537,16 +605,13 @@ ${contentDesc}
 // ══════════════════════════════════════════════════════════
 function renderQuestion() {
   const area = document.getElementById('questionArea');
+  area.style.display = 'block';
 
   if (!questions.length) {
     area.innerHTML = '<p style="color:var(--text-sub);font-size:13px;padding:8px 0;">問題が生成されませんでした。</p>';
-    area.style.display = 'block';
     return;
   }
-
-  // 全問終了
   if (currentQIndex >= questions.length) {
-    area.style.display = 'block';
     area.innerHTML = `
       <div style="text-align:center;padding:24px 0;">
         <div style="font-size:44px;">🎉</div>
@@ -557,82 +622,137 @@ function renderQuestion() {
   }
 
   const q = questions[currentQIndex];
-  area.style.display = 'block';
-  area.innerHTML = `
-    <div class="q-nav">問題 ${currentQIndex + 1} / ${questions.length}${q.subject ? ' ・ ' + q.subject : ''}</div>
-    <div class="question-card">
-      <div class="q-label">Q${currentQIndex + 1}</div>
-      <div class="q-text">${q.q}</div>
-      ${q.hint ? `<div class="q-hint">💡 ヒント：${q.hint}</div>` : ''}
-    </div>
-    <div class="answer-area">
-      <textarea id="userAnswer" placeholder="ここに答えを入力..."></textarea>
-    </div>
-    <div class="answer-btn-row">
-      <button class="btn-check" id="checkBtn" onclick="checkAnswer()">✅ 答え合わせ</button>
-      <button class="btn-skip" onclick="skipQuestion()">スキップ</button>
-    </div>
-    <div id="feedbackArea"></div>
-  `;
+  const isChoice = Array.isArray(q.choices) && q.choices.length > 0;
+  const nextLabel = currentQIndex + 1 < questions.length ? '次の問題へ →' : '結果を見る 🎉';
 
-  // Enterで答え合わせ（Shift+Enterは改行）
-  document.getElementById('userAnswer').addEventListener('keydown', (e) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
-      e.preventDefault();
-      checkAnswer();
-    }
-  });
+  if (isChoice) {
+    // ── 選択問題UI ──
+    const choicesHTML = q.choices.map((c, i) =>
+      `<button class="choice-btn" id="choice-${i}" onclick="selectChoice(${i})">${['Ａ','Ｂ','Ｃ','Ｄ'][i]}．${c}</button>`
+    ).join('');
+
+    area.innerHTML = `
+      <div class="q-nav">問題 ${currentQIndex + 1} / ${questions.length}${q.subject ? ' ・ ' + q.subject : ''}</div>
+      <div class="question-card">
+        <div class="q-label">Q${currentQIndex + 1}　選択問題</div>
+        <div class="q-text">${q.q}</div>
+      </div>
+      <div class="choices-area" id="choicesArea">${choicesHTML}</div>
+      <div style="margin-top:8px;">
+        <button class="btn-skip" onclick="skipQuestion()">スキップ</button>
+      </div>
+      <div id="feedbackArea"></div>`;
+
+  } else {
+    // ── 記述問題UI ──
+    area.innerHTML = `
+      <div class="q-nav">問題 ${currentQIndex + 1} / ${questions.length}${q.subject ? ' ・ ' + q.subject : ''}</div>
+      <div class="question-card">
+        <div class="q-label">Q${currentQIndex + 1}　記述問題</div>
+        <div class="q-text">${q.q}</div>
+        ${q.hint ? `<div class="q-hint">💡 ヒント：${q.hint}</div>` : ''}
+      </div>
+      <div class="answer-area">
+        <textarea id="userAnswer" placeholder="ここに答えを入力..."></textarea>
+      </div>
+      <div class="answer-btn-row">
+        <button class="btn-check" id="checkBtn" onclick="checkWrittenAnswer()">✅ 答え合わせ</button>
+        <button class="btn-skip" onclick="skipQuestion()">スキップ</button>
+      </div>
+      <div id="feedbackArea"></div>`;
+
+    // Enterで答え合わせ
+    document.getElementById('userAnswer').addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); checkWrittenAnswer(); }
+    });
+  }
 }
 
 // ══════════════════════════════════════════════════════════
-// 答え合わせ（Cohere APIで採点）
+// 選択問題 ── 即時判定（API不要）
 // ══════════════════════════════════════════════════════════
-async function checkAnswer() {
-  const apiKey  = localStorage.getItem('cohere_api_key');
+function selectChoice(selectedIdx) {
+  const q         = questions[currentQIndex];
+  const correctIdx = Number(q.correct);
+  const nextLabel  = currentQIndex + 1 < questions.length ? '次の問題へ →' : '結果を見る 🎉';
+
+  // 全ボタン無効化
+  q.choices.forEach((_, i) => {
+    const btn = document.getElementById(`choice-${i}`);
+    btn.disabled = true;
+    if (i === correctIdx)  btn.classList.add('correct-choice');
+    if (i === selectedIdx && selectedIdx !== correctIdx) btn.classList.add('wrong-choice');
+  });
+
+  const isCorrect  = selectedIdx === correctIdx;
+  const feedback   = document.getElementById('feedbackArea');
+  feedback.className = `feedback-box ${isCorrect ? 'correct' : 'wrong'}`;
+  feedback.innerHTML = `
+    <strong>${isCorrect ? '⭕ 正解！' : `❌ 不正解　正解は【${['Ａ','Ｂ','Ｃ','Ｄ'][correctIdx]}】`}</strong>
+    ${q.explanation ? `<br><span style="font-size:12px;opacity:0.85;display:block;margin-top:4px;">${q.explanation}</span>` : ''}
+    <button class="btn-next" onclick="nextQuestion()">${nextLabel}</button>`;
+}
+
+// ══════════════════════════════════════════════════════════
+// 記述問題 ── キーワード照合 ＋ AI採点
+// ══════════════════════════════════════════════════════════
+async function checkWrittenAnswer() {
   const userAns = (document.getElementById('userAnswer').value || '').trim();
   if (!userAns) { alert('答えを入力してください'); return; }
 
   const q        = questions[currentQIndex];
   const checkBtn = document.getElementById('checkBtn');
   const feedback = document.getElementById('feedbackArea');
+  const nextLabel = currentQIndex + 1 < questions.length ? '次の問題へ →' : '結果を見る 🎉';
 
+  // ── STEP1: キーワード照合（高速・API不要）──
+  // ユーザー回答と模範解答を正規化して比較
+  const normalize = s => s.toLowerCase()
+    .replace(/\s+/g, '')
+    .replace(/[ａ-ｚＡ-Ｚ０-９]/g, c => String.fromCharCode(c.charCodeAt(0) - 0xFEE0));
+
+  const normUser   = normalize(userAns);
+  const normAnswer = normalize(q.a || '');
+
+  // 模範解答との一致チェック
+  const exactMatch = normUser === normAnswer || normAnswer.includes(normUser) || normUser.includes(normAnswer);
+
+  // キーワード照合
+  const keywords = Array.isArray(q.keywords) ? q.keywords : [];
+  const hitCount = keywords.filter(kw => normUser.includes(normalize(kw))).length;
+  const kwMatch  = keywords.length > 0 && hitCount >= Math.ceil(keywords.length * 0.6); // 60%以上ヒットで正解
+
+  if (exactMatch || kwMatch) {
+    // キーワード照合で正解 → APIを呼ばずに即座に正解表示
+    feedback.className = 'feedback-box correct';
+    feedback.innerHTML = `
+      <strong>⭕ 正解！</strong>
+      <br><span style="font-size:12px;opacity:0.8;display:block;margin-top:4px;">📌 模範解答：${q.a}</span>
+      <button class="btn-next" onclick="nextQuestion()">${nextLabel}</button>`;
+    return;
+  }
+
+  // ── STEP2: キーワード不一致 → AIに最終判断を委ねる ──
   checkBtn.disabled    = true;
   checkBtn.textContent = '採点中...';
   feedback.className   = 'feedback-box checking';
-  feedback.textContent = '🤔 採点しています...';
-
-  const nextLabel = currentQIndex + 1 < questions.length ? '次の問題へ →' : '結果を見る 🎉';
+  feedback.textContent = '🤔 AIが採点しています...';
 
   try {
     const prompt = `以下の問題・模範解答・生徒の回答を見て採点してください。
+意味が合っていれば表記が多少違っても正解にしてください。
 
 問題：${q.q}
 模範解答：${q.a}
 生徒の回答：${userAns}
 
-【出力ルール】必ず以下のJSONのみを返してください（説明文不要）：
-{"correct":true,"comment":"コメント（30字以内）"}
-または
-{"correct":false,"comment":"コメント（30字以内）"}`;
+JSONのみ返してください（説明不要）：
+{"correct":true,"comment":"一言コメント（20字以内）"}`;
 
-    const res = await fetch('https://api.cohere.ai/v1/chat', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${apiKey}`,
-        'Content-Type':  'application/json',
-      },
-      body: JSON.stringify({
-        model:       'command-r',
-        message:     prompt,
-        temperature: 0.2,
-      }),
-    });
-
-    const data  = await res.json();
-    const raw   = data.text || '';
+    const raw   = await callCohere(prompt, 0.2);
     const match = raw.match(/\{[\s\S]*?\}/);
 
-    let correct = false, comment = '採点できませんでした';
+    let correct = false, comment = '';
     if (match) {
       try {
         const parsed = JSON.parse(match[0]);
@@ -644,11 +764,11 @@ async function checkAnswer() {
     feedback.className = `feedback-box ${correct ? 'correct' : 'wrong'}`;
     feedback.innerHTML = `
       <strong>${correct ? '⭕ 正解！' : '❌ 不正解'}</strong>${comment ? `　${comment}` : ''}
-      <br><span style="font-size:12px;opacity:0.75;margin-top:4px;display:block;">📌 模範解答：${q.a}</span>
+      <br><span style="font-size:12px;opacity:0.8;display:block;margin-top:4px;">📌 模範解答：${q.a}</span>
       <button class="btn-next" onclick="nextQuestion()">${nextLabel}</button>`;
 
   } catch(e) {
-    // 採点エラーでも模範解答は見せる
+    // AI採点エラー時は模範解答だけ見せる
     feedback.className = 'feedback-box wrong';
     feedback.innerHTML = `採点エラー。模範解答：<strong>${q.a}</strong>
       <button class="btn-next" onclick="nextQuestion()">${nextLabel}</button>`;
@@ -659,11 +779,22 @@ async function checkAnswer() {
 }
 
 function skipQuestion() {
-  const q       = questions[currentQIndex];
+  const q        = questions[currentQIndex];
   const feedback = document.getElementById('feedbackArea');
   const nextLabel = currentQIndex + 1 < questions.length ? '次の問題へ →' : '結果を見る 🎉';
+
+  // 選択問題のスキップは選択肢を強調表示
+  if (Array.isArray(q.choices)) {
+    q.choices.forEach((_, i) => {
+      const btn = document.getElementById(`choice-${i}`);
+      if (btn) {
+        btn.disabled = true;
+        if (i === Number(q.correct)) btn.classList.add('correct-choice');
+      }
+    });
+  }
   feedback.className = 'feedback-box wrong';
-  feedback.innerHTML = `⏭ スキップ。模範解答：<strong>${q.a}</strong>
+  feedback.innerHTML = `⏭ スキップ。模範解答：<strong>${q.a || q.choices?.[q.correct] || ''}</strong>
     <button class="btn-next" onclick="nextQuestion()">${nextLabel}</button>`;
 }
 
