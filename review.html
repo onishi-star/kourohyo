@@ -507,6 +507,7 @@ function toggleLearnedArea(idx) {
 function saveLearnedText(idx) {
   const text = document.getElementById(`learnedText-${idx}`).value;
   localStorage.setItem(`review_learned_${dateStr}_${todayPlans[idx].key}`, text);
+  localStorage.setItem(`review_learned_text_${dateStr}_${todayPlans[idx].key}`, text); // ← 追加
 }
 function toggleDone(idx) {
   const plan = todayPlans[idx];
