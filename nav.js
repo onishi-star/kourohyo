@@ -7,6 +7,7 @@ const NAV_PAGES = [
   { file: 'index.html',    label: '📅', title: 'スケジュール', color: '#4a90e2' },
   { file: 'pomodoro.html', label: '🍅', title: 'ポモドーロ',   color: '#e05a2b' },
   { file: 'review.html',   label: '📝', title: '復習',         color: '#2ecc87' },
+  { file: 'record.html',   label: '📊', title: '記録',         color: '#9c27b0' },
 ];
 
 function navigateTo(target) {
