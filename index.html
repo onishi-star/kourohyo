@@ -1546,130 +1546,55 @@ function applyWeekData(data,start) {
 // ════════════════════════════════════════
 // 集計
 // ════════════════════════════════════════
-function renderSummary(data,start) {
-  const totals={}, daily=Array(7).fill(0);
-  for (let i=4;i<24;i++){ for (let j=0;j<7;j++){ const k=getCellDateKey(i,j), s=data[k]; if (s&&s.cell&&s.cell.mode==="study"&&s.cell.materialId){ const id=s.cell.materialId; if (!totals[id]) totals[id]={name:s.cell.materialName,color:s.cell.materialColor,hours:0}; totals[id].hours+=1; daily[j]+=1; } } }
-  const barsEl=document.getElementById("summary-bars"); barsEl.innerHTML="";
-  const entries=Object.values(totals).sort((a,b)=>b.hours-a.hours);
-  const maxH=entries.length?entries[0].hours:1;
-  if (!entries.length){ barsEl.innerHTML='<div style="color:#bbb;font-size:12px;padding:4px 0;">この週の勉強予約はまだありません</div>'; }
-  else {
-    const totalH=entries.reduce((s,e)=>s+e.hours,0);
-    const tr=document.createElement("div"); tr.style.cssText="font-size:12px;color:#555;margin-bottom:8px;"; tr.innerHTML=`週間予約時間：<b style="color:#4a90e2;">${totalH}時間</b>`; barsEl.appendChild(tr);
-    entries.forEach(entry=>{ const row=document.createElement("div"); row.className="summary-row"; row.innerHTML=`<div class="summary-label" title="${entry.name}">${entry.name}</div><div class="summary-bar-wrap"><div class="summary-bar" style="width:${(entry.hours/maxH*100).toFixed(1)}%;background:${entry.color};"></div></div><div class="summary-time">${entry.hours}h</div>`; barsEl.appendChild(row); });
+function renderSummary(data, start) {
+  const totals = {}, daily = Array(7).fill(0);
+
+  // 予約セルの集計（既存）
+  for (let i = 4; i < 24; i++) {
+    for (let j = 0; j < 7; j++) {
+      const k = getCellDateKey(i, j), s = data[k];
+      if (s && s.cell && s.cell.mode === 'study' && s.cell.materialId) {
+        const id = s.cell.materialId;
+        if (!totals[id]) totals[id] = { name: s.cell.materialName, color: s.cell.materialColor, hours: 0, free: false };
+        totals[id].hours += 1;
+        daily[j] += 1;
+      }
+    }
   }
-  renderDailyChart(daily,start);
-}
-function renderDailyChart(daily,start){
-  const labels=[]; for (let j=0;j<7;j++){const d=new Date(start);d.setDate(start.getDate()+j);labels.push(`${d.getMonth()+1}/${d.getDate()}`);}
-  const ctx=document.getElementById("summary-chart").getContext("2d");
-  if (summaryChart) summaryChart.destroy();
-  summaryChart=new Chart(ctx,{type:"bar",data:{labels,datasets:[{label:"予約時間（h）",data:daily,backgroundColor:"rgba(74,144,226,0.7)",borderColor:"rgba(74,144,226,1)",borderWidth:1,borderRadius:4}]},options:{responsive:true,plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>`${c.parsed.y}時間`}}},scales:{y:{beginAtZero:true,ticks:{stepSize:1,font:{size:11}},title:{display:true,text:"時間",font:{size:11}}},x:{ticks:{font:{size:11}}}}}});
-}
-function switchSummaryTab(tab,e){
-  document.querySelectorAll(".summary-tab").forEach(t=>t.classList.remove("active"));
-  if (e&&e.target) e.target.classList.add("active");
-  document.getElementById("summary-bar-view").style.display=tab==="bar"?"block":"none";
-  document.getElementById("summary-chart-view").style.display=tab==="chart"?"block":"none";
-}
 
-// ════════════════════════════════════════
-// 認証機能
-// ════════════════════════════════════════
-function setupAuth() {
-  // ログインボタン
-  document.getElementById('auth-login').addEventListener('click', () => {
-    const email = document.getElementById('auth-email').value;
-    const password = document.getElementById('auth-password').value;
-    const errorEl = document.getElementById('auth-error');
-    
-    if (!email || !password) {
-      errorEl.textContent = 'メールアドレスとパスワードを入力してください';
-      errorEl.style.display = 'block';
-      return;
-    }
-    
-    auth.signInWithEmailAndPassword(email, password)
-      .then((userCredential) => {
-        errorEl.style.display = 'none';
-        showApp();
-      })
-      .catch((error) => {
-        errorEl.textContent = 'ログインエラー: ' + error.message;
-        errorEl.style.display = 'block';
-      });
-  });
-  
-  // 新規登録ボタン
-  document.getElementById('auth-signup').addEventListener('click', () => {
-    const email = document.getElementById('auth-email').value;
-    const password = document.getElementById('auth-password').value;
-    const errorEl = document.getElementById('auth-error');
-    
-    if (!email || !password) {
-      errorEl.textContent = 'メールアドレスとパスワードを入力してください';
-      errorEl.style.display = 'block';
-      return;
-    }
-    
-    if (password.length < 6) {
-      errorEl.textContent = 'パスワードは6文字以上にしてください';
-      errorEl.style.display = 'block';
-      return;
-    }
-    
-    auth.createUserWithEmailAndPassword(email, password)
-      .then((userCredential) => {
-        errorEl.style.display = 'none';
-        showApp();
-      })
-      .catch((error) => {
-        errorEl.textContent = '登録エラー: ' + error.message;
-        errorEl.style.display = 'block';
-      });
-  });
-  
-  // ログアウト機能
-  window.logout = function() {
-    auth.signOut().then(() => {
-      showLogin();
-    }).catch((error) => {
-      console.error('ログアウトエラー:', error);
-    });
-  };
-  
-  // 認証状態の監視
-  auth.onAuthStateChanged((user) => {
-    if (user) {
-      showApp();
-    } else {
-      showLogin();
+  // 自由記録の集計
+  currentFreeRecords.forEach(rec => {
+    for (let j = 0; j < 7; j++) {
+      const d = new Date(start); d.setDate(start.getDate() + j);
+      if (getDateKey(d) === rec.date) {
+        daily[j] += rec.hours;
+        const freeKey = 'free__' + rec.name;
+        if (!totals[freeKey]) totals[freeKey] = { name: rec.name, color: '#43a047', hours: 0, free: true };
+        totals[freeKey].hours += rec.hours;
+        break;
+      }
     }
   });
-}
 
-function showApp() {
-  document.getElementById('auth-container').style.display = 'none';
-  document.getElementById('app-content').style.display = 'block';
-}
-
-function showLogin() {
-  document.getElementById('auth-container').style.display = 'flex';
-  document.getElementById('app-content').style.display = 'none';
-}
-
-function switchSettingsTab(tab) {
-  const tabs = document.querySelectorAll('#modal-overlay .mode-tab');
-  const panels = ['panel-basic', 'panel-preset'];
-  tabs.forEach(t => t.classList.remove('active-study'));
-  panels.forEach(p => document.getElementById(p).style.display = 'none');
-  if (tab === 'basic') {
-    document.getElementById('tab-basic').classList.add('active-study');
-    document.getElementById('panel-basic').style.display = 'block';
+  const barsEl = document.getElementById('summary-bars'); barsEl.innerHTML = '';
+  const entries = Object.values(totals).sort((a, b) => b.hours - a.hours);
+  const maxH = entries.length ? entries[0].hours : 1;
+  if (!entries.length) {
+    barsEl.innerHTML = '<div style="color:#bbb;font-size:12px;padding:4px 0;">この週の勉強記録はまだありません</div>';
   } else {
-    document.getElementById('tab-preset').classList.add('active-study');
-    document.getElementById('panel-preset').style.display = 'block';
+    const totalH = entries.reduce((s, e) => s + e.hours, 0);
+    const tr = document.createElement('div');
+    tr.style.cssText = 'font-size:12px;color:#555;margin-bottom:8px;';
+    tr.innerHTML = `週間合計：<b style="color:#4a90e2;">${totalH.toFixed(1)}時間</b>`;
+    barsEl.appendChild(tr);
+    entries.forEach(entry => {
+      const row = document.createElement('div'); row.className = 'summary-row';
+      const badge = entry.free ? '<span class="free-record-badge">自由</span>' : '';
+      row.innerHTML = `<div class="summary-label" title="${entry.name}">${entry.name}${badge}</div><div class="summary-bar-wrap"><div class="summary-bar" style="width:${(entry.hours/maxH*100).toFixed(1)}%;background:${entry.color};"></div></div><div class="summary-time">${entry.hours.toFixed(1)}h</div>`;
+      barsEl.appendChild(row);
+    });
   }
+  renderDailyChart(daily, start);
 }
 
 // ════════════════════════════════════════
