@@ -246,6 +246,17 @@
       font-size: 11px; background: rgba(74,144,226,0.18);
       border-radius: 4px; padding: 1px 4px; pointer-events: none;
     }
+    /* ── 自由記録バッジ ── */
+.free-record-badge {
+  display: inline-block;
+  font-size: 10px;
+  background: #e8f5e9;
+  color: #2e7d32;
+  border-radius: 4px;
+  padding: 1px 5px;
+  margin-left: 4px;
+  vertical-align: middle;
+}
   </style>
 
  <style>
@@ -474,6 +485,58 @@
   </div>
 </div>
 
+  <!-- ══ 自由記録モーダル ══ -->
+<div id="free-record-overlay" class="modal-overlay" style="z-index:350;">
+  <div class="modal-box" style="max-width:400px;">
+    <h2 style="font-size:15px; margin:0 0 14px;">✏️ 自由記録（予約外の勉強）</h2>
+    <div style="display:flex; flex-direction:column; gap:10px;">
+      <div>
+        <label style="font-size:12px; color:#777; display:block; margin-bottom:4px;">教材名 <span style="color:#e44;">*</span></label>
+        <input type="text" id="fr-name" placeholder="例：過去問、英単語帳"
+          style="width:100%; padding:7px 10px; border:1px solid #ccc; border-radius:7px; font-size:13px; box-sizing:border-box;">
+      </div>
+      <div>
+        <label style="font-size:12px; color:#777; display:block; margin-bottom:4px;">日付 <span style="color:#e44;">*</span></label>
+        <input type="date" id="fr-date"
+          style="width:100%; padding:7px 10px; border:1px solid #ccc; border-radius:7px; font-size:13px; box-sizing:border-box;">
+      </div>
+      <div style="display:flex; gap:8px;">
+        <div style="flex:1;">
+          <label style="font-size:12px; color:#777; display:block; margin-bottom:4px;">勉強時間（時間）</label>
+          <input type="number" id="fr-hours" min="0" max="24" value="0"
+            style="width:100%; padding:7px 10px; border:1px solid #ccc; border-radius:7px; font-size:13px; box-sizing:border-box;">
+        </div>
+        <div style="flex:1;">
+          <label style="font-size:12px; color:#777; display:block; margin-bottom:4px;">勉強時間（分）</label>
+          <input type="number" id="fr-minutes" min="0" max="59" step="5" value="0"
+            style="width:100%; padding:7px 10px; border:1px solid #ccc; border-radius:7px; font-size:13px; box-sizing:border-box;">
+        </div>
+      </div>
+      <div style="display:flex; gap:8px;">
+        <div style="flex:1;">
+          <label style="font-size:12px; color:#777; display:block; margin-bottom:4px;">ページ（from）</label>
+          <input type="number" id="fr-page-from" min="1" placeholder="例：100"
+            style="width:100%; padding:7px 10px; border:1px solid #ccc; border-radius:7px; font-size:13px; box-sizing:border-box;">
+        </div>
+        <div style="flex:1;">
+          <label style="font-size:12px; color:#777; display:block; margin-bottom:4px;">ページ（to）</label>
+          <input type="number" id="fr-page-to" min="1" placeholder="例：120"
+            style="width:100%; padding:7px 10px; border:1px solid #ccc; border-radius:7px; font-size:13px; box-sizing:border-box;">
+        </div>
+      </div>
+      <div>
+        <label style="font-size:12px; color:#777; display:block; margin-bottom:4px;">メモ</label>
+        <textarea id="fr-memo" rows="2" placeholder="自由に記入..."
+          style="width:100%; border:1px solid #ccc; border-radius:7px; padding:8px; font-size:13px; resize:none; font-family:sans-serif; box-sizing:border-box;"></textarea>
+      </div>
+    </div>
+    <div style="display:flex; gap:8px; margin-top:16px; justify-content:flex-end;">
+      <button onclick="saveFreeRecord()" style="padding:8px 22px; background:#43a047; color:white; border:none; border-radius:6px; cursor:pointer; font-size:13px; font-weight:bold;">保存</button>
+      <button onclick="closeFreeRecordModal()" style="padding:8px 16px; border:1px solid #ccc; border-radius:6px; cursor:pointer; font-size:13px;">閉じる</button>
+    </div>
+  </div>
+</div>
+  
 <!-- ══ 教材管理モーダル ══ -->
 <div id="mat-manage-overlay">
   <div class="modal-box" style="max-width:460px;">
@@ -1425,6 +1488,7 @@ async function loadWeek() {
   } else { data=await loadFromIDB(); }
   currentWeekData=data;
   applyWeekData(data,start);
+  await loadFreeRecordsForWeek();
   renderSummary(data,start);
   if (navigator.onLine) syncMonthlyMemoToWeekRow(data, start);
 }
@@ -1711,6 +1775,88 @@ async function applyPresetToCell(colIndex, schedule) {
   }
 }
 
+// ════════════════════════════════════════
+// 自由記録
+// ════════════════════════════════════════
+function openFreeRecordModal() {
+  // 今日の日付をデフォルトにセット
+  const today = new Date();
+  const yyyy = today.getFullYear();
+  const mm   = String(today.getMonth()+1).padStart(2,'0');
+  const dd   = String(today.getDate()).padStart(2,'0');
+  document.getElementById('fr-date').value = `${yyyy}-${mm}-${dd}`;
+  document.getElementById('fr-name').value = '';
+  document.getElementById('fr-hours').value = '0';
+  document.getElementById('fr-minutes').value = '0';
+  document.getElementById('fr-page-from').value = '';
+  document.getElementById('fr-page-to').value = '';
+  document.getElementById('fr-memo').value = '';
+  document.getElementById('free-record-overlay').style.display = 'flex';
+}
+function closeFreeRecordModal() {
+  document.getElementById('free-record-overlay').style.display = 'none';
+}
+
+async function saveFreeRecord() {
+  const name = document.getElementById('fr-name').value.trim();
+  const date = document.getElementById('fr-date').value;
+  if (!name) { alert('教材名を入力してください'); return; }
+  if (!date) { alert('日付を入力してください'); return; }
+
+  const hours   = parseInt(document.getElementById('fr-hours').value)   || 0;
+  const minutes = parseInt(document.getElementById('fr-minutes').value) || 0;
+  const totalMinutes = hours * 60 + minutes;
+  if (totalMinutes <= 0) { alert('勉強時間を入力してください'); return; }
+
+  const record = {
+    name,
+    date,                          // "YYYY-MM-DD"
+    hours:   parseFloat((totalMinutes / 60).toFixed(2)),
+    minutes: totalMinutes,
+    pageFrom: parseInt(document.getElementById('fr-page-from').value) || null,
+    pageTo:   parseInt(document.getElementById('fr-page-to').value)   || null,
+    memo:     document.getElementById('fr-memo').value,
+    uid:      auth.currentUser?.uid || 'unknown',
+    createdAt: new Date().toISOString()
+  };
+
+  try {
+    await db.collection('freeStudyRecords').add(record);
+    closeFreeRecordModal();
+    // 今週分なら集計を再描画
+    const start = getStartOfWeek();
+    const end   = new Date(start); end.setDate(start.getDate() + 6);
+    const recDate = new Date(date);
+    if (recDate >= start && recDate <= end) {
+      await loadFreeRecordsForWeek();
+      renderSummary(currentWeekData, start);
+    }
+    alert('記録しました！');
+  } catch(e) {
+    alert('保存に失敗しました: ' + e.message);
+  }
+}
+
+// 今週の自由記録をFirestoreから取得してグローバルに保持
+let currentFreeRecords = [];
+async function loadFreeRecordsForWeek() {
+  const start = getStartOfWeek();
+  const end   = new Date(start); end.setDate(start.getDate() + 6);
+  const startKey = getDateKey(start);
+  const endKey   = getDateKey(end);
+  const uid = auth.currentUser?.uid || 'unknown';
+  try {
+    const snap = await db.collection('freeStudyRecords')
+      .where('uid', '==', uid)
+      .where('date', '>=', startKey)
+      .where('date', '<=', endKey)
+      .get();
+    currentFreeRecords = snap.docs.map(d => d.data());
+  } catch(e) {
+    currentFreeRecords = [];
+  }
+}
+  
 // ════════════════════════════════════════
 // ポモドーロ連携
 // ════════════════════════════════════════
