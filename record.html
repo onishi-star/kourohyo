@@ -347,26 +347,63 @@ function renderMonthly(el) {
   el.appendChild(c2);
 
   // ─ 日別グラフカード ─
-  const c3 = document.createElement('div'); c3.className = 'card';
-  c3.innerHTML = `<div class="card-title">📈 日別 勉強時間</div><canvas id="daily-chart" height="140"></canvas>`;
-  el.appendChild(c3);
+ // 日別・教材別 積み上げグラフカード
+  const chartCard = document.createElement('div');
+  chartCard.className = 'card';
+  chartCard.innerHTML = `<div class="card-title">📈 日別 勉強時間（教材別）</div><canvas id="daily-chart" height="160"></canvas>`;
+  el.appendChild(chartCard);
+
   requestAnimationFrame(() => {
-    const labels = [], data = [];
-    for (let d = 1; d <= daysInMonth; d++) { labels.push(`${d}`); data.push(parseFloat(dailyHours[d].toFixed(2))); }
+    const labels = [];
+    for (let d = 1; d <= daysInMonth; d++) labels.push(`${d}`);
+
+    // 教材ごとに日別データを作成
+    const matMap = {}; // matId -> { name, color, data[daysInMonth] }
+
+    for (const [key, val] of Object.entries(scheduleData)) {
+      if (!val.cell || val.cell.mode !== 'study' || !val.cell.materialId) continue;
+      const parts = key.split('-');
+      if (parts.length < 4) continue;
+      const y = parseInt(parts[0]), m = parseInt(parts[1])-1, d = parseInt(parts[2]);
+      if (y !== currentYear || m !== currentMonth) continue;
+      const id = val.cell.materialId;
+      if (!matMap[id]) matMap[id] = { name: val.cell.materialName, color: val.cell.materialColor, data: Array(daysInMonth+1).fill(0) };
+      matMap[id].data[d] += 1;
+    }
+    freeRecords.forEach(rec => {
+      const parts = rec.date.split('-');
+      const d = parseInt(parts[2]);
+      const fk = 'free__' + rec.name;
+      if (!matMap[fk]) matMap[fk] = { name: rec.name, color: '#43a047', data: Array(daysInMonth+1).fill(0) };
+      matMap[fk].data[d] += rec.hours || 0;
+    });
+
+    const datasets = Object.values(matMap).map(mat => ({
+      label: mat.name,
+      data: mat.data.slice(1).map(v => parseFloat(v.toFixed(2))),
+      backgroundColor: mat.color + 'cc',
+      borderColor: mat.color,
+      borderWidth: 1,
+      borderRadius: 2,
+    }));
+
     chartInstance = new Chart(document.getElementById('daily-chart').getContext('2d'), {
       type: 'bar',
-      data: { labels, datasets: [{ label: '勉強時間（h）', data, backgroundColor: 'rgba(156,39,176,0.65)', borderColor: 'rgba(156,39,176,1)', borderWidth: 1, borderRadius: 3 }] },
+      data: { labels, datasets },
       options: {
         responsive: true,
-        plugins: { legend: { display: false }, tooltip: { callbacks: { label: c => `${c.parsed.y.toFixed(1)}時間` } } },
+        plugins: {
+          legend: { display: true, position: 'bottom', labels: { font: { size: 10 }, boxWidth: 12, padding: 8 } },
+          tooltip: { callbacks: { label: c => `${c.dataset.label}：${c.parsed.y.toFixed(1)}h` } }
+        },
         scales: {
-          y: { beginAtZero: true, ticks: { font: { size: 10 } }, title: { display: true, text: '時間', font: { size: 10 } } },
-          x: { ticks: { font: { size: 9 }, maxRotation: 0 } }
+          x: { stacked: true, ticks: { font: { size: 9 }, maxRotation: 0 } },
+          y: { stacked: true, beginAtZero: true, ticks: { font: { size: 10 } }, title: { display: true, text: '時間', font: { size: 10 } } }
         }
       }
     });
   });
-
+  
   // ─ 日別・学んだ内容カード ─
   const c4 = document.createElement('div'); c4.className = 'card';
   let h4 = `<div class="card-title">📖 日別 学んだ内容</div>`;
