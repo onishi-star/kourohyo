@@ -45,6 +45,16 @@ function navigateTo(target) {
 var _NAV_CURRENT_IDX = -1;
 
 (function () {
+  // ログイン画面（app-contentが非表示）ではnavを起動しない
+  const appContent = document.getElementById('app-content');
+  if (appContent && appContent.style.display === 'none') {
+    // ログイン完了後にnavを起動できるよう、showApp時に再実行できる形にする
+    window._navPending = true;
+    return;
+  }
+  // ...以下既存コードそのまま
+
+(function () {
   var filename = location.pathname.split('/').pop() || 'index.html';
   _NAV_CURRENT_IDX = NAV_PAGES.findIndex(function(p) { return p.file === filename; });
   if (_NAV_CURRENT_IDX === -1) return;
