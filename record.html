@@ -326,25 +326,6 @@ function renderMonthly(el) {
     </div>`;
   el.appendChild(c1);
 
-  // ─ 教材別バーカード ─
-  const matEntries = Object.values(matTotals).sort((a, b) => b.hours - a.hours);
-  const maxH = matEntries.length ? matEntries[0].hours : 1;
-  const c2 = document.createElement('div'); c2.className = 'card';
-  let h2 = `<div class="card-title">📚 教材別 合計時間</div>`;
-  if (!matEntries.length) {
-    h2 += `<div class="empty-msg">記録なし</div>`;
-  } else {
-    matEntries.forEach(e => {
-      const badge = e.free ? `<span class="free-badge">自由</span>` : '';
-      h2 += `<div class="summary-row">
-        <div class="summary-label" title="${e.name}">${e.name}${badge}</div>
-        <div class="summary-bar-wrap"><div class="summary-bar" style="width:${(e.hours/maxH*100).toFixed(1)}%;background:${e.color};"></div></div>
-        <div class="summary-time">${e.hours.toFixed(1)}h</div>
-      </div>`;
-    });
-  }
-  c2.innerHTML = h2;
-  el.appendChild(c2);
 
   // ─ 日別グラフカード ─
  // 日別・教材別 積み上げグラフカード
