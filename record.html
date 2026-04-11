@@ -227,7 +227,7 @@ function getLearnedTextsForDate(dateStr) {
   const results = [];
   for (let i = 0; i < localStorage.length; i++) {
     const k = localStorage.key(i);
-    if (k && k.startsWith(`review_learned_${dateStr}_`)) {
+    if (k && k.startsWith(`review_learned_text_${dateStr}_`)) {
       const text = (localStorage.getItem(k) || '').trim();
       if (text) results.push(text);
     }
