@@ -18,7 +18,6 @@
       min-height: 100vh;
     }
 
-    /* ── ヘッダー ── */
     #top-bar {
       background: #fff;
       border-bottom: 1px solid #e0e4ed;
@@ -27,11 +26,7 @@
       box-shadow: 0 2px 8px rgba(0,0,0,0.06);
     }
     #top-bar h1 { font-size: 18px; color: #9c27b0; margin-bottom: 10px; }
-
-    /* ── 月ナビ ── */
-    .month-nav {
-      display: flex; align-items: center; gap: 10px;
-    }
+    .month-nav { display: flex; align-items: center; gap: 10px; }
     .month-nav button {
       padding: 5px 12px; border-radius: 6px;
       border: 1px solid #ccc; background: #fff;
@@ -40,10 +35,7 @@
     .month-nav button:hover { background: #f0f0f0; }
     #month-label { font-size: 15px; font-weight: bold; color: #333; min-width: 80px; text-align: center; }
 
-    /* ── タブ ── */
-    #view-tabs {
-      display: flex; gap: 6px; padding: 12px 16px 0;
-    }
+    #view-tabs { display: flex; gap: 6px; padding: 12px 16px 0; }
     .view-tab {
       padding: 6px 16px; border-radius: 20px;
       border: 1px solid #ccc; background: #fff;
@@ -52,10 +44,8 @@
     }
     .view-tab.active { background: #9c27b0; color: #fff; border-color: #9c27b0; }
 
-    /* ── コンテンツ ── */
     #main-content { padding: 14px 16px 80px; }
 
-    /* ── カード ── */
     .card {
       background: #fff; border-radius: 14px;
       padding: 16px; margin-bottom: 14px;
@@ -66,23 +56,15 @@
       color: #9c27b0; margin-bottom: 12px;
     }
 
-    /* ── 月間合計 ── */
-    .total-box {
-      display: flex; gap: 12px; flex-wrap: wrap;
-    }
+    .total-box { display: flex; gap: 12px; flex-wrap: wrap; }
     .total-item {
-      flex: 1; min-width: 120px;
+      flex: 1; min-width: 100px;
       background: linear-gradient(135deg, #f3e5f5, #ede7f6);
       border-radius: 10px; padding: 12px 14px; text-align: center;
     }
-    .total-item .total-num {
-      font-size: 28px; font-weight: bold; color: #7b1fa2;
-    }
-    .total-item .total-label {
-      font-size: 11px; color: #888; margin-top: 2px;
-    }
+    .total-item .total-num { font-size: 26px; font-weight: bold; color: #7b1fa2; }
+    .total-item .total-label { font-size: 11px; color: #888; margin-top: 2px; }
 
-    /* ── 棒グラフ（教材別） ── */
     .summary-row {
       display: flex; align-items: center; gap: 8px;
       font-size: 12px; margin-bottom: 6px;
@@ -91,9 +73,7 @@
       width: 90px; overflow: hidden; text-overflow: ellipsis;
       white-space: nowrap; font-weight: bold; flex-shrink: 0;
     }
-    .summary-bar-wrap {
-      flex: 1; background: #ede7f6; border-radius: 4px; height: 14px; overflow: hidden;
-    }
+    .summary-bar-wrap { flex: 1; background: #ede7f6; border-radius: 4px; height: 14px; overflow: hidden; }
     .summary-bar { height: 100%; border-radius: 4px; transition: width .4s ease; }
     .summary-time { width: 44px; text-align: right; flex-shrink: 0; color: #555; }
     .free-badge {
@@ -101,30 +81,31 @@
       border-radius: 3px; padding: 1px 4px; margin-left: 3px;
     }
 
-    /* ── 自由記録一覧 ── */
-    .record-item {
-      display: flex; align-items: flex-start; gap: 10px;
-      padding: 10px 0; border-bottom: 1px solid #f0eaf5;
+    .day-item { border-bottom: 1px solid #f0eaf5; padding: 10px 0; }
+    .day-item:last-child { border-bottom: none; }
+    .day-header {
+      display: flex; align-items: center; gap: 8px;
+      margin-bottom: 4px; cursor: pointer;
     }
-    .record-item:last-child { border-bottom: none; }
-    .record-date {
-      font-size: 11px; color: #999; width: 60px; flex-shrink: 0; padding-top: 2px;
+    .day-date { font-size: 13px; font-weight: bold; color: #7b1fa2; width: 52px; flex-shrink: 0; }
+    .day-hours { font-size: 12px; color: #888; flex-shrink: 0; }
+    .day-mats { display: flex; gap: 4px; flex-wrap: wrap; flex: 1; }
+    .mat-chip {
+      font-size: 10px; padding: 2px 7px; border-radius: 10px;
+      color: #fff; font-weight: bold;
     }
-    .record-name { font-size: 13px; font-weight: bold; }
-    .record-meta { font-size: 11px; color: #888; margin-top: 2px; }
-    .record-memo { font-size: 11px; color: #aaa; margin-top: 2px; font-style: italic; }
+    .day-learned {
+      font-size: 12px; color: #555;
+      background: #faf5ff; border-left: 3px solid #ce93d8;
+      padding: 6px 10px; border-radius: 0 6px 6px 0;
+      margin-top: 4px; white-space: pre-wrap; line-height: 1.6;
+      display: none;
+    }
+    .day-learned.visible { display: block; }
+    .day-no-content { font-size: 11px; color: #ccc; font-style: italic; margin-top: 2px; }
 
-    /* ── ローディング ── */
-    #loading {
-      text-align: center; padding: 40px;
-      color: #aaa; font-size: 14px;
-    }
-
-    /* ── 空メッセージ ── */
-    .empty-msg {
-      text-align: center; color: #bbb;
-      font-size: 13px; padding: 20px 0;
-    }
+    .empty-msg { text-align: center; color: #bbb; font-size: 13px; padding: 20px 0; }
+    #loading { text-align: center; padding: 40px; color: #aaa; font-size: 14px; }
   </style>
 </head>
 <body>
@@ -141,7 +122,6 @@
 <div id="view-tabs">
   <button class="view-tab active" onclick="switchTab('monthly')">月間</button>
   <button class="view-tab"        onclick="switchTab('weekly')">週間・教材別</button>
-  <button class="view-tab"        onclick="switchTab('free')">自由記録</button>
 </div>
 
 <div id="loading">読み込み中...</div>
@@ -160,14 +140,10 @@ firebase.initializeApp(firebaseConfig);
 const db   = firebase.firestore();
 const auth = firebase.auth();
 
-// ════════════════════════════════════════
-// 状態
-// ════════════════════════════════════════
-let currentYear, currentMonth; // 表示中の年月（0始まり月）
-let currentTab = 'monthly';
-let scheduleData  = {};  // schedules2から取得したセルデータ
-let freeRecords   = [];  // freeStudyRecordsから取得
-let materials     = [];  // 教材リスト
+let currentYear, currentMonth;
+let currentTab   = 'monthly';
+let scheduleData = {};
+let freeRecords  = [];
 let chartInstance = null;
 
 // ════════════════════════════════════════
@@ -178,79 +154,42 @@ auth.onAuthStateChanged(async user => {
   const now = new Date();
   currentYear  = now.getFullYear();
   currentMonth = now.getMonth();
-  await loadMaterials();
   await loadData();
   render();
-  document.getElementById('loading').style.display = 'none';
+  document.getElementById('loading').style.display      = 'none';
   document.getElementById('main-content').style.display = 'block';
 });
 
 // ════════════════════════════════════════
 // データ取得
 // ════════════════════════════════════════
-async function loadMaterials() {
-  try {
-    const doc = await db.collection('app_config').doc('materials').get();
-    materials = doc.exists ? (doc.data().list || []) : [];
-  } catch(e) { materials = []; }
-}
-
 async function loadData() {
   updateMonthLabel();
   await Promise.all([loadScheduleData(), loadFreeRecords()]);
 }
 
-// schedules2から当月のセルを取得
 async function loadScheduleData() {
   scheduleData = {};
-  const uid = auth.currentUser?.uid;
-  // 当月の各週のdocIdを列挙して取得
-  const docIds = getWeekDocIdsForMonth(currentYear, currentMonth);
-  for (const docId of docIds) {
+  for (const docId of getWeekDocIdsForMonth(currentYear, currentMonth)) {
     try {
       const doc = await db.collection('schedules2').doc(docId).get();
-      if (doc.exists) {
-        Object.assign(scheduleData, doc.data());
-      }
+      if (doc.exists) Object.assign(scheduleData, doc.data());
     } catch(e) {}
   }
 }
 
-// 当月をカバーするすべての週のdocId（月曜日ベース）を返す
-function getWeekDocIdsForMonth(year, month) {
-  const ids = new Set();
-  const first = new Date(year, month, 1);
-  const last  = new Date(year, month + 1, 0);
-  for (let d = new Date(first); d <= last; d.setDate(d.getDate() + 1)) {
-    const mon = getMondayOf(new Date(d));
-    ids.add(getDateKey(mon));
-  }
-  return [...ids];
-}
-
-function getMondayOf(d) {
-  const day = d.getDay(); // 0=日
-  const diff = (day === 0) ? -6 : 1 - day;
-  const mon = new Date(d);
-  mon.setDate(d.getDate() + diff);
-  mon.setHours(0,0,0,0);
-  return mon;
-}
-
-// freeStudyRecordsから当月分を取得
 async function loadFreeRecords() {
   freeRecords = [];
-  const uid = auth.currentUser?.uid || 'unknown';
+  const uid      = auth.currentUser?.uid || 'unknown';
   const startKey = `${currentYear}-${String(currentMonth+1).padStart(2,'0')}-01`;
   const endKey   = `${currentYear}-${String(currentMonth+1).padStart(2,'0')}-31`;
   try {
     const snap = await db.collection('freeStudyRecords')
-      .where('uid', '==', uid)
+      .where('uid',  '==', uid)
       .where('date', '>=', startKey)
       .where('date', '<=', endKey)
       .get();
     freeRecords = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-    freeRecords.sort((a, b) => b.date.localeCompare(a.date));
   } catch(e) { freeRecords = []; }
 }
 
@@ -260,29 +199,63 @@ async function loadFreeRecords() {
 function getDateKey(d) {
   return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
 }
-
+function getMondayOf(d) {
+  const day = d.getDay(), diff = day === 0 ? -6 : 1 - day;
+  const m = new Date(d); m.setDate(d.getDate() + diff); m.setHours(0,0,0,0); return m;
+}
+function getWeekDocIdsForMonth(year, month) {
+  const ids = new Set(), last = new Date(year, month+1, 0);
+  for (let d = new Date(year, month, 1); d <= last; d.setDate(d.getDate()+1))
+    ids.add(getDateKey(getMondayOf(new Date(d))));
+  return [...ids];
+}
+function getWeeksOfMonth(year, month) {
+  const weeks = [], first = new Date(year, month, 1), last = new Date(year, month+1, 0);
+  let ws = getMondayOf(new Date(first));
+  while (ws <= last) {
+    const we = new Date(ws); we.setDate(ws.getDate()+6);
+    weeks.push({ start: ws < first ? new Date(first) : new Date(ws), end: we > last ? new Date(last) : new Date(we) });
+    ws = new Date(ws); ws.setDate(ws.getDate()+7);
+  }
+  return weeks;
+}
 function updateMonthLabel() {
   document.getElementById('month-label').textContent = `${currentYear}年${currentMonth+1}月`;
+}
+// localStorageから「学んだこと」を取得（review_learned_YYYY-MM-DD_YYYY-MM-DD-HH）
+function getLearnedTextsForDate(dateStr) {
+  const results = [];
+  for (let i = 0; i < localStorage.length; i++) {
+    const k = localStorage.key(i);
+    if (k && k.startsWith(`review_learned_${dateStr}_`)) {
+      const text = (localStorage.getItem(k) || '').trim();
+      if (text) results.push(text);
+    }
+  }
+  return results;
 }
 
 async function changeMonth(diff) {
   currentMonth += diff;
   if (currentMonth > 11) { currentMonth = 0; currentYear++; }
-  if (currentMonth < 0)  { currentMonth = 11; currentYear--; }
+  if (currentMonth <  0) { currentMonth = 11; currentYear--; }
   document.getElementById('main-content').style.display = 'none';
-  document.getElementById('loading').style.display = 'block';
+  document.getElementById('loading').style.display      = 'block';
   await loadData();
   render();
-  document.getElementById('loading').style.display = 'none';
+  document.getElementById('loading').style.display      = 'none';
   document.getElementById('main-content').style.display = 'block';
 }
-
 function switchTab(tab) {
   currentTab = tab;
   document.querySelectorAll('.view-tab').forEach((btn, i) => {
-    btn.classList.toggle('active', ['monthly','weekly','free'][i] === tab);
+    btn.classList.toggle('active', ['monthly','weekly'][i] === tab);
   });
   render();
+}
+function toggleLearned(id) {
+  const el = document.getElementById(id);
+  if (el) el.classList.toggle('visible');
 }
 
 // ════════════════════════════════════════
@@ -292,93 +265,100 @@ function render() {
   if (chartInstance) { chartInstance.destroy(); chartInstance = null; }
   const el = document.getElementById('main-content');
   el.innerHTML = '';
-  if (currentTab === 'monthly') renderMonthly(el);
-  else if (currentTab === 'weekly') renderWeekly(el);
-  else renderFree(el);
+  currentTab === 'monthly' ? renderMonthly(el) : renderWeekly(el);
 }
 
 // ── 月間タブ ──
 function renderMonthly(el) {
-  // 当月の日付ごとに勉強時間を集計
-  const daysInMonth = new Date(currentYear, currentMonth + 1, 0).getDate();
-  const dailyHours  = Array(daysInMonth + 1).fill(0); // index=日付
+  const daysInMonth = new Date(currentYear, currentMonth+1, 0).getDate();
+  const dailyHours  = Array(daysInMonth+1).fill(0);
+  const matTotals   = {};
+  const dayMap      = {}; // dateStr -> { hours, mats:[{name,color}], matIds }
 
   // 予約セルから集計
   for (const [key, val] of Object.entries(scheduleData)) {
     if (!val.cell || val.cell.mode !== 'study' || !val.cell.materialId) continue;
-    // key形式: "YYYY-MM-DD-HH"
     const parts = key.split('-');
     if (parts.length < 4) continue;
-    const y = parseInt(parts[0]), m = parseInt(parts[1]) - 1, d = parseInt(parts[2]);
+    const y = parseInt(parts[0]), m = parseInt(parts[1])-1, d = parseInt(parts[2]);
     if (y !== currentYear || m !== currentMonth) continue;
+    const dateStr = `${parts[0]}-${parts[1]}-${parts[2]}`;
+    // 日別
     dailyHours[d] += 1;
+    if (!dayMap[dateStr]) dayMap[dateStr] = { hours: 0, mats: [], matIds: new Set() };
+    dayMap[dateStr].hours += 1;
+    if (!dayMap[dateStr].matIds.has(val.cell.materialId)) {
+      dayMap[dateStr].matIds.add(val.cell.materialId);
+      dayMap[dateStr].mats.push({ name: val.cell.materialName, color: val.cell.materialColor });
+    }
+    // 教材別
+    const id = val.cell.materialId;
+    if (!matTotals[id]) matTotals[id] = { name: val.cell.materialName, color: val.cell.materialColor, hours: 0, free: false };
+    matTotals[id].hours += 1;
   }
-
   // 自由記録から集計
   freeRecords.forEach(rec => {
     const parts = rec.date.split('-');
     const d = parseInt(parts[2]);
     dailyHours[d] += rec.hours || 0;
+    if (!dayMap[rec.date]) dayMap[rec.date] = { hours: 0, mats: [], matIds: new Set() };
+    dayMap[rec.date].hours += rec.hours || 0;
+    const fk = 'free__' + rec.name;
+    if (!dayMap[rec.date].matIds.has(fk)) {
+      dayMap[rec.date].matIds.add(fk);
+      dayMap[rec.date].mats.push({ name: rec.name, color: '#43a047' });
+    }
+    if (!matTotals[fk]) matTotals[fk] = { name: rec.name, color: '#43a047', hours: 0, free: true };
+    matTotals[fk].hours += rec.hours || 0;
   });
 
   const totalHours = dailyHours.reduce((s, v) => s + v, 0);
   const studyDays  = dailyHours.filter(v => v > 0).length;
 
-  // 月間合計カード
-  const summaryCard = document.createElement('div');
-  summaryCard.className = 'card';
-  summaryCard.innerHTML = `
+  // ─ サマリー数値カード ─
+  const c1 = document.createElement('div'); c1.className = 'card';
+  c1.innerHTML = `
     <div class="card-title">📅 ${currentYear}年${currentMonth+1}月 まとめ</div>
     <div class="total-box">
-      <div class="total-item">
-        <div class="total-num">${totalHours.toFixed(1)}</div>
-        <div class="total-label">合計時間（h）</div>
-      </div>
-      <div class="total-item">
-        <div class="total-num">${studyDays}</div>
-        <div class="total-label">勉強した日数</div>
-      </div>
-      <div class="total-item">
-        <div class="total-num">${studyDays ? (totalHours / studyDays).toFixed(1) : '0.0'}</div>
-        <div class="total-label">平均時間／日（h）</div>
-      </div>
-    </div>
-  `;
-  el.appendChild(summaryCard);
+      <div class="total-item"><div class="total-num">${totalHours.toFixed(1)}</div><div class="total-label">合計時間（h）</div></div>
+      <div class="total-item"><div class="total-num">${studyDays}</div><div class="total-label">勉強した日数</div></div>
+      <div class="total-item"><div class="total-num">${studyDays?(totalHours/studyDays).toFixed(1):'0.0'}</div><div class="total-label">平均時間／日（h）</div></div>
+    </div>`;
+  el.appendChild(c1);
 
-  // 日別グラフカード
-  const chartCard = document.createElement('div');
-  chartCard.className = 'card';
-  chartCard.innerHTML = `<div class="card-title">📈 日別 勉強時間</div><canvas id="daily-chart" height="140"></canvas>`;
-  el.appendChild(chartCard);
+  // ─ 教材別バーカード ─
+  const matEntries = Object.values(matTotals).sort((a, b) => b.hours - a.hours);
+  const maxH = matEntries.length ? matEntries[0].hours : 1;
+  const c2 = document.createElement('div'); c2.className = 'card';
+  let h2 = `<div class="card-title">📚 教材別 合計時間</div>`;
+  if (!matEntries.length) {
+    h2 += `<div class="empty-msg">記録なし</div>`;
+  } else {
+    matEntries.forEach(e => {
+      const badge = e.free ? `<span class="free-badge">自由</span>` : '';
+      h2 += `<div class="summary-row">
+        <div class="summary-label" title="${e.name}">${e.name}${badge}</div>
+        <div class="summary-bar-wrap"><div class="summary-bar" style="width:${(e.hours/maxH*100).toFixed(1)}%;background:${e.color};"></div></div>
+        <div class="summary-time">${e.hours.toFixed(1)}h</div>
+      </div>`;
+    });
+  }
+  c2.innerHTML = h2;
+  el.appendChild(c2);
 
-  // グラフ描画（次フレームでcanvasが確定してから）
+  // ─ 日別グラフカード ─
+  const c3 = document.createElement('div'); c3.className = 'card';
+  c3.innerHTML = `<div class="card-title">📈 日別 勉強時間</div><canvas id="daily-chart" height="140"></canvas>`;
+  el.appendChild(c3);
   requestAnimationFrame(() => {
     const labels = [], data = [];
-    for (let d = 1; d <= daysInMonth; d++) {
-      labels.push(`${d}日`);
-      data.push(parseFloat(dailyHours[d].toFixed(2)));
-    }
-    const ctx = document.getElementById('daily-chart').getContext('2d');
-    chartInstance = new Chart(ctx, {
+    for (let d = 1; d <= daysInMonth; d++) { labels.push(`${d}`); data.push(parseFloat(dailyHours[d].toFixed(2))); }
+    chartInstance = new Chart(document.getElementById('daily-chart').getContext('2d'), {
       type: 'bar',
-      data: {
-        labels,
-        datasets: [{
-          label: '勉強時間（h）',
-          data,
-          backgroundColor: 'rgba(156,39,176,0.65)',
-          borderColor: 'rgba(156,39,176,1)',
-          borderWidth: 1,
-          borderRadius: 3
-        }]
-      },
+      data: { labels, datasets: [{ label: '勉強時間（h）', data, backgroundColor: 'rgba(156,39,176,0.65)', borderColor: 'rgba(156,39,176,1)', borderWidth: 1, borderRadius: 3 }] },
       options: {
         responsive: true,
-        plugins: {
-          legend: { display: false },
-          tooltip: { callbacks: { label: c => `${c.parsed.y.toFixed(1)}時間` } }
-        },
+        plugins: { legend: { display: false }, tooltip: { callbacks: { label: c => `${c.parsed.y.toFixed(1)}時間` } } },
         scales: {
           y: { beginAtZero: true, ticks: { font: { size: 10 } }, title: { display: true, text: '時間', font: { size: 10 } } },
           x: { ticks: { font: { size: 9 }, maxRotation: 0 } }
@@ -386,33 +366,59 @@ function renderMonthly(el) {
       }
     });
   });
+
+  // ─ 日別・学んだ内容カード ─
+  const c4 = document.createElement('div'); c4.className = 'card';
+  let h4 = `<div class="card-title">📖 日別 学んだ内容</div>`;
+  const sortedDays = Object.keys(dayMap).sort((a, b) => b.localeCompare(a));
+  if (!sortedDays.length) {
+    h4 += `<div class="empty-msg">記録なし</div>`;
+  } else {
+    sortedDays.forEach((dateStr, idx) => {
+      const info = dayMap[dateStr];
+      const learnedTexts = getLearnedTextsForDate(dateStr);
+      const d   = parseInt(dateStr.split('-')[2]);
+      const dow = ['日','月','火','水','木','金','土'][new Date(dateStr).getDay()];
+      const chips = info.mats.map(m => `<span class="mat-chip" style="background:${m.color}">${m.name}</span>`).join('');
+      const hasLearned = learnedTexts.length > 0;
+      const learnedId  = `learned-${idx}`;
+      h4 += `
+        <div class="day-item">
+          <div class="day-header" onclick="toggleLearned('${learnedId}')">
+            <div class="day-date">${d}日(${dow})</div>
+            <div class="day-hours">${info.hours.toFixed(1)}h</div>
+            <div class="day-mats">${chips}</div>
+            ${hasLearned ? '<span style="font-size:11px;color:#9c27b0;">📝▼</span>' : ''}
+          </div>
+          ${hasLearned
+            ? `<div class="day-learned" id="${learnedId}">${learnedTexts.join('\n---\n')}</div>`
+            : `<div class="day-no-content">学んだ内容の記録なし（復習ページで入力できます）</div>`}
+        </div>`;
+    });
+  }
+  c4.innerHTML = h4;
+  el.appendChild(c4);
 }
 
 // ── 週間・教材別タブ ──
 function renderWeekly(el) {
-  // 当月の各週ごとに教材別集計
   const weeks = getWeeksOfMonth(currentYear, currentMonth);
-
   weeks.forEach((week, wi) => {
     const { start, end } = week;
     const totals = {};
-
-    // 予約セルから集計
     for (const [key, val] of Object.entries(scheduleData)) {
       if (!val.cell || val.cell.mode !== 'study' || !val.cell.materialId) continue;
       const parts = key.split('-');
       if (parts.length < 4) continue;
-      const cellDate = new Date(parseInt(parts[0]), parseInt(parts[1])-1, parseInt(parts[2]));
-      if (cellDate < start || cellDate > end) continue;
+      const cd = new Date(parseInt(parts[0]), parseInt(parts[1])-1, parseInt(parts[2]));
+      if (cd < start || cd > end) continue;
       const id = val.cell.materialId;
       if (!totals[id]) totals[id] = { name: val.cell.materialName, color: val.cell.materialColor, hours: 0, free: false };
       totals[id].hours += 1;
     }
-
-    // 自由記録から集計
     freeRecords.forEach(rec => {
-      const recDate = new Date(rec.date);
-      if (recDate < start || recDate > end) return;
+      const rd = new Date(rec.date);
+      if (rd < start || rd > end) return;
       const fk = 'free__' + rec.name;
       if (!totals[fk]) totals[fk] = { name: rec.name, color: '#43a047', hours: 0, free: true };
       totals[fk].hours += rec.hours || 0;
@@ -421,75 +427,26 @@ function renderWeekly(el) {
     const entries = Object.values(totals).sort((a, b) => b.hours - a.hours);
     const totalH  = entries.reduce((s, e) => s + e.hours, 0);
     const maxH    = entries.length ? entries[0].hours : 1;
+    const endDay  = new Date(currentYear, currentMonth+1, 0).getDate();
+    const label   = `第${wi+1}週（${currentMonth+1}/${start.getDate()}〜${currentMonth+1}/${Math.min(end.getDate(), endDay)}）`;
 
-    const label = `第${wi+1}週（${currentMonth+1}/${start.getDate()}〜${currentMonth+1}/${Math.min(end.getDate(), new Date(currentYear, currentMonth+1, 0).getDate())}）`;
-
-    const card = document.createElement('div');
-    card.className = 'card';
+    const card = document.createElement('div'); card.className = 'card';
     let html = `<div class="card-title">📊 ${label}　<span style="font-size:11px;color:#888;font-weight:normal;">合計 ${totalH.toFixed(1)}h</span></div>`;
     if (!entries.length) {
       html += `<div class="empty-msg">記録なし</div>`;
     } else {
-      entries.forEach(entry => {
-        const badge = entry.free ? `<span class="free-badge">自由</span>` : '';
-        html += `
-          <div class="summary-row">
-            <div class="summary-label" title="${entry.name}">${entry.name}${badge}</div>
-            <div class="summary-bar-wrap">
-              <div class="summary-bar" style="width:${(entry.hours/maxH*100).toFixed(1)}%;background:${entry.color};"></div>
-            </div>
-            <div class="summary-time">${entry.hours.toFixed(1)}h</div>
-          </div>`;
+      entries.forEach(e => {
+        const badge = e.free ? `<span class="free-badge">自由</span>` : '';
+        html += `<div class="summary-row">
+          <div class="summary-label" title="${e.name}">${e.name}${badge}</div>
+          <div class="summary-bar-wrap"><div class="summary-bar" style="width:${(e.hours/maxH*100).toFixed(1)}%;background:${e.color};"></div></div>
+          <div class="summary-time">${e.hours.toFixed(1)}h</div>
+        </div>`;
       });
     }
     card.innerHTML = html;
     el.appendChild(card);
   });
-}
-
-// 当月を週ごとに分割（月曜始まり）
-function getWeeksOfMonth(year, month) {
-  const weeks = [];
-  const first = new Date(year, month, 1);
-  const last  = new Date(year, month + 1, 0);
-  let weekStart = getMondayOf(new Date(first));
-  while (weekStart <= last) {
-    const weekEnd = new Date(weekStart);
-    weekEnd.setDate(weekStart.getDate() + 6);
-    // 当月内にかかる週だけ含める
-    const s = weekStart < first ? new Date(first) : new Date(weekStart);
-    const e = weekEnd   > last  ? new Date(last)  : new Date(weekEnd);
-    weeks.push({ start: s, end: e });
-    weekStart.setDate(weekStart.getDate() + 7);
-  }
-  return weeks;
-}
-
-// ── 自由記録タブ ──
-function renderFree(el) {
-  const card = document.createElement('div');
-  card.className = 'card';
-  card.innerHTML = `<div class="card-title">✏️ 自由記録一覧</div>`;
-
-  if (!freeRecords.length) {
-    card.innerHTML += `<div class="empty-msg">この月の自由記録はありません</div>`;
-  } else {
-    freeRecords.forEach(rec => {
-      const pages = (rec.pageFrom || rec.pageTo)
-        ? `　p${rec.pageFrom||'?'}〜${rec.pageTo||'?'}` : '';
-      const memo = rec.memo ? `<div class="record-memo">「${rec.memo}」</div>` : '';
-      card.innerHTML += `
-        <div class="record-item">
-          <div class="record-date">${rec.date.slice(5).replace('-','/')}</div>
-          <div>
-            <div class="record-name">${rec.name}</div>
-            <div class="record-meta">${rec.hours.toFixed(1)}時間${pages}</div>
-            ${memo}
-          </div>
-        </div>`;
-    });
-  }
-  el.appendChild(card);
 }
 </script>
 
