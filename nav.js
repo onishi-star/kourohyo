@@ -44,22 +44,14 @@ function navigateTo(target) {
 
 var _NAV_CURRENT_IDX = -1;
 
-(function () {
-  // ログイン画面（app-contentが非表示）ではnavを起動しない
-  const appContent = document.getElementById('app-content');
-  if (appContent && appContent.style.display === 'none') {
-    // ログイン完了後にnavを起動できるよう、showApp時に再実行できる形にする
-    window._navPending = true;
-    return;
-  }
-  // ...以下既存コードそのまま
-
-(function () {
+// ログイン画面かどうかを判定してnavを初期化する
+function _initNav() {
   var filename = location.pathname.split('/').pop() || 'index.html';
   _NAV_CURRENT_IDX = NAV_PAGES.findIndex(function(p) { return p.file === filename; });
   if (_NAV_CURRENT_IDX === -1) return;
 
   var style = document.createElement('style');
+  style.id = '_nav_style';
   style.textContent = [
     '#_nav_curtain{position:fixed;inset:0;z-index:9998;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;pointer-events:none;transform:translateX(100%);background:#f5f5f0;}',
     '#_nav_curtain_icon{font-size:56px;}',
@@ -85,7 +77,7 @@ var _NAV_CURRENT_IDX = -1;
     '.nav-tab.active .tab-label{color:var(--tc,#333);}',
     '.nav-tab.active::after{content:"";position:absolute;bottom:0;left:50%;transform:translateX(-50%);width:28px;height:3px;border-radius:3px 3px 0 0;background:var(--tc,#333);}',
 
-    'body{opacity:0;padding-bottom:58px!important;}'
+    'body{padding-bottom:58px!important;}'
   ].join('');
   document.head.appendChild(style);
 
@@ -125,6 +117,7 @@ var _NAV_CURRENT_IDX = -1;
   /* フェードイン */
   var prevIdx = parseInt(sessionStorage.getItem('_nav_prev') || '-1');
   var fromRight = _NAV_CURRENT_IDX > prevIdx;
+  document.body.style.opacity   = '0';
   document.body.style.transform = fromRight ? 'translateX(24px)' : 'translateX(-24px)';
   sessionStorage.setItem('_nav_prev', String(_NAV_CURRENT_IDX));
 
@@ -136,4 +129,21 @@ var _NAV_CURRENT_IDX = -1;
       setTimeout(function() { document.body.style.transition = ''; }, 260);
     });
   });
+}
+
+(function () {
+  // index.htmlのログイン画面では、ログイン完了後に_initNavを呼ぶ
+  // app-contentが存在する＝index.htmlのログイン付きページ
+  var appContent = document.getElementById('app-content');
+  if (appContent) {
+    // ログイン済みで既にapp-contentが表示されている場合はすぐ初期化
+    if (appContent.style.display !== 'none') {
+      _initNav();
+    }
+    // そうでなければshowApp()から_initNavが呼ばれるのを待つ
+    // （index.htmlのshowApp関数内で _initNav() を呼ぶこと）
+  } else {
+    // pomodoro.html / review.html / record.html など：そのまま初期化
+    _initNav();
+  }
 })();
