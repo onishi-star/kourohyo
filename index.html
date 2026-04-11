@@ -556,10 +556,11 @@
     </script>
   </div>
   <div id="summary-panel">
-    <div id="summary-tabs">
-      <button class="summary-tab active" onclick="switchSummaryTab('bar',event)">📊 週間集計</button>
-      <button class="summary-tab"        onclick="switchSummaryTab('chart',event)">📈 日別グラフ</button>
-    </div>
+   <div id="summary-tabs">
+  <button class="summary-tab active" onclick="switchSummaryTab('bar',event)">📊 週間集計</button>
+  <button class="summary-tab"        onclick="switchSummaryTab('chart',event)">📈 日別グラフ</button>
+  <button class="summary-tab"        onclick="openFreeRecordModal()" style="background:#e8f5e9; color:#2e7d32; border-color:#a5d6a7;">＋ 自由記録</button>
+</div>
     <div id="summary-bar-view"><div id="summary-bars"></div></div>
     <div id="summary-chart-view" style="display:none; max-width:600px;">
       <canvas id="summary-chart" height="130"></canvas>
