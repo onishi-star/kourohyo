@@ -236,6 +236,35 @@
     .empty-state { text-align: center; padding: 24px 16px; color: var(--text-sub); }
     .empty-state .emoji { font-size: 40px; margin-bottom: 10px; }
     .empty-state p { font-size: 14px; line-height: 1.6; }
+
+    /* ── OCR ── */
+    .ocr-btn {
+      display: inline-flex; align-items: center; gap: 5px;
+      font-size: 12px; color: #5a7fd4;
+      background: none; border: none; cursor: pointer;
+      padding: 4px 0; font-family: inherit; text-decoration: underline;
+      margin-left: 10px;
+    }
+    .ocr-input { display: none; }
+    .ocr-status {
+      font-size: 11px; color: var(--text-sub);
+      margin-top: 4px; min-height: 16px;
+    }
+    .ocr-preview {
+      margin-top: 6px; display: none;
+      position: relative;
+    }
+    .ocr-preview img {
+      width: 100%; max-height: 140px; object-fit: contain;
+      border-radius: 8px; border: 1px solid var(--border);
+    }
+    .ocr-preview .ocr-del {
+      position: absolute; top: 4px; right: 4px;
+      width: 22px; height: 22px; border-radius: 50%;
+      background: rgba(0,0,0,0.5); color: white;
+      border: none; font-size: 12px; cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+    }
   </style>
 </head>
 <body>
@@ -437,12 +466,20 @@ function renderPlanList() {
       </div>
       <div style="padding:0 4px;">
         <button class="learned-toggle" onclick="toggleLearnedArea(${idx})">📝 学んだことを記入する</button>
+        <button class="ocr-btn" onclick="triggerOcr(${idx})">📷 写真から読み取る</button>
+        <input class="ocr-input" type="file" accept="image/*" capture="environment"
+               id="ocrInput-${idx}" onchange="handleOcrImage(${idx}, this)">
         <div class="learned-area" id="learnedArea-${idx}">
+          <div class="ocr-preview" id="ocrPreview-${idx}">
+            <img id="ocrImg-${idx}" src="" alt="撮影した画像">
+            <button class="ocr-del" onclick="clearOcrImage(${idx})" title="画像を削除">✕</button>
+          </div>
+          <div class="ocr-status" id="ocrStatus-${idx}"></div>
           <textarea id="learnedText-${idx}"
-            placeholder="例：三角関数の加法定理、sin(A+B)=sinAcosB+cosAsinBを覚えた。"
+            placeholder="例：三角関数の加法定理、sin(A+B)=sinAcosB+cosAsinBを覚えた。&#10;（写真から読み取ったテキストはここに追記されます）"
             oninput="saveLearnedText(${idx})"
           >${savedLearned}</textarea>
-          <div class="char-hint">ここに記入した内容をもとにAIが問題を作ります</div>
+          <div class="char-hint">手入力と写真OCRを両方使えます。AIはこの内容をもとに問題を作ります</div>
         </div>
       </div>`;
     el.appendChild(item);
@@ -489,7 +526,7 @@ async function callCohere(message, temperature = 0.7) {
   const res = await fetch('https://api.cohere.ai/v1/chat', {
     method: 'POST',
     headers: { 'Authorization': `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
-    body: JSON.stringify({ model: 'command-r-08-2024', message, temperature }),
+    body: JSON.stringify({ model: 'command-r', message, temperature }),
   });
   if (!res.ok) {
     const e = await res.json().catch(() => ({}));
@@ -569,11 +606,11 @@ ${matDetails}
       prompt = `あなたは日本の高校生向けの復習問題を作成するベテランの先生です。
 以下の教材・学習内容をもとに、記述式の復習問題を3問作成してください。
 
-- 日本の高校生が解けるレベルにしてください
-- 大学入試（共通テスト）レベルを意識してください
-- 【重要】「学んだこと」に書かれている内容・用語だけを使って出題してください
-- 「学んだこと」に書かれていない概念・公式・単元は絶対に使わないでください
-- 答えに確信が持てない問題・解説は出題しないでください
+【対象レベルの厳守】
+- 日本の高校生（高校1〜3年生）が解けるレベルにしてください
+- 大学入試（共通テスト・センター試験）レベルを意識してください
+- 大学レベル・専門的すぎる内容は避けてください
+- 用語・概念は高校の教科書に載っている範囲に収めてください
 
 【教材・学習内容】
 ${matDetails}
@@ -813,6 +850,84 @@ function skipQuestion() {
 function nextQuestion() {
   currentQIndex++;
   renderQuestion();
+}
+
+// ══════════════════════════════════════════════════════════
+// OCR（Tesseract.js）
+// ══════════════════════════════════════════════════════════
+
+// 初回OCR時だけ動的に読み込む
+let tesseractReady = false;
+function loadTesseract() {
+  return new Promise((resolve, reject) => {
+    if (tesseractReady || window.Tesseract) { tesseractReady = true; resolve(); return; }
+    const s = document.createElement('script');
+    s.src = 'https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js';
+    s.onload  = () => { tesseractReady = true; resolve(); };
+    s.onerror = () => reject(new Error('Tesseract.jsの読み込みに失敗しました'));
+    document.head.appendChild(s);
+  });
+}
+
+function triggerOcr(idx) {
+  // 欄を開いてからファイル選択ダイアログを起動
+  document.getElementById(`learnedArea-${idx}`).style.display = 'block';
+  document.getElementById(`ocrInput-${idx}`).click();
+}
+
+async function handleOcrImage(idx, input) {
+  const file = input.files[0];
+  if (!file) return;
+
+  const statusEl  = document.getElementById(`ocrStatus-${idx}`);
+  const previewEl = document.getElementById(`ocrPreview-${idx}`);
+  const imgEl     = document.getElementById(`ocrImg-${idx}`);
+  const textarea  = document.getElementById(`learnedText-${idx}`);
+
+  // プレビュー表示
+  imgEl.src = URL.createObjectURL(file);
+  previewEl.style.display = 'block';
+  statusEl.textContent = '⏳ Tesseractを読み込み中...';
+
+  try {
+    await loadTesseract();
+    statusEl.textContent = '🔍 テキストを認識中...（10〜30秒かかります）';
+
+    const result = await Tesseract.recognize(file, 'jpn+eng', {
+      logger: m => {
+        if (m.status === 'recognizing text') {
+          statusEl.textContent = `🔍 認識中… ${Math.round((m.progress || 0) * 100)}%`;
+        }
+      }
+    });
+
+    const recognized = result.data.text.trim();
+    if (!recognized) {
+      statusEl.textContent = '⚠️ テキストを認識できませんでした。手入力で補足してください。';
+      return;
+    }
+
+    // 既存テキストに追記（上書きしない）
+    const existing = textarea.value.trim();
+    textarea.value = existing
+      ? existing + '\n\n【写真から読み取り】\n' + recognized
+      : '【写真から読み取り】\n' + recognized;
+
+    saveLearnedText(idx);
+    statusEl.textContent = `✅ ${recognized.length}文字を読み取りました。内容を確認・修正してください。`;
+
+  } catch(e) {
+    console.error(e);
+    statusEl.textContent = '❌ 読み取り失敗：' + e.message;
+  }
+
+  input.value = ''; // 同じ画像を再選択できるようにリセット
+}
+
+function clearOcrImage(idx) {
+  document.getElementById(`ocrPreview-${idx}`).style.display = 'none';
+  document.getElementById(`ocrImg-${idx}`).src = '';
+  document.getElementById(`ocrStatus-${idx}`).textContent = '';
 }
 
 // ══════════════════════════════════════════════════════════
