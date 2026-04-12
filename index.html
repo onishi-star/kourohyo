@@ -600,34 +600,47 @@
       <span id="prog-deadline-badge" class="deadline-warning" style="display:none;"></span>
     </div>
 
-    <!-- 周回タブ -->
-    <div style="margin-bottom:12px;">
-      <div style="font-size:12px; color:#888; margin-bottom:6px;">周回を選択：</div>
+    <!-- 周回タブ（教材全体で共通） -->
+    <div style="margin-bottom:14px; padding:10px; background:#f0f6ff; border-radius:10px;">
+      <div style="font-size:12px; color:#666; font-weight:bold; margin-bottom:6px;">📖 周回（教材全体）</div>
       <div id="prog-round-tabs" style="display:flex; flex-wrap:wrap; gap:6px;"></div>
-      <button onclick="addRound()" style="margin-top:8px; padding:5px 14px; border:1.5px dashed #4a90e2; border-radius:20px; color:#4a90e2; background:#f0f6ff; font-size:12px; cursor:pointer; font-weight:bold;">＋ 周追加</button>
+      <button onclick="addRound()" style="margin-top:8px; padding:5px 14px; border:1.5px dashed #4a90e2; border-radius:20px; color:#4a90e2; background:#fff; font-size:12px; cursor:pointer; font-weight:bold;">＋ 周追加</button>
     </div>
 
-    <!-- プログレスバー -->
+    <!-- 章タブ -->
+    <div style="margin-bottom:10px;">
+      <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:6px;">
+        <div style="font-size:12px; color:#666; font-weight:bold;">📑 章</div>
+        <button onclick="addChapter()" style="padding:4px 12px; border:1.5px dashed #9c27b0; border-radius:20px; color:#9c27b0; background:#fdf3ff; font-size:12px; cursor:pointer; font-weight:bold;">＋ 章を追加</button>
+      </div>
+      <div id="prog-chapter-tabs" style="display:flex; flex-wrap:wrap; gap:6px; margin-bottom:8px;"></div>
+    </div>
+
+    <!-- 現在の章のヘッダー -->
+    <div id="prog-chapter-header" style="display:none; margin-bottom:10px; padding:8px 12px; background:#fdf3ff; border-radius:8px; border-left:3px solid #9c27b0;">
+      <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
+        <input id="prog-chapter-name" type="text" placeholder="章の名前（例：1章 式と計算）"
+          style="flex:1; min-width:120px; padding:4px 8px; border:1px solid #ccc; border-radius:6px; font-size:13px;">
+        <input type="number" id="prog-total" min="1" placeholder="問題数"
+          style="width:80px; padding:4px 8px; border:1px solid #ccc; border-radius:6px; font-size:13px;">
+        <button onclick="applyTotalQuestions()" style="padding:4px 12px; background:#9c27b0; color:#fff; border:none; border-radius:6px; font-size:12px; cursor:pointer;">適用</button>
+        <button onclick="deleteChapter()" style="padding:4px 10px; color:#c44; border:1px solid #e88; border-radius:6px; font-size:11px; cursor:pointer; background:#fff;">削除</button>
+      </div>
+    </div>
+
+    <!-- プログレスバー（現在の章） -->
     <div style="margin-bottom:14px;">
       <div style="display:flex; justify-content:space-between; font-size:12px; color:#666; margin-bottom:4px;">
-        <span id="prog-stats-label">◯ 0問 / △ 0問 / × 0問</span>
-        <span id="prog-pct-label" style="font-weight:bold; color:#4a90e2;">0%</span>
+        <span id="prog-stats-label">章を選択してください</span>
+        <span id="prog-pct-label" style="font-weight:bold; color:#4a90e2;"></span>
       </div>
       <div style="background:#e0e0e0; border-radius:6px; height:12px; overflow:hidden;">
         <div id="prog-bar-fill" style="height:100%; width:0%; background:linear-gradient(90deg,#43a047,#66bb6a); border-radius:6px; transition:width .4s;"></div>
       </div>
     </div>
 
-    <!-- 総問題数設定 -->
-    <div style="display:flex; align-items:center; gap:8px; margin-bottom:14px;">
-      <label style="font-size:13px; color:#555; white-space:nowrap;">総問題数：</label>
-      <input type="number" id="prog-total" min="1" placeholder="例：200"
-        style="width:90px; padding:5px 8px; border:1px solid #ccc; border-radius:6px; font-size:13px;">
-      <button onclick="applyTotalQuestions()" style="padding:5px 14px; background:#4a90e2; color:#fff; border:none; border-radius:6px; font-size:12px; cursor:pointer;">適用</button>
-    </div>
-
     <!-- 問題リスト -->
-    <div id="prog-question-list" style="max-height:340px; overflow-y:auto;"></div>
+    <div id="prog-question-list" style="max-height:320px; overflow-y:auto;"></div>
 
     <!-- 保存ボタン -->
     <div style="display:flex; justify-content:flex-end; gap:8px; margin-top:16px;">
@@ -636,7 +649,6 @@
     </div>
   </div>
 </div>
-
 <!-- ══ 教材管理モーダル ══ -->
 <div id="mat-manage-overlay">
   <div class="modal-box" style="max-width:460px;">
@@ -1216,32 +1228,44 @@ async function attachFileBadges() {
     row.appendChild(dot); row.appendChild(info); row.appendChild(prog); row.appendChild(del); el.appendChild(row);
   });
 }
-
 // ════════════════════════════════════════
-// 進捗管理
+// 進捗管理（章対応版）
 // ════════════════════════════════════════
 let progMatId = null;
-let progData  = null; // { deadline, rounds: [{marks:[null/'o'/'x'/'t']}, ...] }
 let progCurrentRound = 0;
+let progCurrentChapter = 0;
+// progData構造:
+// {
+//   deadline: "2025-06-01",
+//   currentRound: 1,          // 教材全体の現在周回（0始まり）
+//   chapters: [
+//     { name: "1章 式と計算", totalQ: 30,
+//       rounds: [ {marks:[null,'o','x',...]}, ... ] }
+//   ]
+// }
+let progData = null;
 
 async function openProgressModal(mat) {
   progMatId = mat.id;
   document.getElementById("prog-mat-name").textContent = "📊 " + mat.name;
-  // Firestoreから読み込み
   try {
     const uid = auth.currentUser?.uid || 'unknown';
     const doc = await db.collection("material_progress").doc(uid + "_" + mat.id).get();
-    progData = doc.exists ? doc.data() : { deadline: "", rounds: [{ marks: [] }] };
-  } catch(e) {
-    progData = { deadline: "", rounds: [{ marks: [] }] };
+    progData = doc.exists ? doc.data() : null;
+  } catch(e) { progData = null; }
+
+  // デフォルト構造
+  if (!progData || !progData.chapters) {
+    progData = { deadline: "", currentRound: 0, chapters: [] };
   }
-  if (!progData.rounds || !progData.rounds.length) progData.rounds = [{ marks: [] }];
-  progCurrentRound = 0;
+  progCurrentRound   = progData.currentRound || 0;
+  progCurrentChapter = 0;
+
   document.getElementById("prog-deadline").value = progData.deadline || "";
-  document.getElementById("prog-total").value = progData.totalQ || "";
-  renderProgRoundTabs();
-  renderProgQuestions();
   updateDeadlineBadge();
+  renderProgRoundTabs();
+  renderProgChapterTabs();
+  renderProgQuestions();
   document.getElementById("progress-overlay").style.display = "flex";
 }
 
@@ -1261,54 +1285,162 @@ function updateDeadlineBadge() {
 }
 document.addEventListener("change", e => { if (e.target.id === "prog-deadline") updateDeadlineBadge(); });
 
+// ── 周回タブ（教材全体） ──
 function renderProgRoundTabs() {
   const el = document.getElementById("prog-round-tabs"); el.innerHTML = "";
-  progData.rounds.forEach((r, i) => {
-    const marks = r.marks || [];
-    const o = marks.filter(m=>m==="o").length;
-    const total = marks.filter(m=>m).length;
-    const pct = total ? Math.round(o/total*100) : 0;
+  const roundCount = Math.max(1, ...progData.chapters.map(c => (c.rounds||[]).length), progCurrentRound + 1);
+  for (let i = 0; i < roundCount; i++) {
+    // 全章の合計◯数・合計回答数を集計
+    let totalO = 0, totalAns = 0, totalQ = 0;
+    progData.chapters.forEach(ch => {
+      const r = (ch.rounds || [])[i];
+      const marks = r ? (r.marks || []) : [];
+      totalO   += marks.filter(m=>m==="o").length;
+      totalAns += marks.filter(m=>m).length;
+      totalQ   += ch.totalQ || marks.length;
+    });
+    const pct = totalAns ? Math.round(totalO / totalAns * 100) : null;
     const btn = document.createElement("button");
     btn.className = "round-tab" + (i === progCurrentRound ? " active" : "");
-    btn.textContent = `${i+1}周目${total ? ` ${pct}%` : ""}`;
-    btn.onclick = () => { progCurrentRound = i; renderProgRoundTabs(); renderProgQuestions(); };
+    btn.textContent = `${i+1}周目` + (pct !== null ? ` ${pct}%` : "");
+    btn.onclick = () => {
+      progCurrentRound = i;
+      progData.currentRound = i;
+      renderProgRoundTabs();
+      renderProgChapterTabs();
+      renderProgQuestions();
+    };
+    el.appendChild(btn);
+  }
+}
+
+function addRound() {
+  // 全章に新しい周回分のmarksを追加
+  progData.chapters.forEach(ch => {
+    const n = ch.totalQ || 0;
+    if (!ch.rounds) ch.rounds = [];
+    ch.rounds.push({ marks: Array(n).fill(null) });
+  });
+  progCurrentRound = progData.chapters[0]?.rounds.length - 1 || 0;
+  progData.currentRound = progCurrentRound;
+  renderProgRoundTabs();
+  renderProgChapterTabs();
+  renderProgQuestions();
+}
+
+// ── 章タブ ──
+function renderProgChapterTabs() {
+  const el = document.getElementById("prog-chapter-tabs"); el.innerHTML = "";
+  progData.chapters.forEach((ch, i) => {
+    const r = (ch.rounds || [])[progCurrentRound];
+    const marks = r ? (r.marks || []) : [];
+    const o = marks.filter(m=>m==="o").length;
+    const ans = marks.filter(m=>m).length;
+    const pct = ans ? Math.round(o/ans*100) : null;
+
+    const btn = document.createElement("button");
+    btn.className = "round-tab" + (i === progCurrentChapter ? " active" : "");
+    btn.style.borderColor = i === progCurrentChapter ? "#9c27b0" : "#ccc";
+    if (i === progCurrentChapter) btn.style.background = "#9c27b0";
+    btn.textContent = (ch.name || `章${i+1}`) + (pct !== null ? ` ${pct}%` : "");
+    btn.onclick = () => {
+      // 章名を現在の章に保存してから切り替え
+      saveCurrentChapterName();
+      progCurrentChapter = i;
+      renderProgChapterTabs();
+      renderProgQuestions();
+    };
     el.appendChild(btn);
   });
 }
 
-function addRound() {
-  const totalQ = parseInt(document.getElementById("prog-total").value) || progData.totalQ || 0;
-  progData.rounds.push({ marks: Array(totalQ).fill(null) });
-  progCurrentRound = progData.rounds.length - 1;
-  renderProgRoundTabs();
+function saveCurrentChapterName() {
+  const ch = progData.chapters[progCurrentChapter];
+  if (!ch) return;
+  const nameEl = document.getElementById("prog-chapter-name");
+  if (nameEl) ch.name = nameEl.value.trim() || ch.name;
+}
+
+function addChapter() {
+  saveCurrentChapterName();
+  const roundCount = Math.max(progCurrentRound + 1,
+    ...progData.chapters.map(c => (c.rounds||[]).length), 1);
+  const newChapter = {
+    name: `章${progData.chapters.length + 1}`,
+    totalQ: 0,
+    rounds: Array.from({length: roundCount}, () => ({ marks: [] }))
+  };
+  progData.chapters.push(newChapter);
+  progCurrentChapter = progData.chapters.length - 1;
+  renderProgChapterTabs();
+  renderProgQuestions();
+}
+
+function deleteChapter() {
+  if (progData.chapters.length <= 1) { alert("最後の章は削除できません"); return; }
+  const ch = progData.chapters[progCurrentChapter];
+  if (!confirm(`「${ch.name || "この章"}」を削除しますか？`)) return;
+  progData.chapters.splice(progCurrentChapter, 1);
+  progCurrentChapter = Math.max(0, progCurrentChapter - 1);
+  renderProgChapterTabs();
   renderProgQuestions();
 }
 
 function applyTotalQuestions() {
   const n = parseInt(document.getElementById("prog-total").value);
   if (!n || n < 1) { alert("1以上の数を入力してください"); return; }
-  progData.totalQ = n;
+  const ch = progData.chapters[progCurrentChapter];
+  if (!ch) return;
+  ch.totalQ = n;
+  ch.name = document.getElementById("prog-chapter-name").value.trim() || ch.name;
   // 全周回のmarksを新しい問題数に合わせる
-  progData.rounds.forEach(r => {
+  if (!ch.rounds) ch.rounds = [];
+  // 周回数は教材全体の周回数に合わせる
+  const roundCount = Math.max(progCurrentRound + 1,
+    ...progData.chapters.map(c => (c.rounds||[]).length), 1);
+  while (ch.rounds.length < roundCount) ch.rounds.push({ marks: [] });
+  ch.rounds.forEach(r => {
     const cur = r.marks || [];
     if (cur.length < n) r.marks = [...cur, ...Array(n - cur.length).fill(null)];
     else r.marks = cur.slice(0, n);
   });
-  renderProgRoundTabs();
+  renderProgChapterTabs();
   renderProgQuestions();
 }
 
+// ── 問題リスト（現在の章・周回） ──
 function renderProgQuestions() {
   const el = document.getElementById("prog-question-list"); el.innerHTML = "";
-  const round = progData.rounds[progCurrentRound];
-  if (!round) return;
-  const marks = round.marks || [];
-  if (!marks.length) {
-    el.innerHTML = '<div style="color:#aaa;font-size:13px;padding:12px 0;text-align:center;">総問題数を設定して「適用」を押してください</div>';
-    updateProgBar();
+  const headerEl = document.getElementById("prog-chapter-header");
+
+  if (!progData.chapters.length) {
+    headerEl.style.display = "none";
+    el.innerHTML = '<div style="color:#aaa;font-size:13px;padding:12px 0;text-align:center;">「＋ 章を追加」から章を作成してください</div>';
+    updateProgBar(null);
     return;
   }
-  // 50問ごとにグループヘッダー
+
+  const ch = progData.chapters[progCurrentChapter];
+  if (!ch) return;
+
+  // 章ヘッダー表示
+  headerEl.style.display = "block";
+  document.getElementById("prog-chapter-name").value = ch.name || "";
+  document.getElementById("prog-total").value = ch.totalQ || "";
+
+  // 現在の周回のmarks取得
+  if (!ch.rounds) ch.rounds = [];
+  while (ch.rounds.length <= progCurrentRound) ch.rounds.push({ marks: [] });
+  const round = ch.rounds[progCurrentRound];
+  const marks = round.marks || [];
+
+  if (!marks.length) {
+    el.innerHTML = '<div style="color:#aaa;font-size:13px;padding:12px 0;text-align:center;">問題数を入力して「適用」を押してください</div>';
+    updateProgBar(round);
+    return;
+  }
+
+  // 50問ごとにグループ表示
   const chunkSize = 50;
   for (let start = 0; start < marks.length; start += chunkSize) {
     const end = Math.min(start + chunkSize, marks.length);
@@ -1322,18 +1454,21 @@ function renderProgQuestions() {
       const row = document.createElement("div");
       row.className = "q-row";
       row.innerHTML = `<span style="color:#aaa;min-width:36px;font-size:12px;">${i+1}問</span>`;
-      const states = [null, "o", "t", "x"];
-      const labels = ["－", "◯", "△", "✕"];
-      const classes= ["", "circle", "triangle", "cross"];
+      const states  = [null,   "o",      "t",        "x"    ];
+      const labels  = ["－",   "◯",      "△",        "✕"    ];
+      const classes = ["",     "circle", "triangle", "cross"];
       states.forEach((s, si) => {
         const btn = document.createElement("button");
         btn.className = "q-mark-btn" + (marks[i] === s ? " " + classes[si] : "");
         btn.textContent = labels[si];
         btn.onclick = () => {
           round.marks[i] = s;
-          renderProgQuestions();
+          btn.parentElement.querySelectorAll(".q-mark-btn").forEach((b,bi)=>{
+            b.className = "q-mark-btn" + (states[bi] === s ? " " + classes[bi] : "");
+          });
+          updateProgBar(round);
           renderProgRoundTabs();
-          updateProgBar();
+          renderProgChapterTabs();
         };
         row.appendChild(btn);
       });
@@ -1341,30 +1476,30 @@ function renderProgQuestions() {
     }
     el.appendChild(section);
   }
-  updateProgBar();
+  updateProgBar(round);
 }
 
-function updateProgBar() {
-  const round = progData?.rounds?.[progCurrentRound];
-  if (!round) return;
-  const marks = round.marks || [];
+function updateProgBar(round) {
+  const marks = round ? (round.marks || []) : [];
   const o = marks.filter(m=>m==="o").length;
   const t = marks.filter(m=>m==="t").length;
   const x = marks.filter(m=>m==="x").length;
   const answered = o + t + x;
   const pct = answered ? Math.round(o / answered * 100) : 0;
-  document.getElementById("prog-bar-fill").style.width = pct + "%";
-  document.getElementById("prog-pct-label").textContent = pct + "%";
-  document.getElementById("prog-stats-label").textContent = `◯ ${o}問 / △ ${t}問 / × ${x}問（未 ${marks.length - answered}問）`;
+  document.getElementById("prog-bar-fill").style.width = (marks.length ? pct : 0) + "%";
+  document.getElementById("prog-pct-label").textContent = marks.length ? pct + "%" : "";
+  document.getElementById("prog-stats-label").textContent = marks.length
+    ? `◯ ${o}問 / △ ${t}問 / × ${x}問（未 ${marks.length - answered}問）`
+    : "問題数を設定してください";
 }
 
 async function saveProgress() {
-  progData.deadline = document.getElementById("prog-deadline").value;
-  progData.totalQ   = parseInt(document.getElementById("prog-total").value) || progData.totalQ || 0;
+  saveCurrentChapterName();
+  progData.deadline     = document.getElementById("prog-deadline").value;
+  progData.currentRound = progCurrentRound;
   const uid = auth.currentUser?.uid || 'unknown';
   try {
     await db.collection("material_progress").doc(uid + "_" + progMatId).set(progData);
-    // 保存成功フィードバック
     const btn = document.querySelector("#progress-overlay button[onclick='saveProgress()']");
     const orig = btn.textContent;
     btn.textContent = "✅ 保存完了！"; btn.disabled = true;
@@ -1373,7 +1508,6 @@ async function saveProgress() {
     alert("保存に失敗しました: " + e.message);
   }
 }
-  
 // ════════════════════════════════════════
 // 設定モーダル
 // ════════════════════════════════════════
