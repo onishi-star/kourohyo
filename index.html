@@ -304,6 +304,28 @@
 .deadline-warning.ok   { background: #e8f5e9; color: #2e7d32; }
 .deadline-warning.near { background: #fff3e0; color: #e65100; }
 .deadline-warning.over { background: #ffebee; color: #c62828; }
+/* ── 問題メモ ── */
+.q-memo-btn {
+  width: 26px; height: 26px; border-radius: 50%;
+  border: 1.5px solid #ccc; font-size: 12px;
+  cursor: pointer; background: #fff; flex-shrink: 0;
+  transition: background .1s, border-color .1s;
+  display: flex; align-items: center; justify-content: center;
+}
+.q-memo-btn.has-memo { background: #fff8e1; border-color: #f9a825; }
+.q-memo-area {
+  display: none;
+  margin-top: 4px; margin-left: 36px;
+  padding: 4px 0;
+}
+.q-memo-area textarea {
+  width: 100%; padding: 5px 8px;
+  border: 1px solid #e0c860; border-radius: 6px;
+  font-size: 12px; resize: none; font-family: sans-serif;
+  background: #fffde7; box-sizing: border-box;
+  line-height: 1.4;
+}
+.q-row-wrap { border-bottom: 1px solid #f0f0f0; padding: 4px 0; }
   </style>
 
  <style>
@@ -700,8 +722,11 @@
     </div>
   </div>
   <div id="memo-area">
-    <div id="memo-label">📝 メモ</div>
-    <textarea id="global-memo" placeholder="ここにメモを書けます..."></textarea>
+    <div id="memo-label">📅 締切カウントダウン</div>
+    <div id="deadline-panel" style="overflow-y:auto; max-height:120px; font-size:12px;">
+      <div id="deadline-list" style="display:flex; flex-direction:column; gap:4px;"></div>
+      <div id="deadline-empty" style="color:#bbb; font-size:12px; padding:4px 0; display:none;">締切が設定された教材はありません</div>
+    </div>
   </div>
 </div>
 
