@@ -1485,12 +1485,9 @@ function renderProgQuestions() {
     header.style.cssText = "font-size:11px;color:#999;font-weight:bold;margin-bottom:4px;padding:2px 0;border-bottom:1px solid #eee;";
     header.textContent = `${start+1}〜${end}問`;
     section.appendChild(header);
-       el.appendChild(section);
-  }
-
-for (let i = start; i < end; i++) {
-      const wrap = document.createElement("div");
-      wrap.className = "q-row-wrap";
+    for (let i = start; i < end; i++) {
+    const wrap = document.createElement("div");
+    wrap.className = "q-row-wrap";
 
       const row = document.createElement("div");
       row.className = "q-row";
