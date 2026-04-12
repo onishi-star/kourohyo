@@ -383,7 +383,33 @@
   transition: background .1s;
 }
 .sub-check-btn.done { background:#e8f5e9; border-color:#43a047; } 
-  }</style>
+  }
+ /* ── 復習モード トースト ── */
+#review-toast {
+  display: none;
+  position: fixed; bottom: 80px; left: 50%;
+  transform: translateX(-50%);
+  background: #6a1b9a; color: #fff;
+  padding: 10px 20px; border-radius: 20px;
+  font-size: 13px; font-weight: bold;
+  z-index: 9999; white-space: nowrap;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.25);
+  animation: fadeInUp .25s ease;
+}
+@keyframes fadeInUp {
+  from { opacity:0; transform: translateX(-50%) translateY(10px); }
+  to   { opacity:1; transform: translateX(-50%) translateY(0); }
+}
+/* ── 考査管理ステップ ── */
+.exam-step { display: none; }
+.exam-step.active { display: block; }
+.step-header {
+  display: flex; align-items: center; gap: 8px;
+  margin-bottom: 12px; font-size: 13px; color: #888;
+}
+.step-header span { font-weight: bold; color: #6a1b9a; }
+ 
+ </style>
 
 </head>
 <body>
@@ -655,49 +681,58 @@
 <!-- ══ 考査管理モーダル ══ -->
 <div id="exam-overlay" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.45); z-index:500; align-items:center; justify-content:center;">
   <div class="prog-modal-box" style="max-width:520px;">
+
+    <!-- ステップヘッダー -->
     <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:14px;">
-      <h2 style="font-size:15px; margin:0;">📝 考査・模試管理</h2>
+      <div class="step-header">
+        <span id="exam-step-label">STEP 1</span>
+        <span id="exam-step-desc" style="color:#333; font-weight:normal;">考査・模試を選択</span>
+      </div>
       <button onclick="closeExamModal()" style="border:none; background:none; font-size:20px; cursor:pointer; color:#999;">✕</button>
     </div>
 
-    <!-- 考査リスト -->
-    <div id="exam-list" style="max-height:200px; overflow-y:auto; margin-bottom:12px;"></div>
-
-    <!-- 新規考査追加フォーム -->
-    <div style="border:1.5px dashed #ce93d8; border-radius:10px; padding:12px; background:#fdf5ff; margin-bottom:12px;">
-      <div style="font-size:12px; font-weight:bold; color:#6a1b9a; margin-bottom:8px;">＋ 考査・模試を追加</div>
-      <div style="display:flex; gap:8px; flex-wrap:wrap; align-items:center;">
-        <input type="text" id="exam-new-name" placeholder="例：1学期中間考査"
-          style="flex:1; min-width:140px; padding:6px 10px; border:1px solid #ccc; border-radius:6px; font-size:13px;">
-        <input type="date" id="exam-new-date"
-          style="padding:6px 8px; border:1px solid #ccc; border-radius:6px; font-size:13px;">
-        <button onclick="addExam()" style="padding:6px 14px; background:#9c27b0; color:#fff; border:none; border-radius:6px; font-size:13px; cursor:pointer; font-weight:bold;">追加</button>
+    <!-- STEP1: 考査一覧 -->
+    <div id="exam-step1" class="exam-step active">
+      <div id="exam-list" style="max-height:240px; overflow-y:auto; margin-bottom:12px;"></div>
+      <div style="border:1.5px dashed #ce93d8; border-radius:10px; padding:12px; background:#fdf5ff;">
+        <div style="font-size:12px; font-weight:bold; color:#6a1b9a; margin-bottom:8px;">＋ 考査・模試を追加</div>
+        <div style="display:flex; gap:8px; flex-wrap:wrap; align-items:center;">
+          <input type="text" id="exam-new-name" placeholder="例：1学期中間考査"
+            style="flex:1; min-width:140px; padding:6px 10px; border:1px solid #ccc; border-radius:6px; font-size:13px;">
+          <input type="date" id="exam-new-date"
+            style="padding:6px 8px; border:1px solid #ccc; border-radius:6px; font-size:13px;">
+          <button onclick="addExam()" style="padding:6px 14px; background:#9c27b0; color:#fff; border:none; border-radius:6px; font-size:13px; cursor:pointer; font-weight:bold;">追加</button>
+        </div>
       </div>
     </div>
 
-    <!-- 選択中の考査の提出物 -->
-    <div id="exam-detail-panel" style="display:none;">
-      <div style="font-size:13px; font-weight:bold; color:#6a1b9a; margin-bottom:8px;" id="exam-detail-title"></div>
-      <div id="exam-submission-list" style="max-height:220px; overflow-y:auto; margin-bottom:10px;"></div>
-
-      <!-- 提出物追加フォーム -->
+    <!-- STEP2: 提出物一覧 -->
+    <div id="exam-step2" class="exam-step">
+      <button onclick="goExamStep(1)" style="font-size:12px; color:#888; background:none; border:none; cursor:pointer; margin-bottom:10px; padding:0;">← 考査一覧に戻る</button>
+      <div id="exam-submission-list" style="max-height:220px; overflow-y:auto; margin-bottom:12px;"></div>
       <div style="border:1px dashed #bbb; border-radius:8px; padding:10px; background:#fafafa;">
         <div style="font-size:12px; color:#888; margin-bottom:6px; font-weight:bold;">＋ 提出物を追加</div>
         <div style="display:flex; gap:6px; flex-wrap:wrap; align-items:center; margin-bottom:6px;">
           <input type="text" id="sub-new-subject" placeholder="科目（例：数学）"
-            style="width:90px; padding:5px 8px; border:1px solid #ccc; border-radius:6px; font-size:12px;">
+            style="width:80px; padding:5px 8px; border:1px solid #ccc; border-radius:6px; font-size:12px;">
           <input type="text" id="sub-new-name" placeholder="提出物名（例：問題集p.1〜50）"
             style="flex:1; min-width:120px; padding:5px 8px; border:1px solid #ccc; border-radius:6px; font-size:12px;">
         </div>
         <div style="display:flex; gap:6px; flex-wrap:wrap; align-items:center;">
-          <input type="date" id="sub-new-deadline" placeholder="締切日"
+          <input type="date" id="sub-new-deadline"
             style="padding:5px 8px; border:1px solid #ccc; border-radius:6px; font-size:12px;">
           <label style="font-size:12px; color:#555; display:flex; align-items:center; gap:4px;">
-            <input type="checkbox" id="sub-new-hasprog"> 進捗管理あり
+            <input type="checkbox" id="sub-new-hasprog"> 進捗管理
           </label>
           <button onclick="addSubmission()" style="padding:5px 12px; background:#7b1fa2; color:#fff; border:none; border-radius:6px; font-size:12px; cursor:pointer;">追加</button>
         </div>
       </div>
+    </div>
+
+    <!-- STEP3: 提出物の進捗詳細 -->
+    <div id="exam-step3" class="exam-step">
+      <button onclick="goExamStep(2)" style="font-size:12px; color:#888; background:none; border:none; cursor:pointer; margin-bottom:10px; padding:0;">← 提出物一覧に戻る</button>
+      <div id="exam-sub-detail" style="margin-bottom:14px;"></div>
     </div>
 
     <div style="display:flex; justify-content:flex-end; margin-top:14px;">
@@ -2046,6 +2081,18 @@ function openCellModal(cellId, colIndex, hour) {
   initEventTimeSelects(hour, saved);
 
   switchCellMode(mode,saved);
+  // 復習モードなら提出物を教材として自動選択
+  if (reviewModeSub) {
+    switchCellMode("study", null);
+    matSelectedId = reviewModeSub.id;
+    // 仮教材をmaterialsに一時追加（既存でなければ）
+    if (!materials.find(m=>m.id===reviewModeSub.id)) {
+      materials.push({ id: reviewModeSub.id, name: reviewModeSub.name, color: reviewModeSub.color, category:"提出物" });
+    }
+    renderMatList();
+    // トーストを消す
+    cancelReviewMode();
+  }
   document.getElementById("cell-modal-overlay").style.display="flex";
 }
 
@@ -2752,7 +2799,7 @@ function showApp() {
   document.getElementById('app-content').style.display = 'block';
   _initNav();
   loadExams().then(() => refreshDeadlinePanel());
-  refreshDeadlinePanel();
+}
 }
 function showLogin() {
   document.getElementById('auth-container').style.display = 'flex';
@@ -2810,5 +2857,6 @@ if ("serviceWorker" in navigator){
 </script>
 
 <script src="nav.js"></script>
+   <div id="review-toast">📚 セルをタップして復習を予約してください　<button onclick="cancelReviewMode()" style="margin-left:10px; background:rgba(255,255,255,0.25); border:none; color:#fff; border-radius:10px; padding:2px 8px; cursor:pointer; font-size:12px;">キャンセル</button></div>   
 </body>
 </html>
