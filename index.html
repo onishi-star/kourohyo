@@ -12,6 +12,14 @@
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <style>
+    /* ── 隙間をなくす ── */
+#weekly-view, #monthly-view {
+  margin-top: 0 !important;
+  padding-top: 0 !important;
+}
+#calendar {
+  margin-top: 0 !important;
+}
     /* ── セル内表示 ── */
     .cell-wrapper { position: relative !important; }
 
@@ -347,6 +355,34 @@
   #_nav_bar {
     position: fixed !important;
     bottom: 0 !important;
+
+   /* ── 考査管理 ── */
+.exam-item {
+  display:flex; align-items:center; gap:8px;
+  padding:8px 10px; border-radius:8px;
+  border:1.5px solid #eee; margin-bottom:6px;
+  background:#fafafa; cursor:pointer;
+  transition: border-color .15s, background .15s;
+}
+.exam-item:hover { background:#f3e5f5; border-color:#ce93d8; }
+.exam-item.selected { background:#f3e5f5; border-color:#9c27b0; }
+.exam-item-name { flex:1; font-size:13px; font-weight:bold; }
+.exam-item-date { font-size:11px; color:#888; white-space:nowrap; }
+.sub-item {
+  display:flex; align-items:center; gap:6px;
+  padding:6px 8px; border-radius:6px;
+  border:1px solid #eee; margin-bottom:5px;
+  background:#fff; font-size:12px;
+}
+.sub-item-subject { font-weight:bold; color:#6a1b9a; min-width:40px; }
+.sub-item-name { flex:1; }
+.sub-check-btn {
+  width:28px; height:28px; border-radius:6px;
+  border:1.5px solid #ccc; font-size:13px;
+  cursor:pointer; background:#fff; flex-shrink:0;
+  transition: background .1s;
+}
+.sub-check-btn.done { background:#e8f5e9; border-color:#43a047; } 
   }</style>
 
 </head>
@@ -616,6 +652,60 @@
   </div>
 </div>
 
+<!-- ══ 考査管理モーダル ══ -->
+<div id="exam-overlay" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.45); z-index:500; align-items:center; justify-content:center;">
+  <div class="prog-modal-box" style="max-width:520px;">
+    <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:14px;">
+      <h2 style="font-size:15px; margin:0;">📝 考査・模試管理</h2>
+      <button onclick="closeExamModal()" style="border:none; background:none; font-size:20px; cursor:pointer; color:#999;">✕</button>
+    </div>
+
+    <!-- 考査リスト -->
+    <div id="exam-list" style="max-height:200px; overflow-y:auto; margin-bottom:12px;"></div>
+
+    <!-- 新規考査追加フォーム -->
+    <div style="border:1.5px dashed #ce93d8; border-radius:10px; padding:12px; background:#fdf5ff; margin-bottom:12px;">
+      <div style="font-size:12px; font-weight:bold; color:#6a1b9a; margin-bottom:8px;">＋ 考査・模試を追加</div>
+      <div style="display:flex; gap:8px; flex-wrap:wrap; align-items:center;">
+        <input type="text" id="exam-new-name" placeholder="例：1学期中間考査"
+          style="flex:1; min-width:140px; padding:6px 10px; border:1px solid #ccc; border-radius:6px; font-size:13px;">
+        <input type="date" id="exam-new-date"
+          style="padding:6px 8px; border:1px solid #ccc; border-radius:6px; font-size:13px;">
+        <button onclick="addExam()" style="padding:6px 14px; background:#9c27b0; color:#fff; border:none; border-radius:6px; font-size:13px; cursor:pointer; font-weight:bold;">追加</button>
+      </div>
+    </div>
+
+    <!-- 選択中の考査の提出物 -->
+    <div id="exam-detail-panel" style="display:none;">
+      <div style="font-size:13px; font-weight:bold; color:#6a1b9a; margin-bottom:8px;" id="exam-detail-title"></div>
+      <div id="exam-submission-list" style="max-height:220px; overflow-y:auto; margin-bottom:10px;"></div>
+
+      <!-- 提出物追加フォーム -->
+      <div style="border:1px dashed #bbb; border-radius:8px; padding:10px; background:#fafafa;">
+        <div style="font-size:12px; color:#888; margin-bottom:6px; font-weight:bold;">＋ 提出物を追加</div>
+        <div style="display:flex; gap:6px; flex-wrap:wrap; align-items:center; margin-bottom:6px;">
+          <input type="text" id="sub-new-subject" placeholder="科目（例：数学）"
+            style="width:90px; padding:5px 8px; border:1px solid #ccc; border-radius:6px; font-size:12px;">
+          <input type="text" id="sub-new-name" placeholder="提出物名（例：問題集p.1〜50）"
+            style="flex:1; min-width:120px; padding:5px 8px; border:1px solid #ccc; border-radius:6px; font-size:12px;">
+        </div>
+        <div style="display:flex; gap:6px; flex-wrap:wrap; align-items:center;">
+          <input type="date" id="sub-new-deadline" placeholder="締切日"
+            style="padding:5px 8px; border:1px solid #ccc; border-radius:6px; font-size:12px;">
+          <label style="font-size:12px; color:#555; display:flex; align-items:center; gap:4px;">
+            <input type="checkbox" id="sub-new-hasprog"> 進捗管理あり
+          </label>
+          <button onclick="addSubmission()" style="padding:5px 12px; background:#7b1fa2; color:#fff; border:none; border-radius:6px; font-size:12px; cursor:pointer;">追加</button>
+        </div>
+      </div>
+    </div>
+
+    <div style="display:flex; justify-content:flex-end; margin-top:14px;">
+      <button onclick="closeExamModal()" style="padding:8px 20px; border:1px solid #ccc; border-radius:8px; cursor:pointer; font-size:13px;">閉じる</button>
+    </div>
+  </div>
+</div>
+  
 <!-- ══ 進捗管理モーダル ══ -->
 <div id="progress-overlay">
   <div class="prog-modal-box">
@@ -727,6 +817,7 @@
       <button id="btn-logout" onclick="logout()" style="background:#f44336; color:white; border:none; border-radius:6px; padding:4px 10px; cursor:pointer; font-size:13px;">ログアウト</button>
       <button onclick="window.print()" style="font-size:12px;">🖨 印刷</button>
       <button onclick="openFreeRecordModal()" style="background:#e8f5e9; color:#2e7d32; border:1px solid #a5d6a7; border-radius:6px; padding:4px 10px; cursor:pointer; font-size:13px;">✏️ 自由記録</button>
+      <button onclick="openExamModal()" style="background:#f3e5f5; color:#6a1b9a; border:1px solid #ce93d8; border-radius:6px; padding:4px 10px; cursor:pointer; font-size:13px;">📝 考査管理</button>
       <span id="offline-indicator" style="display:none; font-size:12px; color:#e65100; background:#fff3e0; padding:3px 8px; border-radius:10px; border:1px solid #ffcc80;">📵 オフライン</span>
       <span id="sync-indicator"   style="display:none; font-size:12px; color:#2e7d32; background:#e8f5e9; padding:3px 8px; border-radius:10px; border:1px solid #a5d6a7;">✅ 同期完了</span>
     </div>
@@ -1602,6 +1693,18 @@ async function refreshDeadlinePanel() {
       items.push({ name: mat.name, deadline: data.deadline, diff, color: mat.color });
     } catch(e) {}
   }
+　// 考査・模試の締切も追加
+  for (const exam of exams) {
+    if (!exam.date) continue;
+    const diff = Math.ceil((new Date(exam.date) - today) / 86400000);
+    items.push({ name: "📝 " + exam.name, diff, color: "#9c27b0" });
+    // 提出物の締切も追加
+    for (const sub of (exam.submissions||[])) {
+      if (!sub.deadline || sub.done) continue;
+      const d = Math.ceil((new Date(sub.deadline) - today) / 86400000);
+      items.push({ name: `[${sub.subject||"提出"}] ${sub.name}`, diff: d, color: "#7b1fa2" });
+    }
+  }
   items.sort((a, b) => a.diff - b.diff);
   if (!items.length) { empty.style.display = "block"; return; }
   empty.style.display = "none";
@@ -1620,6 +1723,188 @@ async function refreshDeadlinePanel() {
     div.appendChild(dot); div.appendChild(name); div.appendChild(badge);
     list.appendChild(div);
   });
+}
+
+// ════════════════════════════════════════
+// 考査・模試管理
+// ════════════════════════════════════════
+let exams = [];          // [{id, name, date, submissions:[{id,subject,name,deadline,done,progId}]}]
+let selectedExamIdx = null;
+
+async function loadExams() {
+  const uid = auth.currentUser?.uid || 'unknown';
+  try {
+    const doc = await db.collection("app_config").doc("exams_" + uid).get();
+    exams = doc.exists ? (doc.data().list || []) : [];
+  } catch(e) { exams = []; }
+}
+
+async function saveExams() {
+  const uid = auth.currentUser?.uid || 'unknown';
+  try {
+    await db.collection("app_config").doc("exams_" + uid).set({ list: exams });
+  } catch(e) { console.error(e); }
+  refreshDeadlinePanel();
+}
+
+function genExamId() { return "exam_" + Date.now() + "_" + Math.random().toString(36).slice(2,5); }
+
+async function openExamModal() {
+  await loadExams();
+  selectedExamIdx = null;
+  renderExamList();
+  document.getElementById("exam-detail-panel").style.display = "none";
+  document.getElementById("exam-overlay").style.display = "flex";
+}
+function closeExamModal() {
+  document.getElementById("exam-overlay").style.display = "none";
+}
+
+function renderExamList() {
+  const el = document.getElementById("exam-list"); el.innerHTML = "";
+  if (!exams.length) {
+    el.innerHTML = '<div style="color:#aaa;font-size:13px;padding:8px;">考査・模試が登録されていません</div>';
+    return;
+  }
+  const today = new Date(new Date().toDateString());
+  // 日付順ソート
+  [...exams].map((e,i)=>({...e,_i:i}))
+    .sort((a,b)=>a.date<b.date?-1:1)
+    .forEach(exam => {
+      const i = exam._i;
+      const div = document.createElement("div");
+      div.className = "exam-item" + (i === selectedExamIdx ? " selected" : "");
+      const diff = exam.date ? Math.ceil((new Date(exam.date) - today) / 86400000) : null;
+      let badge = "";
+      if (diff !== null) {
+        if (diff < 0)       badge = `<span class="deadline-warning over">⚠️ ${-diff}日前</span>`;
+        else if (diff <= 7) badge = `<span class="deadline-warning near">⚡ あと${diff}日</span>`;
+        else                badge = `<span class="deadline-warning ok">あと${diff}日</span>`;
+      }
+      const subs = exam.submissions || [];
+      const doneCount = subs.filter(s=>s.done).length;
+      const subInfo = subs.length ? `<span style="font-size:11px;color:#999;margin-left:4px;">${doneCount}/${subs.length}提出済</span>` : "";
+      div.innerHTML = `
+        <span class="exam-item-name">${exam.name}${subInfo}</span>
+        <span class="exam-item-date">${exam.date||""}</span>
+        ${badge}
+        <button onclick="deleteExam(${i},event)" style="font-size:11px;color:#c44;border:1px solid #e88;border-radius:4px;padding:2px 6px;cursor:pointer;background:#fff;">削除</button>
+      `;
+      div.onclick = () => selectExam(i);
+      el.appendChild(div);
+    });
+}
+
+function selectExam(i) {
+  selectedExamIdx = i;
+  renderExamList();
+  renderExamDetail();
+  document.getElementById("exam-detail-panel").style.display = "block";
+}
+
+function renderExamDetail() {
+  const exam = exams[selectedExamIdx];
+  if (!exam) return;
+  document.getElementById("exam-detail-title").textContent = `📋 ${exam.name}（${exam.date||"日付未設定"}）の提出物`;
+  const el = document.getElementById("exam-submission-list"); el.innerHTML = "";
+  const subs = exam.submissions || [];
+  if (!subs.length) {
+    el.innerHTML = '<div style="color:#aaa;font-size:12px;padding:6px 0;">提出物が登録されていません</div>';
+    return;
+  }
+  subs.forEach((sub, si) => {
+    const div = document.createElement("div");
+    div.className = "sub-item";
+    const today = new Date(new Date().toDateString());
+    let dlBadge = "";
+    if (sub.deadline) {
+      const diff = Math.ceil((new Date(sub.deadline) - today) / 86400000);
+      if (diff < 0)       dlBadge = `<span class="deadline-warning over" style="font-size:10px;">⚠️${-diff}日超過</span>`;
+      else if (diff <= 3) dlBadge = `<span class="deadline-warning near" style="font-size:10px;">⚡${diff}日</span>`;
+      else                dlBadge = `<span class="deadline-warning ok" style="font-size:10px;">${diff}日</span>`;
+    }
+    // チェックボタン
+    const checkBtn = document.createElement("button");
+    checkBtn.className = "sub-check-btn" + (sub.done ? " done" : "");
+    checkBtn.textContent = sub.done ? "✅" : "　";
+    checkBtn.title = sub.done ? "提出済み（タップで戻す）" : "提出済みにする";
+    checkBtn.onclick = async () => {
+      sub.done = !sub.done;
+      await saveExams();
+      renderExamDetail();
+      renderExamList();
+    };
+    div.innerHTML = `
+      <span class="sub-item-subject">${sub.subject||""}</span>
+      <span class="sub-item-name">${sub.name}</span>
+      ${dlBadge}
+      ${sub.hasProg ? `<button onclick="openProgFromSub('${sub.id}')" style="font-size:11px;background:#e8f5e9;border:1px solid #a5d6a7;border-radius:4px;padding:2px 6px;cursor:pointer;">📊</button>` : ""}
+      <button onclick="deleteSubmission(${si},event)" style="font-size:11px;color:#c44;border:1px solid #e88;border-radius:4px;padding:2px 6px;cursor:pointer;background:#fff;">削除</button>
+    `;
+    div.prepend(checkBtn);
+    el.appendChild(div);
+  });
+}
+
+async function addExam() {
+  const name = document.getElementById("exam-new-name").value.trim();
+  const date = document.getElementById("exam-new-date").value;
+  if (!name) { alert("考査名を入力してください"); return; }
+  exams.push({ id: genExamId(), name, date, submissions: [] });
+  await saveExams();
+  document.getElementById("exam-new-name").value = "";
+  document.getElementById("exam-new-date").value = "";
+  renderExamList();
+}
+
+async function deleteExam(i, e) {
+  e.stopPropagation();
+  if (!confirm(`「${exams[i].name}」を削除しますか？`)) return;
+  exams.splice(i, 1);
+  if (selectedExamIdx === i) {
+    selectedExamIdx = null;
+    document.getElementById("exam-detail-panel").style.display = "none";
+  }
+  await saveExams();
+  renderExamList();
+}
+
+async function addSubmission() {
+  const exam = exams[selectedExamIdx];
+  if (!exam) return;
+  const name = document.getElementById("sub-new-name").value.trim();
+  if (!name) { alert("提出物名を入力してください"); return; }
+  if (!exam.submissions) exam.submissions = [];
+  exam.submissions.push({
+    id: genExamId(),
+    subject:  document.getElementById("sub-new-subject").value.trim(),
+    name,
+    deadline: document.getElementById("sub-new-deadline").value,
+    done:     false,
+    hasProg:  document.getElementById("sub-new-hasprog").checked
+  });
+  await saveExams();
+  document.getElementById("sub-new-subject").value = "";
+  document.getElementById("sub-new-name").value = "";
+  document.getElementById("sub-new-deadline").value = "";
+  document.getElementById("sub-new-hasprog").checked = false;
+  renderExamDetail();
+  renderExamList();
+}
+
+async function deleteSubmission(si, e) {
+  e.stopPropagation();
+  const exam = exams[selectedExamIdx];
+  if (!confirm(`「${exam.submissions[si].name}」を削除しますか？`)) return;
+  exam.submissions.splice(si, 1);
+  await saveExams();
+  renderExamDetail();
+  renderExamList();
+}
+
+function openProgFromSub(subId) {
+  // 提出物の進捗管理（将来拡張用：現状は教材と同じ形式で開く）
+  alert("この機能は今後対応予定です");
 }
   
 // ════════════════════════════════════════
@@ -2466,6 +2751,7 @@ function showApp() {
   document.getElementById('auth-container').style.display = 'none';
   document.getElementById('app-content').style.display = 'block';
   _initNav();
+  loadExams().then(() => refreshDeadlinePanel());
   refreshDeadlinePanel();
 }
 function showLogin() {
