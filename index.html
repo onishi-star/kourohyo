@@ -1478,9 +1478,12 @@ function renderMatManageList() {
     row.style.cssText="display:flex;align-items:center;gap:8px;padding:8px 10px;border-radius:8px;border:1px solid #eee;margin-bottom:6px;background:#fafafa;";
     const dot=document.createElement("div"); dot.className="mat-color-dot"; dot.style.background=mat.color;
     const info=document.createElement("div"); info.style.cssText="flex:1;font-size:13px;"; info.innerHTML=`<b>${mat.name}</b>${mat.category?` <span style="color:#999;font-size:11px;">${mat.category}</span>`:""}`;
-    const del=document.createElement("button"); del.innerText="削除"; del.style.cssText="font-size:11px;color:#c44;border:1px solid #e88;border-radius:4px;padding:3px 8px;cursor:pointer;background:#fff;";
+   const del=document.createElement("button"); del.innerText="削除"; del.style.cssText="font-size:11px;color:#c44;border:1px solid #e88;border-radius:4px;padding:3px 8px;cursor:pointer;background:#fff;";
     del.onclick=async()=>{ if(!confirm(`「${mat.name}」を削除しますか？`))return; materials.splice(idx,1); await saveMaterials(); renderMatManageList(); };
-    row.appendChild(dot); row.appendChild(info); row.appendChild(del); el.appendChild(row);
+    const prog=document.createElement("button"); prog.innerText="📊"; prog.title="進捗管理";
+    prog.style.cssText="font-size:14px;border:1px solid #a5d6a7;border-radius:4px;padding:3px 8px;cursor:pointer;background:#e8f5e9;";
+    prog.onclick=()=>{ closeMatManage(); openProgressModal(mat); };
+    row.appendChild(dot); row.appendChild(info); row.appendChild(prog); row.appendChild(del); el.appendChild(row);
   });
 }
 async function addMaterialFromManage() {
