@@ -886,13 +886,6 @@ let matSelectedId   = null;
 let eventSelColor   = "#ffadad";
 
 // ════════════════════════════════════════
-// グローバルメモ
-// ════════════════════════════════════════
-const memoEl = document.getElementById("global-memo");
-if (localStorage.getItem("global-memo")) memoEl.value = localStorage.getItem("global-memo");
-memoEl.addEventListener("input", () => localStorage.setItem("global-memo", memoEl.value));
-
-// ════════════════════════════════════════
 // ユーティリティ
 // ════════════════════════════════════════
 function adjustHeaderTop() {
