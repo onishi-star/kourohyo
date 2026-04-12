@@ -1553,8 +1553,12 @@ for (let i = start; i < end; i++) {
       row.appendChild(memoBtn);
       wrap.appendChild(row);
       wrap.appendChild(memoArea);
-      section.appendChild(wrap);
-    }
+    section.appendChild(wrap);
+    }    // ← for i ループの閉じ
+    el.appendChild(section);
+  }      // ← for start ループの閉じ
+  updateProgBar(round);
+}        // ← renderProgQuestions の閉じ
   
 function updateProgBar(round) {
   const marks = round ? (round.marks || []) : [];
