@@ -326,6 +326,16 @@
   line-height: 1.4;
 }
 .q-row-wrap { border-bottom: 1px solid #f0f0f0; padding: 4px 0; }
+
+/* ── 締切カウントダウン ── */
+.dl-item {
+  display: flex; align-items: center; gap:6px;
+  padding: 4px 8px; border-radius: 6px; background: #fff;
+  border: 1px solid #eee; font-size: 12px;
+}
+.dl-item .dl-name { flex:1; font-weight:bold; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.dl-item .dl-badge { font-size:11px; font-weight:bold; padding:2px 7px; border-radius:10px; white-space:nowrap; }
+    
   </style>
 
  <style>
@@ -1475,35 +1485,77 @@ function renderProgQuestions() {
     header.style.cssText = "font-size:11px;color:#999;font-weight:bold;margin-bottom:4px;padding:2px 0;border-bottom:1px solid #eee;";
     header.textContent = `${start+1}〜${end}問`;
     section.appendChild(header);
-    for (let i = start; i < end; i++) {
+       el.appendChild(section);
+  }
+
+for (let i = start; i < end; i++) {
+      const wrap = document.createElement("div");
+      wrap.className = "q-row-wrap";
+
       const row = document.createElement("div");
       row.className = "q-row";
+      row.style.borderBottom = "none";
       row.innerHTML = `<span style="color:#aaa;min-width:36px;font-size:12px;">${i+1}問</span>`;
+
       const states  = [null,   "o",      "t",        "x"    ];
       const labels  = ["－",   "◯",      "△",        "✕"    ];
       const classes = ["",     "circle", "triangle", "cross"];
+
+      // ── ◯×△ボタン ──
       states.forEach((s, si) => {
         const btn = document.createElement("button");
         btn.className = "q-mark-btn" + (marks[i] === s ? " " + classes[si] : "");
         btn.textContent = labels[si];
         btn.onclick = () => {
           round.marks[i] = s;
-          btn.parentElement.querySelectorAll(".q-mark-btn").forEach((b,bi)=>{
+          btn.parentElement.querySelectorAll(".q-mark-btn").forEach((b, bi) => {
             b.className = "q-mark-btn" + (states[bi] === s ? " " + classes[bi] : "");
           });
+          // ◯×△がついたらメモボタンを表示
+          memoBtn.style.display = s ? "flex" : "none";
+          if (!s) memoArea.style.display = "none";
           updateProgBar(round);
           renderProgRoundTabs();
           renderProgChapterTabs();
         };
         row.appendChild(btn);
       });
-      section.appendChild(row);
-    }
-    el.appendChild(section);
-  }
-  updateProgBar(round);
-}
 
+      // ── メモボタン ──
+      const memoBtn = document.createElement("button");
+      const hasMemo = !!(round.memos && round.memos[i]);
+      memoBtn.className = "q-memo-btn" + (hasMemo ? " has-memo" : "");
+      memoBtn.title = "メモ";
+      memoBtn.textContent = "🖊";
+      memoBtn.style.display = marks[i] ? "flex" : "none";
+      memoBtn.style.marginLeft = "4px";
+
+      // ── メモ展開エリア ──
+      const memoArea = document.createElement("div");
+      memoArea.className = "q-memo-area";
+      const memoTa = document.createElement("textarea");
+      memoTa.rows = 2;
+      memoTa.placeholder = "間違えたポイント・メモ...";
+      memoTa.value = (round.memos && round.memos[i]) || "";
+      memoTa.oninput = () => {
+        if (!round.memos) round.memos = {};
+        round.memos[i] = memoTa.value;
+        memoBtn.className = "q-memo-btn" + (memoTa.value.trim() ? " has-memo" : "");
+      };
+      memoArea.appendChild(memoTa);
+
+      memoBtn.onclick = () => {
+        const isOpen = memoArea.style.display === "block";
+        memoArea.style.display = isOpen ? "none" : "block";
+        if (!isOpen) memoTa.focus();
+      };
+
+      row.appendChild(memoBtn);
+      wrap.appendChild(row);
+      wrap.appendChild(memoArea);
+      section.appendChild(wrap);
+    }
+  
 function updateProgBar(round) {
   const marks = round ? (round.marks || []) : [];
   const o = marks.filter(m=>m==="o").length;
@@ -1528,11 +1580,54 @@ async function saveProgress() {
     const btn = document.querySelector("#progress-overlay button[onclick='saveProgress()']");
     const orig = btn.textContent;
     btn.textContent = "✅ 保存完了！"; btn.disabled = true;
+    refreshDeadlinePanel();
     setTimeout(() => { btn.textContent = orig; btn.disabled = false; }, 1500);
   } catch(e) {
     alert("保存に失敗しました: " + e.message);
   }
 }
+
+// ════════════════════════════════════════
+// 締切カウントダウンパネル
+// ════════════════════════════════════════
+async function refreshDeadlinePanel() {
+  const list = document.getElementById("deadline-list");
+  const empty = document.getElementById("deadline-empty");
+  if (!list) return;
+  list.innerHTML = "";
+  const uid = auth.currentUser?.uid || 'unknown';
+  const today = new Date(new Date().toDateString());
+  const items = [];
+  for (const mat of materials) {
+    try {
+      const doc = await db.collection("material_progress").doc(uid + "_" + mat.id).get();
+      if (!doc.exists) continue;
+      const data = doc.data();
+      if (!data.deadline) continue;
+      const diff = Math.ceil((new Date(data.deadline) - today) / 86400000);
+      items.push({ name: mat.name, deadline: data.deadline, diff, color: mat.color });
+    } catch(e) {}
+  }
+  items.sort((a, b) => a.diff - b.diff);
+  if (!items.length) { empty.style.display = "block"; return; }
+  empty.style.display = "none";
+  items.forEach(item => {
+    const div = document.createElement("div");
+    div.className = "dl-item";
+    const dot = document.createElement("div");
+    dot.style.cssText = `width:8px;height:8px;border-radius:50%;background:${item.color};flex-shrink:0;`;
+    const name = document.createElement("div");
+    name.className = "dl-name"; name.textContent = item.name;
+    const badge = document.createElement("div");
+    badge.className = "dl-badge";
+    if (item.diff < 0)      { badge.style.cssText="background:#ffebee;color:#c62828;"; badge.textContent=`⚠️ ${-item.diff}日超過`; }
+    else if (item.diff <= 3){ badge.style.cssText="background:#fff3e0;color:#e65100;"; badge.textContent=`⚡ あと${item.diff}日`; }
+    else                    { badge.style.cssText="background:#e8f5e9;color:#2e7d32;"; badge.textContent=`✅ あと${item.diff}日`; }
+    div.appendChild(dot); div.appendChild(name); div.appendChild(badge);
+    list.appendChild(div);
+  });
+}
+  
 // ════════════════════════════════════════
 // 設定モーダル
 // ════════════════════════════════════════
@@ -2377,6 +2472,7 @@ function showApp() {
   document.getElementById('auth-container').style.display = 'none';
   document.getElementById('app-content').style.display = 'block';
   _initNav();
+  refreshDeadlinePanel();
 }
 function showLogin() {
   document.getElementById('auth-container').style.display = 'flex';
