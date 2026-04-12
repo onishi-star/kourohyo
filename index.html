@@ -1761,157 +1761,154 @@ async function refreshDeadlinePanel() {
 }
 
 // ════════════════════════════════════════
-// 考査・模試管理
+// 考査・模試管理（ステップ形式）
 // ════════════════════════════════════════
-let exams = [];          // [{id, name, date, submissions:[{id,subject,name,deadline,done,progId}]}]
+let exams = [];
 let selectedExamIdx = null;
+let selectedSubIdx  = null;
+let currentExamStep = 1;
+let reviewModeSub   = null;
+
+function genExamId() { return "exam_"+Date.now()+"_"+Math.random().toString(36).slice(2,5); }
 
 async function loadExams() {
   const uid = auth.currentUser?.uid || 'unknown';
   try {
-    const doc = await db.collection("app_config").doc("exams_" + uid).get();
-    exams = doc.exists ? (doc.data().list || []) : [];
+    const doc = await db.collection("app_config").doc("exams_"+uid).get();
+    exams = doc.exists ? (doc.data().list||[]) : [];
   } catch(e) { exams = []; }
 }
 
 async function saveExams() {
   const uid = auth.currentUser?.uid || 'unknown';
-  try {
-    await db.collection("app_config").doc("exams_" + uid).set({ list: exams });
-  } catch(e) { console.error(e); }
+  try { await db.collection("app_config").doc("exams_"+uid).set({list:exams}); } catch(e) { console.error(e); }
   refreshDeadlinePanel();
 }
 
-function genExamId() { return "exam_" + Date.now() + "_" + Math.random().toString(36).slice(2,5); }
-
 async function openExamModal() {
   await loadExams();
-  selectedExamIdx = null;
-  renderExamList();
-  document.getElementById("exam-detail-panel").style.display = "none";
+  selectedExamIdx = null; selectedSubIdx = null;
+  goExamStep(1);
   document.getElementById("exam-overlay").style.display = "flex";
 }
-function closeExamModal() {
-  document.getElementById("exam-overlay").style.display = "none";
+function closeExamModal() { document.getElementById("exam-overlay").style.display = "none"; }
+
+function goExamStep(step) {
+  currentExamStep = step;
+  document.querySelectorAll(".exam-step").forEach(el => el.classList.remove("active"));
+  document.getElementById("exam-step"+step).classList.add("active");
+  const labels = ["","STEP 1","STEP 2","STEP 3"];
+  const descs  = ["","考査・模試を選択","提出物を確認","提出物の詳細・進捗"];
+  document.getElementById("exam-step-label").textContent = labels[step];
+  document.getElementById("exam-step-desc").textContent  = descs[step];
+  if (step===1) renderExamList();
+  if (step===2) renderSubmissionList();
+  if (step===3) renderSubDetail();
 }
 
 function renderExamList() {
   const el = document.getElementById("exam-list"); el.innerHTML = "";
+  const today = new Date(new Date().toDateString());
   if (!exams.length) {
     el.innerHTML = '<div style="color:#aaa;font-size:13px;padding:8px;">考査・模試が登録されていません</div>';
     return;
   }
-  const today = new Date(new Date().toDateString());
-  // 日付順ソート
   [...exams].map((e,i)=>({...e,_i:i}))
     .sort((a,b)=>a.date<b.date?-1:1)
     .forEach(exam => {
       const i = exam._i;
       const div = document.createElement("div");
-      div.className = "exam-item" + (i === selectedExamIdx ? " selected" : "");
-      const diff = exam.date ? Math.ceil((new Date(exam.date) - today) / 86400000) : null;
+      div.className = "exam-item" + (i===selectedExamIdx?" selected":"");
+      const diff = exam.date ? Math.ceil((new Date(exam.date)-today)/86400000) : null;
       let badge = "";
-      if (diff !== null) {
-        if (diff < 0)       badge = `<span class="deadline-warning over">⚠️ ${-diff}日前</span>`;
-        else if (diff <= 7) badge = `<span class="deadline-warning near">⚡ あと${diff}日</span>`;
-        else                badge = `<span class="deadline-warning ok">あと${diff}日</span>`;
+      if (diff!==null) {
+        if (diff<0)       badge=`<span class="deadline-warning over">⚠️ ${-diff}日前</span>`;
+        else if (diff<=7) badge=`<span class="deadline-warning near">⚡ あと${diff}日</span>`;
+        else              badge=`<span class="deadline-warning ok">あと${diff}日</span>`;
       }
-      const subs = exam.submissions || [];
-      const doneCount = subs.filter(s=>s.done).length;
-      const subInfo = subs.length ? `<span style="font-size:11px;color:#999;margin-left:4px;">${doneCount}/${subs.length}提出済</span>` : "";
+      const subs = exam.submissions||[];
+      const done = subs.filter(s=>s.done).length;
+      const subInfo = subs.length ? `<span style="font-size:11px;color:#999;"> ${done}/${subs.length}提出済</span>` : "";
       div.innerHTML = `
         <span class="exam-item-name">${exam.name}${subInfo}</span>
         <span class="exam-item-date">${exam.date||""}</span>
         ${badge}
-        <button onclick="deleteExam(${i},event)" style="font-size:11px;color:#c44;border:1px solid #e88;border-radius:4px;padding:2px 6px;cursor:pointer;background:#fff;">削除</button>
+        <button onclick="deleteExam(${i},event)" style="font-size:11px;color:#c44;border:1px solid #e88;border-radius:4px;padding:2px 6px;cursor:pointer;background:#fff;flex-shrink:0;">削除</button>
       `;
-      div.onclick = () => selectExam(i);
+      div.onclick = (e) => { if(e.target.tagName==="BUTTON") return; selectedExamIdx=i; goExamStep(2); };
       el.appendChild(div);
     });
-}
-
-function selectExam(i) {
-  selectedExamIdx = i;
-  renderExamList();
-  renderExamDetail();
-  document.getElementById("exam-detail-panel").style.display = "block";
-}
-
-function renderExamDetail() {
-  const exam = exams[selectedExamIdx];
-  if (!exam) return;
-  document.getElementById("exam-detail-title").textContent = `📋 ${exam.name}（${exam.date||"日付未設定"}）の提出物`;
-  const el = document.getElementById("exam-submission-list"); el.innerHTML = "";
-  const subs = exam.submissions || [];
-  if (!subs.length) {
-    el.innerHTML = '<div style="color:#aaa;font-size:12px;padding:6px 0;">提出物が登録されていません</div>';
-    return;
-  }
-  subs.forEach((sub, si) => {
-    const div = document.createElement("div");
-    div.className = "sub-item";
-    const today = new Date(new Date().toDateString());
-    let dlBadge = "";
-    if (sub.deadline) {
-      const diff = Math.ceil((new Date(sub.deadline) - today) / 86400000);
-      if (diff < 0)       dlBadge = `<span class="deadline-warning over" style="font-size:10px;">⚠️${-diff}日超過</span>`;
-      else if (diff <= 3) dlBadge = `<span class="deadline-warning near" style="font-size:10px;">⚡${diff}日</span>`;
-      else                dlBadge = `<span class="deadline-warning ok" style="font-size:10px;">${diff}日</span>`;
-    }
-    // チェックボタン
-    const checkBtn = document.createElement("button");
-    checkBtn.className = "sub-check-btn" + (sub.done ? " done" : "");
-    checkBtn.textContent = sub.done ? "✅" : "　";
-    checkBtn.title = sub.done ? "提出済み（タップで戻す）" : "提出済みにする";
-    checkBtn.onclick = async () => {
-      sub.done = !sub.done;
-      await saveExams();
-      renderExamDetail();
-      renderExamList();
-    };
-    div.innerHTML = `
-      <span class="sub-item-subject">${sub.subject||""}</span>
-      <span class="sub-item-name">${sub.name}</span>
-      ${dlBadge}
-      ${sub.hasProg ? `<button onclick="openProgFromSub('${sub.id}')" style="font-size:11px;background:#e8f5e9;border:1px solid #a5d6a7;border-radius:4px;padding:2px 6px;cursor:pointer;">📊</button>` : ""}
-      <button onclick="deleteSubmission(${si},event)" style="font-size:11px;color:#c44;border:1px solid #e88;border-radius:4px;padding:2px 6px;cursor:pointer;background:#fff;">削除</button>
-    `;
-    div.prepend(checkBtn);
-    el.appendChild(div);
-  });
 }
 
 async function addExam() {
   const name = document.getElementById("exam-new-name").value.trim();
   const date = document.getElementById("exam-new-date").value;
   if (!name) { alert("考査名を入力してください"); return; }
-  exams.push({ id: genExamId(), name, date, submissions: [] });
+  exams.push({id:genExamId(), name, date, submissions:[]});
   await saveExams();
-  document.getElementById("exam-new-name").value = "";
-  document.getElementById("exam-new-date").value = "";
+  document.getElementById("exam-new-name").value="";
+  document.getElementById("exam-new-date").value="";
   renderExamList();
 }
 
 async function deleteExam(i, e) {
   e.stopPropagation();
   if (!confirm(`「${exams[i].name}」を削除しますか？`)) return;
-  exams.splice(i, 1);
-  if (selectedExamIdx === i) {
-    selectedExamIdx = null;
-    document.getElementById("exam-detail-panel").style.display = "none";
+  exams.splice(i,1);
+  if (selectedExamIdx===i) selectedExamIdx=null;
+  await saveExams(); renderExamList();
+}
+
+function renderSubmissionList() {
+  const exam = exams[selectedExamIdx]; if (!exam) return;
+  document.getElementById("exam-step-desc").textContent = exam.name + " の提出物";
+  const el = document.getElementById("exam-submission-list"); el.innerHTML="";
+  const subs = exam.submissions||[];
+  const today = new Date(new Date().toDateString());
+  if (!subs.length) {
+    el.innerHTML='<div style="color:#aaa;font-size:12px;padding:6px 0;">提出物が登録されていません</div>';
+    return;
   }
-  await saveExams();
-  renderExamList();
+  subs.forEach((sub,si) => {
+    const div = document.createElement("div");
+    div.className = "sub-item";
+    div.style.flexWrap = "wrap";
+    const checkBtn = document.createElement("button");
+    checkBtn.className = "sub-check-btn"+(sub.done?" done":"");
+    checkBtn.textContent = sub.done?"✅":"○";
+    checkBtn.onclick = async(e) => {
+      e.stopPropagation();
+      sub.done=!sub.done; await saveExams(); renderSubmissionList();
+    };
+    let dlBadge = "";
+    if (sub.deadline) {
+      const diff = Math.ceil((new Date(sub.deadline)-today)/86400000);
+      if (diff<0)       dlBadge=`<span class="deadline-warning over" style="font-size:10px;">⚠️${-diff}日超過</span>`;
+      else if (diff<=3) dlBadge=`<span class="deadline-warning near" style="font-size:10px;">⚡${diff}日</span>`;
+      else              dlBadge=`<span class="deadline-warning ok" style="font-size:10px;">${diff}日</span>`;
+    }
+    div.innerHTML = `
+      <span class="sub-item-subject">${sub.subject||""}</span>
+      <span class="sub-item-name" style="font-weight:${sub.done?"normal":"bold"};color:${sub.done?"#aaa":"#333"};text-decoration:${sub.done?"line-through":"none"};">${sub.name}</span>
+      ${dlBadge}
+      <div style="display:flex;gap:4px;margin-left:auto;">
+        ${sub.hasProg?`<button onclick="openSubProgress(${si})" style="font-size:11px;background:#e8f5e9;border:1px solid #a5d6a7;border-radius:4px;padding:2px 7px;cursor:pointer;">📊 進捗</button>`:""}
+        <button onclick="startReviewMode(${selectedExamIdx},${si})" style="font-size:11px;background:#f3e5f5;color:#6a1b9a;border:1px solid #ce93d8;border-radius:4px;padding:2px 7px;cursor:pointer;">📅 復習へ</button>
+        <button onclick="deleteSubmission(${si},event)" style="font-size:11px;color:#c44;border:1px solid #e88;border-radius:4px;padding:2px 6px;cursor:pointer;background:#fff;">削除</button>
+      </div>
+    `;
+    div.prepend(checkBtn);
+    el.appendChild(div);
+  });
 }
 
 async function addSubmission() {
-  const exam = exams[selectedExamIdx];
-  if (!exam) return;
+  const exam = exams[selectedExamIdx]; if (!exam) return;
   const name = document.getElementById("sub-new-name").value.trim();
   if (!name) { alert("提出物名を入力してください"); return; }
-  if (!exam.submissions) exam.submissions = [];
+  if (!exam.submissions) exam.submissions=[];
   exam.submissions.push({
-    id: genExamId(),
+    id:genExamId(),
     subject:  document.getElementById("sub-new-subject").value.trim(),
     name,
     deadline: document.getElementById("sub-new-deadline").value,
@@ -1919,27 +1916,76 @@ async function addSubmission() {
     hasProg:  document.getElementById("sub-new-hasprog").checked
   });
   await saveExams();
-  document.getElementById("sub-new-subject").value = "";
-  document.getElementById("sub-new-name").value = "";
-  document.getElementById("sub-new-deadline").value = "";
-  document.getElementById("sub-new-hasprog").checked = false;
-  renderExamDetail();
-  renderExamList();
+  document.getElementById("sub-new-subject").value="";
+  document.getElementById("sub-new-name").value="";
+  document.getElementById("sub-new-deadline").value="";
+  document.getElementById("sub-new-hasprog").checked=false;
+  renderSubmissionList();
 }
 
 async function deleteSubmission(si, e) {
   e.stopPropagation();
   const exam = exams[selectedExamIdx];
   if (!confirm(`「${exam.submissions[si].name}」を削除しますか？`)) return;
-  exam.submissions.splice(si, 1);
-  await saveExams();
-  renderExamDetail();
-  renderExamList();
+  exam.submissions.splice(si,1);
+  await saveExams(); renderSubmissionList();
 }
 
-function openProgFromSub(subId) {
-  // 提出物の進捗管理（将来拡張用：現状は教材と同じ形式で開く）
-  alert("この機能は今後対応予定です");
+function openSubProgress(si) { selectedSubIdx=si; goExamStep(3); }
+
+function renderSubDetail() {
+  const exam = exams[selectedExamIdx]; if (!exam) return;
+  const sub  = exam.submissions[selectedSubIdx]; if (!sub) return;
+  const el   = document.getElementById("exam-sub-detail"); el.innerHTML="";
+  el.innerHTML = `
+    <div style="background:#f3e5f5;border-radius:8px;padding:10px 12px;margin-bottom:12px;">
+      <div style="font-size:13px;font-weight:bold;color:#6a1b9a;">${sub.subject||""} ${sub.name}</div>
+      <div style="font-size:12px;color:#888;margin-top:2px;">締切：${sub.deadline||"未設定"} 　提出：${sub.done?"✅ 済み":"⬜ 未提出"}</div>
+    </div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px;">
+      <button onclick="toggleSubDone()"
+        style="padding:7px 16px;border-radius:8px;font-size:13px;cursor:pointer;font-weight:bold;
+               background:${sub.done?"#ffebee":"#e8f5e9"};color:${sub.done?"#c62828":"#2e7d32"};
+               border:1.5px solid ${sub.done?"#ef9a9a":"#a5d6a7"};">
+        ${sub.done?"⬜ 未提出に戻す":"✅ 提出済みにする"}
+      </button>
+      <button onclick="startReviewMode(${selectedExamIdx},${selectedSubIdx})"
+        style="padding:7px 16px;border-radius:8px;font-size:13px;cursor:pointer;font-weight:bold;
+               background:#f3e5f5;color:#6a1b9a;border:1.5px solid #ce93d8;">
+        📅 復習へ（セル予約）
+      </button>
+    </div>
+    ${sub.hasProg?`<button onclick="openSubProgModal()" style="padding:6px 16px;background:#4a90e2;color:#fff;border:none;border-radius:8px;cursor:pointer;font-size:13px;">📊 進捗を開く</button>`:'<div style="color:#aaa;font-size:12px;">進捗管理なし</div>'}
+  `;
+}
+
+async function toggleSubDone() {
+  const sub = exams[selectedExamIdx].submissions[selectedSubIdx];
+  sub.done = !sub.done;
+  await saveExams(); renderSubDetail();
+}
+
+function openSubProgModal() {
+  const sub = exams[selectedExamIdx].submissions[selectedSubIdx];
+  const fakeMat = { id:"sub_"+sub.id, name:`[${sub.subject||"提出物"}] ${sub.name}`, color:"#9c27b0" };
+  closeExamModal();
+  openProgressModal(fakeMat);
+}
+
+function startReviewMode(examIdx, subIdx) {
+  const sub = exams[examIdx].submissions[subIdx];
+  reviewModeSub = { id:"sub_"+sub.id, name:(sub.subject?`[${sub.subject}] `:"")+sub.name, color:"#9c27b0" };
+  closeExamModal();
+  showReviewToast();
+}
+
+function showReviewToast() {
+  document.getElementById("review-toast").style.display = "block";
+}
+
+function cancelReviewMode() {
+  reviewModeSub = null;
+  document.getElementById("review-toast").style.display = "none";
 }
   
 // ════════════════════════════════════════
