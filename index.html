@@ -2887,22 +2887,23 @@ function setupAuth() {
   });
 }
 
-(async()=>{
+async function init() { // 関数として定義
   setupAuth();
   renderCustomColorButtons();
   await loadMaterials();
   await loadWeek();
   window.addEventListener("resize", adjustHeaderTop);
   setTimeout(adjustHeaderTop,100);
-})();
+}
+init(); // 実行
 
 if ("serviceWorker" in navigator){
   navigator.serviceWorker.register("./sw.js").then(()=>console.log("SW OK")).catch(e=>console.error(e));
 }
- <div id="review-toast">📚 セルをタップして復習を予約してください　<button onclick="cancelReviewMode()" style="margin-left:10px; background:rgba(255,255,255,0.25); border:none; color:#fff; border-radius:10px; padding:2px 8px; cursor:pointer; font-size:12px;">キャンセル</button></div>   
 </script>
 
-<script src="nav.js"></script>
-  
+ <div id="review-toast">📚 セルをタップして復習を予約してください　<button onclick="cancelReviewMode()" style="margin-left:10px; background:rgba(255,255,255,0.25); border:none; color:#fff; border-radius:10px; padding:2px 8px; cursor:pointer; font-size:12px;">キャンセル</button></div>   
+
+<script src="nav.js"></script>  
 </body>
 </html>
