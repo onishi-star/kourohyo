@@ -416,12 +416,12 @@
 
 <!-- ══ ログイン画面 ══ -->
 <div id="auth-container" style="display:flex; flex-direction:column; align-items:center; justify-content:center; height:100vh; gap:15px; font-family:sans-serif;">
-  <h2 style="color:#333; margin-bottom:10px;">スケジュールアプリ</h2>
-  <input type="email" id="auth-email" placeholder="メールアドレス" style="padding:10px; border:1px solid #ccc; border-radius:5px; width:250px; font-size:14px;">
-  <input type="password" id="auth-password" placeholder="パスワード" style="padding:10px; border:1px solid #ccc; border-radius:5px; width:250px; font-size:14px;">
-  <button id="auth-login" style="padding:10px 20px; background-color:#4CAF50; color:white; border:none; border-radius:5px; cursor:pointer; font-size:14px;">ログイン</button>
-  <button id="auth-signup" style="padding:8px 15px; background-color:#2196F3; color:white; border:none; border-radius:5px; cursor:pointer; font-size:14px;">新規登録</button>
-  <p id="auth-error" style="color:red; display:none; margin:5px 0;"></p>
+  <div style="font-size:48px; margin-bottom:4px;">🗓</div>
+  <h2 style="color:#333; margin-bottom:4px;">行路表</h2>
+  <p style="color:#999; font-size:13px; margin:0 0 8px;">パスワードを入力してください</p>
+  <input type="password" id="auth-password" placeholder="パスワード" style="padding:10px; border:1px solid #ccc; border-radius:8px; width:250px; font-size:14px; text-align:center; letter-spacing:2px;">
+  <button id="auth-login" style="padding:10px 40px; background-color:#4a90e2; color:white; border:none; border-radius:8px; cursor:pointer; font-size:15px; font-weight:bold;">入る</button>
+  <p id="auth-error" style="color:red; display:none; margin:5px 0; font-size:13px;"></p>
 </div>
 
 <div id="app-content" style="display:none;">
@@ -849,7 +849,7 @@
     <div class="ctrl-row">
       <button onclick="openModal()">⚙️ 設定</button>
       <button onclick="openMatManage()" style="background:#fff8e1; border:1px solid #ffd54f; border-radius:6px; padding:4px 10px; cursor:pointer; font-size:13px;">📚 教材管理</button>
-      <button id="btn-logout" onclick="logout()" style="background:#f44336; color:white; border:none; border-radius:6px; padding:4px 10px; cursor:pointer; font-size:13px;">ログアウト</button>
+      <button id="btn-logout" onclick="logout()" style="background:#f44336; color:white; border:none; border-radius:6px; padding:4px 10px; cursor:pointer; font-size:13px;">🔒 ロック</button>
       <button onclick="window.print()" style="font-size:12px;">🖨 印刷</button>
       <button onclick="openFreeRecordModal()" style="background:#e8f5e9; color:#2e7d32; border:1px solid #a5d6a7; border-radius:6px; padding:4px 10px; cursor:pointer; font-size:13px;">✏️ 自由記録</button>
       <button onclick="openExamModal()" style="background:#f3e5f5; color:#6a1b9a; border:1px solid #ce93d8; border-radius:6px; padding:4px 10px; cursor:pointer; font-size:13px;">📝 考査管理</button>
@@ -2867,6 +2867,12 @@ async function syncMonthlyMemoToWeekRow(data, start) {
   }
 }
 
+// ════════════════════════════════════════
+// パスワード認証（シンプル版）
+// ★ここを自分のパスワードに変更してください★
+// ════════════════════════════════════════
+const APP_PASSWORD = "your_password_here";
+
 function showApp() {
   document.getElementById('auth-container').style.display = 'none';
   document.getElementById('app-content').style.display = 'block';
@@ -2878,40 +2884,44 @@ function showLogin() {
   document.getElementById('app-content').style.display = 'none';
 }
 function logout() {
-  auth.signOut().then(() => { showLogin(); });
+  localStorage.removeItem("auth_ok");
+  location.reload();
 }
 function setupAuth() {
-  document.getElementById('auth-login').addEventListener('click', () => {
-    const email    = document.getElementById('auth-email').value;
-    const password = document.getElementById('auth-password').value;
-    const errorEl  = document.getElementById('auth-error');
-    if (!email || !password) {
-      errorEl.textContent = 'メールアドレスとパスワードを入力してください';
+  // 既に認証済みならそのまま起動
+  if (localStorage.getItem("auth_ok") === "1") {
+    auth.signInAnonymously()
+      .then(() => showApp())
+      .catch(() => showApp()); // 匿名認証失敗してもオフラインで起動
+    return;
+  }
+
+  const loginBtn = document.getElementById('auth-login');
+  const pwInput  = document.getElementById('auth-password');
+  const errorEl  = document.getElementById('auth-error');
+
+  function tryLogin() {
+    const pw = pwInput.value;
+    if (!pw) {
+      errorEl.textContent = 'パスワードを入力してください';
       errorEl.style.display = 'block'; return;
     }
-    auth.signInWithEmailAndPassword(email, password)
-      .then(() => { errorEl.style.display = 'none'; showApp(); })
-      .catch(e  => { errorEl.textContent = 'ログインエラー: ' + e.message; errorEl.style.display = 'block'; });
-  });
-  document.getElementById('auth-signup').addEventListener('click', () => {
-    const email    = document.getElementById('auth-email').value;
-    const password = document.getElementById('auth-password').value;
-    const errorEl  = document.getElementById('auth-error');
-    if (!email || !password) {
-      errorEl.textContent = 'メールアドレスとパスワードを入力してください';
-      errorEl.style.display = 'block'; return;
+    if (pw !== APP_PASSWORD) {
+      errorEl.textContent = 'パスワードが違います';
+      errorEl.style.display = 'block';
+      pwInput.value = '';
+      pwInput.focus();
+      return;
     }
-    if (password.length < 6) {
-      errorEl.textContent = 'パスワードは6文字以上にしてください';
-      errorEl.style.display = 'block'; return;
-    }
-    auth.createUserWithEmailAndPassword(email, password)
-      .then(() => { errorEl.style.display = 'none'; showApp(); })
-      .catch(e  => { errorEl.textContent = '登録エラー: ' + e.message; errorEl.style.display = 'block'; });
-  });
-  auth.onAuthStateChanged(user => {
-    if (user) showApp(); else showLogin();
-  });
+    localStorage.setItem("auth_ok", "1");
+    errorEl.style.display = 'none';
+    auth.signInAnonymously()
+      .then(() => showApp())
+      .catch(() => showApp());
+  }
+
+  loginBtn.addEventListener('click', tryLogin);
+  pwInput.addEventListener('keydown', e => { if (e.key === 'Enter') tryLogin(); });
 }
 
 async function init() { // 関数として定義
