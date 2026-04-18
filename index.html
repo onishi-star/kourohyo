@@ -2877,6 +2877,7 @@ function showApp() {
   document.getElementById('auth-container').style.display = 'none';
   document.getElementById('app-content').style.display = 'block';
   _initNav();
+  loadMaterials().then(() => loadWeek());
   loadExams().then(() => refreshDeadlinePanel());
 }
 function showLogin() {
@@ -2924,11 +2925,9 @@ function setupAuth() {
   pwInput.addEventListener('keydown', e => { if (e.key === 'Enter') tryLogin(); });
 }
 
-async function init() { // 関数として定義
+async function init() {
   setupAuth();
   renderCustomColorButtons();
-  await loadMaterials();
-  await loadWeek();
   window.addEventListener("resize", adjustHeaderTop);
   setTimeout(adjustHeaderTop,100);
 }
