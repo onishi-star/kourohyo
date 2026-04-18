@@ -2483,7 +2483,7 @@ function renderSummary(data, start) {
     }
   });
 
-  const barsEl = document.getElementById('summary-bars'); barsEl.innerHTML = '';
+  const barsEl = document.getElementById('summary-bars'); if (!barsEl) return; barsEl.innerHTML = '';
   const entries = Object.values(totals).sort((a, b) => b.hours - a.hours);
   const maxH = entries.length ? entries[0].hours : 1;
   if (!entries.length) {
@@ -2871,7 +2871,7 @@ async function syncMonthlyMemoToWeekRow(data, start) {
 // パスワード認証（シンプル版）
 // ★ここを自分のパスワードに変更してください★
 // ════════════════════════════════════════
-const APP_PASSWORD = "korohyo";
+const APP_PASSWORD = "your_password_here";
 
 function showApp() {
   document.getElementById('auth-container').style.display = 'none';
