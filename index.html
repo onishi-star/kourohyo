@@ -1070,7 +1070,7 @@ function changeMonth(offset) {
 // ════════════════════════════════════════
 // マンスリー
 // ════════════════════════════════════════
-function loadMonthly() {
+async function loadMonthly(){
   const year=currentMonthDate.getFullYear(), month=currentMonthDate.getMonth();
   document.getElementById("month-label").innerText = `${year}年${month+1}月`;
   const firstDay=new Date(year,month,1), lastDay=new Date(year,month+1,0);
@@ -1081,8 +1081,12 @@ function loadMonthly() {
   cal.innerHTML="";
   for (let i=0;i<7;i++) {
     const h=document.createElement("div");
-    h.innerText=allDayNames[(weekStartDay+i)%7];
-    h.style.cssText=`background:#333;color:white;text-align:center;padding:6px;font-size:13px;position:sticky;top:${topBarH}px;z-index:10;`;
+    const dow=(weekStartDay+i)%7;
+    h.innerText=allDayNames[dow];
+    let hBg="#333", hColor="white";
+    if (dow===6) { hBg="#1a6bbf"; }
+    else if (dow===0) { hBg="#c0392b"; }
+    h.style.cssText=`background:${hBg};color:${hColor};text-align:center;padding:6px;font-size:13px;position:sticky;top:${topBarH}px;z-index:10;`;
     cal.appendChild(h);
   }
   const today=new Date();
@@ -1100,13 +1104,14 @@ function loadMonthly() {
         const bg=saved.color?getColorStyle(saved.color):(isToday?"#fffde7":"");
         const tc=bg?getTextColor(bg):"#333";
         if (bg) cell.style.background=bg;
-        
-        // 土日の背景色を設定
+       // 土日祝の背景色を設定
         const dayOfWeek = dateObj.getDay();
-        if (dayOfWeek === 6) { // 土曜日
+        const holidays = await getHolidays();
+        const isHol = isHoliday(dayKey, holidays);
+        if (dayOfWeek === 6) {
           cell.classList.add("monthly-sat");
-        } else if (dayOfWeek === 0) { // 日曜日
-          cell.classList.add("monthly-sun");
+        } else if (dayOfWeek === 0 || isHol) {
+          cell.classList.add(dayOfWeek === 0 ? "monthly-sun" : "monthly-hol");
         }
         const dl=document.createElement("div");
         dl.style.cssText=`font-weight:bold;color:${isToday?'#f9a825':tc};margin-bottom:2px;`;
@@ -2324,14 +2329,20 @@ function getCellDateKey(hour,col){
   const s=getStartOfWeek(), d=new Date(s); d.setDate(s.getDate()+col); d.setHours(0,0,0,0);
   return getDateKey(d)+`-${String(hour).padStart(2,'0')}`;
 }
-function updateHeaders() {
+async function updateHeaders() {
   const today=new Date(), start=getStartOfWeek(), topBarH=document.getElementById("top-bar").offsetHeight;
+  const holidays = await getHolidays();
   for (let j=0;j<7;j++){
     const d=new Date(start); d.setDate(start.getDate()+j);
     const isToday=d.getFullYear()===today.getFullYear()&&d.getMonth()===today.getMonth()&&d.getDate()===today.getDate();
     const h=document.getElementById("header-"+j);
     h.innerText=formatDate(d)+" "+allDayNames[d.getDay()]; h.style.top=topBarH+"px";
-    isToday?h.classList.add("today-header"):h.classList.remove("today-header");
+    const dow=d.getDay();
+    const dayKey=getDateKey(d);
+    h.classList.remove("today-header","header-sat","header-sun","header-hol");
+    if (isToday) h.classList.add("today-header");
+    else if (dow===6) h.classList.add("header-sat");
+    else if (dow===0 || isHoliday(dayKey, holidays)) h.classList.add(dow===0?"header-sun":"header-hol");
   }
   const eh=document.querySelector(".header:first-child"); if(eh) eh.style.top=topBarH+"px";
 }
@@ -2680,6 +2691,22 @@ async function saveFreeRecord() {
   }
 }
 
+// ════════════════════════════════════════
+// 祝日データ（内閣府APIキャッシュ）
+// ════════════════════════════════════════
+let _holidayCache = null;
+async function getHolidays() {
+  if (_holidayCache) return _holidayCache;
+  try {
+    const res = await fetch("https://holidays-jp.github.io/api/v1/date.json");
+    _holidayCache = await res.json(); // { "2025-01-01": "元日", ... }
+  } catch(e) { _holidayCache = {}; }
+  return _holidayCache;
+}
+function isHoliday(dateKey, holidays) {
+  return !!holidays[dateKey];
+}
+  
 // 今週の自由記録をFirestoreから取得してグローバルに保持
 let currentFreeRecords = [];
 async function loadFreeRecordsForWeek() {
