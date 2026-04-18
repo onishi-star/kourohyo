@@ -402,3 +402,16 @@ body {
   #top-bar      { display: none; }
   #summary-panel { display: none; }
 }
+
+/* ── 土日祝カラー（ウィークリーヘッダー） ── */
+.header-sat { background: #1a6bbf !important; color: white !important; }
+.header-sun { background: #c0392b !important; color: white !important; }
+.header-hol { background: #c0392b !important; color: white !important; }
+
+/* ── 土日祝カラー（マンスリーヘッダー） ── */
+.monthly-header-sat { background: #1a6bbf !important; color: white !important; }
+.monthly-header-sun { background: #c0392b !important; color: white !important; }
+
+/* ── 土日祝カラー（マンスリーセル） ── */
+.monthly-sat { background-color: #eaf2ff !important; }
+.monthly-sun, .monthly-hol { background-color: #fff0f0 !important; }
