@@ -1090,7 +1090,7 @@ async function loadMonthly(){
     cal.appendChild(h);
   }
   const today=new Date();
-  db.collection("monthly").doc(`monthly-${year}-${String(month+1).padStart(2,'0')}`).get().then(doc=>{
+  db.collection("monthly").doc(`monthly-${year}-${String(month+1).padStart(2,'0')}`).get().then(async doc=>{
     const md=doc.exists?doc.data():{};
     for (let i=0;i<rows*7;i++) {
       const cell=document.createElement("div");
@@ -2871,7 +2871,7 @@ async function syncMonthlyMemoToWeekRow(data, start) {
 // パスワード認証（シンプル版）
 // ★ここを自分のパスワードに変更してください★
 // ════════════════════════════════════════
-const APP_PASSWORD = "korohyo";
+const APP_PASSWORD = "your_password_here";
 
 function showApp() {
   document.getElementById('auth-container').style.display = 'none';
