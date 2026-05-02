@@ -568,29 +568,49 @@
     </div>
     
     <!-- プリセットパネル -->
-    <div id="panel-preset" style="display:none;">
+<div id="panel-preset" style="display:none;">
       <h3 style="margin-bottom:10px; font-size:14px;">📅 曜日別ワンタッチ設定</h3>
-      <div style="font-size:12px; color:#888; margin-bottom:12px;">ボタンを押すとその曜日のスケジュールを一括で設定します</div>
+      <div style="font-size:12px; color:#888; margin-bottom:12px;">ボタンを押すとその曜日の新グリッドにブロックを一括生成します</div>
       <div style="display:flex; flex-direction:column; gap:8px; margin-bottom:16px;">
         <button onclick="applyDayPreset(1)" style="padding:12px 16px; border-radius:8px; border:none; background:linear-gradient(135deg,#4a90e2,#357abd); color:white; font-size:14px; font-weight:bold; cursor:pointer; text-align:left;">
-          月曜日　<span style="font-size:12px; font-weight:normal; opacity:0.85;">7限・プロシード</span>
+          月曜日　<span style="font-size:12px; font-weight:normal; opacity:0.85;">7限・演劇部</span>
         </button>
         <button onclick="applyDayPreset(2)" style="padding:12px 16px; border-radius:8px; border:none; background:linear-gradient(135deg,#9c27b0,#7b1fa2); color:white; font-size:14px; font-weight:bold; cursor:pointer; text-align:left;">
-          火曜日　<span style="font-size:12px; font-weight:normal; opacity:0.85;">7限・文プラ</span>
+          火曜日　<span style="font-size:12px; font-weight:normal; opacity:0.85;">7限・執行部</span>
         </button>
         <button onclick="applyDayPreset(3)" style="padding:12px 16px; border-radius:8px; border:none; background:linear-gradient(135deg,#43a047,#2e7d32); color:white; font-size:14px; font-weight:bold; cursor:pointer; text-align:left;">
-          水曜日　<span style="font-size:12px; font-weight:normal; opacity:0.85;">6限・プロシード</span>
+          水曜日　<span style="font-size:12px; font-weight:normal; opacity:0.85;">6限・演劇部</span>
         </button>
         <button onclick="applyDayPreset(4)" style="padding:12px 16px; border-radius:8px; border:none; background:linear-gradient(135deg,#43a047,#2e7d32); color:white; font-size:14px; font-weight:bold; cursor:pointer; text-align:left;">
-          木曜日　<span style="font-size:12px; font-weight:normal; opacity:0.85;">6限・プロシード</span>
+          木曜日　<span style="font-size:12px; font-weight:normal; opacity:0.85;">6限・演劇部</span>
         </button>
         <button onclick="applyDayPreset(5)" style="padding:12px 16px; border-radius:8px; border:none; background:linear-gradient(135deg,#4a90e2,#357abd); color:white; font-size:14px; font-weight:bold; cursor:pointer; text-align:left;">
-          金曜日　<span style="font-size:12px; font-weight:normal; opacity:0.85;">7限・プロシード</span>
+          金曜日　<span style="font-size:12px; font-weight:normal; opacity:0.85;">7限・演劇部</span>
         </button>
         <button onclick="applyAllDayPresets()" style="padding:12px 16px; border-radius:8px; border:2px solid #ff9800; background:#fff8e1; color:#e65100; font-size:14px; font-weight:bold; cursor:pointer; text-align:center; margin-top:4px;">
           🗓 月〜金まとめて設定
         </button>
       </div>
+
+      <!-- 時間割テーブル -->
+      <h3 style="margin-bottom:8px; font-size:14px;">📚 授業名プリセット</h3>
+      <div style="font-size:12px; color:#888; margin-bottom:8px;">各時限の授業名を入力してください（省略可）</div>
+      <div style="overflow-x:auto;">
+        <table id="timetable-edit" style="border-collapse:collapse; font-size:12px; width:100%;">
+          <thead>
+            <tr>
+              <th style="padding:4px 6px; background:#f0f4ff; border:1px solid #d0d8e8;">時限</th>
+              <th style="padding:4px 6px; background:#f0f4ff; border:1px solid #d0d8e8;">月</th>
+              <th style="padding:4px 6px; background:#f0f4ff; border:1px solid #d0d8e8;">火</th>
+              <th style="padding:4px 6px; background:#f0f4ff; border:1px solid #d0d8e8;">水</th>
+              <th style="padding:4px 6px; background:#f0f4ff; border:1px solid #d0d8e8;">木</th>
+              <th style="padding:4px 6px; background:#f0f4ff; border:1px solid #d0d8e8;">金</th>
+            </tr>
+          </thead>
+          <tbody id="timetable-edit-body"></tbody>
+        </table>
+      </div>
+      <button onclick="saveTimetablePreset()" style="margin-top:10px; padding:7px 18px; background:#4a90e2; color:#fff; border:none; border-radius:6px; font-size:13px; font-weight:bold; cursor:pointer;">💾 授業名を保存</button>
     </div>
     
     <button onclick="closeModal()" style="padding:8px 24px; border-radius:6px; border:1px solid #ccc; cursor:pointer;">閉じる</button>
