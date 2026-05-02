@@ -438,6 +438,7 @@
 .ng-block-break  { background: #f5f5f5; color: #999;    border-left: 3px solid #ccc; }
 .ng-block-study  { background: #e8f5e9; color: #2e7d32; border-left: 3px solid #2e7d32; }
 .ng-block-class  { background: #fce4ec; color: #880e4f; border-left: 3px solid #c2185b; }
+.ng-block-pomo   { background: #e8f5e9; color: #2e7d32; border-left: 3px solid #43a047; }
 
 /* ブロック内の時刻表示 */
 .ng-block-time {
@@ -2669,34 +2670,69 @@ function renderDailyChart(daily, start) {
 }
   
 // ════════════════════════════════════════
-// プリセット機能（曜日別ワンタッチ）
+// Phase 4: プリセット機能（新グリッド対応）
 // ════════════════════════════════════════
 
-// 曜日ごとの設定定義
-// dayOfWeek: 1=月,2=火,...,5=金（JavaScriptのgetDay()準拠）
-const DAY_PRESETS = {
-  1: { classType: '7class', studyMode: 'proceed' }, // 月
-  2: { classType: '7class', studyMode: 'bunpla'  }, // 火
-  3: { classType: '6class', studyMode: 'proceed' }, // 水
-  4: { classType: '6class', studyMode: 'proceed' }, // 木
-  5: { classType: '7class', studyMode: 'proceed' }, // 金
-};
+// 時間割プリセット（localStorage保存）
+// 構造: { 1:{1:'',2:'',...}, 2:{...}, ... } (dayOfWeek: period)
+let TIMETABLE_PRESET = (() => {
+  try { return JSON.parse(localStorage.getItem('timetablePreset')) || {}; }
+  catch(e) { return {}; }
+})();
 
-function buildScheduleForDay(classType, studyMode) {
-  const clubStart = classType === '6class' ? 15 : 16;
-  const studyEnd  = studyMode  === 'bunpla' ? 22 : 21.33;
-  return [
-    { hour: 6,  duration: 60,                    type: 'event', title: '起床',    color: '#ffeb3b' },
-    { hour: 7,  duration: 60,                    type: 'study', title: '朝の勉強' },
-    { hour: 8,  duration: 480,                   type: 'event', title: '学校',    color: '#e3f2fd' },
-    { hour: clubStart, duration: 120,             type: 'event', title: '部活',    color: '#f3e5f5' },
-    { hour: 18, duration: (studyEnd - 18) * 60,  type: 'study', title: '夜の勉強' },
-    { hour: Math.floor(studyEnd) + (studyEnd % 1 >= 0.33 ? 1 : 0),
-      duration: 80, type: 'event', title: '終支度', color: '#fff3e0' },
-  ];
+function saveTimetablePreset() {
+  const rows = document.querySelectorAll('#timetable-edit-body tr');
+  const preset = {1:{},2:{},3:{},4:{},5:{}};
+  rows.forEach(tr => {
+    const period = parseInt(tr.dataset.period);
+    const inputs = tr.querySelectorAll('input');
+    [1,2,3,4,5].forEach((dow, i) => {
+      preset[dow][period] = inputs[i] ? inputs[i].value.trim() : '';
+    });
+  });
+  TIMETABLE_PRESET = preset;
+  localStorage.setItem('timetablePreset', JSON.stringify(preset));
+  alert('授業名を保存しました！');
 }
 
-// 今週のcolIndex（0〜6）を曜日番号(0=日〜6=土)から求める
+function renderTimetableEditor() {
+  const tbody = document.getElementById('timetable-edit-body');
+  if (!tbody) return;
+  tbody.innerHTML = '';
+  const periodLabels = ['①','②','③','④','⑤','⑥','⑦'];
+  for (let p = 1; p <= 7; p++) {
+    const tr = document.createElement('tr');
+    tr.dataset.period = p;
+    let html = `<td style="padding:3px 6px; border:1px solid #e0e8f0; text-align:center; background:#f8f9fb; font-weight:bold;">${periodLabels[p-1]}</td>`;
+    [1,2,3,4,5].forEach(dow => {
+      const noClass = (p === 7) && (dow === 3 || dow === 4); // 水木に7限なし
+      const val = (TIMETABLE_PRESET[dow] && TIMETABLE_PRESET[dow][p]) ? TIMETABLE_PRESET[dow][p] : '';
+      html += `<td style="padding:2px 4px; border:1px solid #e0e8f0; ${noClass?'background:#f0f0f0;':''}">
+        <input type="text" value="${val}" placeholder="${noClass?'なし':''}" ${noClass?'disabled':''}
+          style="width:100%; padding:3px 5px; border:1px solid #ddd; border-radius:4px; font-size:11px; box-sizing:border-box; ${noClass?'background:#f0f0f0; color:#bbb;':''}">
+      </td>`;
+    });
+    tr.innerHTML = html;
+    tbody.appendChild(tr);
+  }
+}
+
+function switchSettingsTab(tab) {
+  document.getElementById('panel-basic').style.display  = tab === 'basic'  ? 'block' : 'none';
+  document.getElementById('panel-preset').style.display = tab === 'preset' ? 'block' : 'none';
+  document.getElementById('tab-basic').className  = 'mode-tab ' + (tab === 'basic'  ? 'active-study' : 'inactive');
+  document.getElementById('tab-preset').className = 'mode-tab ' + (tab === 'preset' ? 'active-study' : 'inactive');
+  if (tab === 'preset') renderTimetableEditor();
+}
+
+// 授業名を取得（なければデフォルト「①授業」形式）
+function getClassName(dayOfWeek, period) {
+  const periodLabels = ['①','②','③','④','⑤','⑥','⑦'];
+  const name = TIMETABLE_PRESET[dayOfWeek] && TIMETABLE_PRESET[dayOfWeek][period];
+  return name || `${periodLabels[period-1]}授業`;
+}
+
+// 今週のcolIndexを曜日番号から求める
 function colIndexOfDayOfWeek(dayOfWeek) {
   const start = getStartOfWeek();
   for (let j = 0; j < 7; j++) {
@@ -2706,37 +2742,88 @@ function colIndexOfDayOfWeek(dayOfWeek) {
   return -1;
 }
 
+// 新グリッド用ブロックを保存するヘルパー
+async function saveNewBlock(colIndex, startMin, endMin, blockType, title, color) {
+  const cellRecord = {
+    mode: blockType === 'study' || blockType === 'pomo' ? 'study' : 'event',
+    blockType,
+    title,
+    color: color || '#e3f2fd',
+    startMin,
+    endMin
+  };
+  await saveCellDataNew(colIndex, startMin, endMin, cellRecord);
+}
+
+// Phase 4: 新グリッド用の曜日スケジュール生成＆保存
+async function buildAndSaveScheduleForDay(dayOfWeek, colIndex) {
+  const is7class = (dayOfWeek === 1 || dayOfWeek === 2 || dayOfWeek === 5); // 月火金
+  const clubName = dayOfWeek === 2 ? '執行部' : '演劇部';
+
+  const blocks = [];
+
+  // 朝学習 8:00-8:30（ポモドーロ1箱）
+  blocks.push({ startMin: 480,  endMin: 510,  type: 'pomo',  title: '朝学習',                 color: '#e8f5e9' });
+  // 授業①〜④
+  blocks.push({ startMin: 510,  endMin: 570,  type: 'class', title: getClassName(dayOfWeek,1), color: '#fce4ec' });
+  blocks.push({ startMin: 570,  endMin: 630,  type: 'class', title: getClassName(dayOfWeek,2), color: '#fce4ec' });
+  blocks.push({ startMin: 630,  endMin: 690,  type: 'class', title: getClassName(dayOfWeek,3), color: '#fce4ec' });
+  blocks.push({ startMin: 690,  endMin: 750,  type: 'class', title: getClassName(dayOfWeek,4), color: '#fce4ec' });
+  // 昼休み 12:30-13:00
+  blocks.push({ startMin: 750,  endMin: 780,  type: 'break', title: '昼休み',                 color: '#fff9c4' });
+  // 授業⑤⑥
+  blocks.push({ startMin: 780,  endMin: 840,  type: 'class', title: getClassName(dayOfWeek,5), color: '#fce4ec' });
+  blocks.push({ startMin: 840,  endMin: 900,  type: 'class', title: getClassName(dayOfWeek,6), color: '#fce4ec' });
+
+  if (is7class) {
+    // ⑦授業 15:00-16:00 + 部活 16:00-18:00
+    blocks.push({ startMin: 900,  endMin: 960,  type: 'class', title: getClassName(dayOfWeek,7), color: '#fce4ec' });
+    blocks.push({ startMin: 960,  endMin: 1080, type: 'event', title: clubName,                  color: '#f3e5f5' });
+  } else {
+    // 部活 15:00-18:00（水木）
+    blocks.push({ startMin: 900,  endMin: 1080, type: 'event', title: clubName,                  color: '#f3e5f5' });
+  }
+
+  // V1 18:00-19:00（ポモドーロ2箱）
+  blocks.push({ startMin: 1080, endMin: 1140, type: 'pomo',  title: 'V1',  color: '#e8f5e9' });
+  // 移動 19:00-19:20
+  blocks.push({ startMin: 1140, endMin: 1160, type: 'move',  title: '移動', color: '#fff3e0' });
+  // V2 19:20-20:00（ポモドーロ1箱）
+  blocks.push({ startMin: 1160, endMin: 1200, type: 'pomo',  title: 'V2',  color: '#e8f5e9' });
+  // 休憩 20:00-20:10
+  blocks.push({ startMin: 1200, endMin: 1210, type: 'break', title: '休憩', color: '#f5f5f5' });
+  // 移動 20:10-20:30
+  blocks.push({ startMin: 1210, endMin: 1230, type: 'move',  title: '移動', color: '#fff3e0' });
+  // V3 20:30-22:00（ポモドーロ3箱）
+  blocks.push({ startMin: 1230, endMin: 1320, type: 'pomo',  title: 'V3',  color: '#e8f5e9' });
+
+  for (const b of blocks) {
+    await saveNewBlock(colIndex, b.startMin, b.endMin, b.type, b.title, b.color);
+  }
+}
+
 async function applyDayPreset(dayOfWeek) {
-  const preset = DAY_PRESETS[dayOfWeek];
-  if (!preset) return;
   const colIndex = colIndexOfDayOfWeek(dayOfWeek);
   if (colIndex === -1) { alert('今週にその曜日がありません'); return; }
-
-  if (!confirm(`${['日','月','火','水','木','金','土'][dayOfWeek]}曜日のスケジュールを設定しますか？`)) return;
-
-  const schedule = buildScheduleForDay(preset.classType, preset.studyMode);
-  for (const s of schedule) {
-    await applyPresetToCell(colIndex, s);
-  }
+  const dayNames = ['日','月','火','水','木','金','土'];
+  if (!confirm(`${dayNames[dayOfWeek]}曜日のスケジュールを新グリッドに設定しますか？`)) return;
+  await buildAndSaveScheduleForDay(dayOfWeek, colIndex);
   closeModal();
-  setTimeout(loadWeek, 300);
+  await loadWeekNew();
+  renderNewGrid();
   alert('設定しました！');
 }
 
 async function applyAllDayPresets() {
   if (!confirm('月〜金すべての曜日を一括設定しますか？')) return;
-  for (const dow of [1, 2, 3, 4, 5]) {  // 月〜金のみ
-    const preset = DAY_PRESETS[dow];
-    if (!preset) continue;
+  for (const dow of [1, 2, 3, 4, 5]) {
     const colIndex = colIndexOfDayOfWeek(dow);
     if (colIndex === -1) continue;
-    const schedule = buildScheduleForDay(preset.classType, preset.studyMode);
-    for (const s of schedule) {
-      await applyPresetToCell(colIndex, s);
-    }
+    await buildAndSaveScheduleForDay(dow, colIndex);
   }
   closeModal();
-  setTimeout(loadWeek, 300);
+  await loadWeekNew();
+  renderNewGrid();
   alert('月〜金を設定しました！');
 }
 
@@ -2747,26 +2834,18 @@ async function applyCurrentPreset() {}
 let currentPresetType = '7class';
 let currentStudyMode  = 'proceed';
 
+// 旧グリッド用（互換性のため残す）
 async function applyPresetToCell(colIndex, schedule) {
   const startHour = Math.floor(schedule.hour);
-  const duration  = schedule.duration;
-  const hourSlots = Math.ceil(duration / 60);
-
+  const hourSlots = Math.ceil(schedule.duration / 60);
   for (let i = 0; i < hourSlots; i++) {
     const hour = startHour + i;
     if (hour < 4 || hour >= 24) continue;
     const cellId = `cell-${hour}-${colIndex}`;
     if (schedule.type === 'study') {
-      await saveCellData(cellId, colIndex, hour, {
-        mode: "study", materialId: null,
-        materialName: "教材未設定", materialColor: "#4a90e2",
-        pageFrom: null, pageTo: null
-      });
+      await saveCellData(cellId, colIndex, hour, { mode:"study", materialId:null, materialName:"教材未設定", materialColor:"#4a90e2", pageFrom:null, pageTo:null });
     } else {
-      await saveCellData(cellId, colIndex, hour, {
-        mode: "event", title: schedule.title,
-        color: schedule.color || "#ffadad", memo: ""
-      });
+      await saveCellData(cellId, colIndex, hour, { mode:"event", title:schedule.title, color:schedule.color||"#ffadad", memo:"" });
     }
   }
 }
@@ -3227,7 +3306,7 @@ function renderNewGrid() {
       const height = Math.round((dur / 10) * slotH);
 
       const cellRecord = val.cell || null;
-      const blockType  = cellRecord ? (cellRecord.mode === 'study' ? 'study' : 'event') : 'event';
+      const blockType  = cellRecord ? (cellRecord.blockType || (cellRecord.mode === 'study' ? 'study' : 'event')) : 'event';
       const title      = cellRecord ? (cellRecord.title || cellRecord.materialName || '予定') : (val.text || '予定');
       const bgColor    = cellRecord ? (cellRecord.color || cellRecord.materialColor || '#a0c4ff') : '#a0c4ff';
 
