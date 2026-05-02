@@ -3059,6 +3059,8 @@ async function init() {
 
 // 現在のグリッド表示モード（'old' or 'new'）
 let currentGridMode = 'old';
+  // Phase 3: 新グリッド用のデータキャッシュ
+let currentWeekDataNew = {}; // 新キー形式のデータ { '2025-04-21-480-510': {...} }
 
 // 新旧グリッド切り替え
 function switchGridView(mode) {
@@ -3073,7 +3075,7 @@ function switchGridView(mode) {
     newGrid.style.display = 'block';
     btnOld.classList.remove('active');
     btnNew.classList.add('active');
-    renderNewGrid(); // 描画（毎回再描画してヘッダー同期）
+   loadWeekNew().then(() => renderNewGrid()); // Phase3: 実データ読み込み後に描画
   } else {
     newGrid.style.display = 'none';
     oldGrid.style.display = 'block';
@@ -3122,13 +3124,6 @@ function renderNewGrid() {
   container.innerHTML = '';
 
   // 1スロット(10分)の高さを決定するため、全ブロックを考慮
-  // ここではサンプルブロックを使う。将来的には currentWeekData から取得
-  const SAMPLE_BLOCKS = [
-    { date: 'sample', col: 1, startMin:  8*60,      endMin:  8*60+30, title: '朝学習', type: 'study'  },
-    { date: 'sample', col: 1, startMin:  8*60+30,   endMin:  9*60+30, title: '英語',   type: 'class'  },
-    { date: 'sample', col: 1, startMin: 19*60,      endMin: 19*60+20, title: '移動',   type: 'move'   },
-    { date: 'sample', col: 1, startMin: 20*60+30,   endMin: 22*60,    title: 'V3',     type: 'study'  },
-  ];
 
   // ── ヘッダー行（曜日） ──
   const headerRow = document.createElement('div');
@@ -3193,28 +3188,44 @@ function renderNewGrid() {
       colDiv.appendChild(line);
     }
 
-    // サンプルブロックをこの列(col=1=月)に描画
-    SAMPLE_BLOCKS.filter(b => b.col === j + 1).forEach(block => {
-      const dur = block.endMin - block.startMin;
-      const slotH = dur <= 30 ? SLOT_H_SHORT : SLOT_H_LONG;
+// Phase 3: 実データをこの列に描画
+    const d = new Date(start); d.setDate(start.getDate() + j);
+    const dateStr = getDateKey(d);
 
-      // top: startMin からの short スロット換算
-      const startSlot = (block.startMin - NG_START_HOUR * 60) / 10;
-      const top       = startSlot * SLOT_H_SHORT;
-      const height    = Math.round((dur / 10) * slotH);
+    Object.entries(currentWeekDataNew).forEach(([key, val]) => {
+      // キー形式: '2025-04-21-480-510'
+      if (!key.startsWith(dateStr + '-')) return;
+      const parts = key.split('-');
+      // parts: ['2025','04','21','480','510']
+      const startMin = parseInt(parts[3]);
+      const endMin   = parseInt(parts[4]);
+      if (isNaN(startMin) || isNaN(endMin)) return;
+      const dur  = endMin - startMin;
+      const slotH = dur <= 30 ? SLOT_H_SHORT : SLOT_H_LONG;
+      const startSlot = (startMin - NG_START_HOUR * 60) / 10;
+      const top    = startSlot * SLOT_H_SHORT;
+      const height = Math.round((dur / 10) * slotH);
+
+      const cellRecord = val.cell || null;
+      const blockType  = cellRecord ? (cellRecord.mode === 'study' ? 'study' : 'event') : 'event';
+      const title      = cellRecord ? (cellRecord.title || cellRecord.materialName || '予定') : (val.text || '予定');
+      const bgColor    = cellRecord ? (cellRecord.color || cellRecord.materialColor || '#a0c4ff') : '#a0c4ff';
 
       const blockEl = document.createElement('div');
-      blockEl.className = `ng-block ng-block-${block.type}`;
+      blockEl.className = `ng-block ng-block-${blockType}`;
       blockEl.style.top    = `${top}px`;
       blockEl.style.height = `${height}px`;
-
-      const id = `block-sample-${block.startMin}-${block.endMin}`;
-      blockEl.id = id;
-
+      if (cellRecord?.color || cellRecord?.materialColor) {
+        blockEl.style.background = bgColor;
+        blockEl.style.color = getTextColor(bgColor);
+        blockEl.style.border = 'none';
+      }
+      blockEl.id = `block-${key}`;
       blockEl.innerHTML = `
-        <span style="font-size:11px;font-weight:bold;">${block.title}</span>
-        <span class="ng-block-time">${ngFormatTime(block.startMin)}〜${ngFormatTime(block.endMin)}（${dur}分）</span>
+        <span style="font-size:11px;font-weight:bold;">${title}</span>
+        <span class="ng-block-time">${ngFormatTime(startMin)}〜${ngFormatTime(endMin)}（${dur}分）</span>
       `;
+      blockEl.onclick = () => openCellModalNew(key, j, startMin, endMin);
       colDiv.appendChild(blockEl);
     });
 
@@ -3224,12 +3235,215 @@ function renderNewGrid() {
   container.appendChild(gridBody);
 
   // サンプル説明バナー
+  // Phase 3: 実データバナー（サンプルバナーを置き換え）
   const banner = document.createElement('div');
-  banner.style.cssText = 'padding:8px 12px; font-size:11px; color:#888; background:#fffde7; border-top:1px solid #ffe082; margin:0;';
-  banner.innerHTML = '🧪 <b>Phase 2 テスト表示</b>：月曜列にサンプルブロックを静的描画中（4ブロック）。〜30分は18px/スロット、31分〜は28px/スロットで高さを計算しています。';
+  banner.style.cssText = 'padding:8px 12px; font-size:11px; color:#888; background:#e8f5e9; border-top:1px solid #a5d6a7; margin:0;';
+  const blockCount = Object.keys(currentWeekDataNew).length;
+  banner.innerHTML = `✅ <b>Phase 3 実データ表示</b>：新キー形式（日付＋開始分＋終了分）で読み込み中。今週のブロック数：${blockCount}件`;
   container.appendChild(banner);
+
+// ════════════════════════════════════════
+// Phase 3: 新キー形式のFirebase保存・読み込み
+// ════════════════════════════════════════
+
+// 新キー生成: '2025-04-21-480-510'
+function getCellDateKeyNew(colIndex, startMin, endMin) {
+  const s = getStartOfWeek();
+  const d = new Date(s); d.setDate(s.getDate() + colIndex); d.setHours(0,0,0,0);
+  return `${getDateKey(d)}-${startMin}-${endMin}`;
 }
 
+// 新グリッド用週DocId（旧グリッドと同じMonday基準）
+function getWeekDocIdNew() {
+  return getWeekDocId(); // 旧グリッドと同じドキュメントIDを共用
+}
+
+// 新グリッド用: セル保存
+async function saveCellDataNew(colIndex, startMin, endMin, cellRecord) {
+  if (!currentWeekDocId) return;
+  const key   = getCellDateKeyNew(colIndex, startMin, endMin);
+  const entry = {
+    id: currentWeekDocId + '__' + key,
+    docId: currentWeekDocId,
+    key,
+    startMin,
+    endMin,
+    text: cellRecord?.title || '',
+    color: cellRecord?.color || '',
+    cell: cellRecord
+  };
+  await idbSet('cells', entry);
+  if (navigator.onLine) {
+    const u = {}; u[key] = { text: entry.text, color: entry.color, cell: entry.cell, startMin, endMin };
+    db.collection('schedules2').doc(entry.docId).set(u, { merge: true }).catch(e => console.error(e));
+  } else {
+    await idbSet('pending', entry);
+  }
+  currentWeekDataNew[key] = entry;
+}
+
+// 新グリッド用: 週データ読み込み
+async function loadWeekNew() {
+  currentWeekDocId = getWeekDocId();
+  let data = {};
+  if (navigator.onLine) {
+    try {
+      const doc = await db.collection('schedules2').doc(currentWeekDocId).get();
+      data = doc.exists ? doc.data() : {};
+      // 新キー形式（日付-startMin-endMin）のエントリだけ抽出
+      for (const [k, v] of Object.entries(data)) {
+        if (isNewKey(k)) {
+          await idbSet('cells', { id: currentWeekDocId + '__' + k, docId: currentWeekDocId, key: k, ...v });
+        }
+      }
+    } catch (err) {
+      data = await loadFromIDBNew();
+    }
+  } else {
+    data = await loadFromIDBNew();
+  }
+  // 新キーのみ抽出してキャッシュ
+  currentWeekDataNew = {};
+  for (const [k, v] of Object.entries(data)) {
+    if (isNewKey(k)) currentWeekDataNew[k] = v;
+  }
+}
+
+// 新キー判定: '2025-04-21-480-510' 形式かどうか
+// 旧キー: '2025-04-21-08'（時刻2桁）
+// 新キー: '2025-04-21-480-510'（分表記、ハイフン5個）
+function isNewKey(key) {
+  const parts = key.split('-');
+  return parts.length === 5 && parseInt(parts[3]) >= 240;
+}
+
+// IndexedDBから新キーのみ読み込み
+async function loadFromIDBNew() {
+  const all = await idbGetAll('cells');
+  const data = {};
+  all.filter(e => e.docId === currentWeekDocId && isNewKey(e.key))
+     .forEach(e => { data[e.key] = { text: e.text, color: e.color, cell: e.cell || null, startMin: e.startMin, endMin: e.endMin }; });
+  return data;
+}
+
+// 新グリッド用: セル編集モーダル（簡易版、Phase5で拡張予定）
+function openCellModalNew(key, colIndex, startMin, endMin) {
+  // 既存のcell-modal-overlayを流用
+  cellModalId  = 'ng-' + key;
+  cellModalCol = colIndex;
+  cellModalHour = Math.floor(startMin / 60);
+
+  const s = getStartOfWeek();
+  const d = new Date(s); d.setDate(s.getDate() + colIndex);
+  document.getElementById('cell-modal-title').innerText =
+    `${d.getMonth()+1}/${d.getDate()}（${allDayNames[d.getDay()]}）`;
+  document.getElementById('cell-modal-time').innerText =
+    `${ngFormatTime(startMin)}〜${ngFormatTime(endMin)}`;
+
+  const saved = (currentWeekDataNew[key] || {}).cell || null;
+  const mode  = saved ? (saved.mode || 'event') : 'event';
+  initEventTimeSelects(Math.floor(startMin / 60), saved);
+  switchCellMode(mode, saved);
+
+  // 保存ボタンを新グリッド用に差し替え
+  const saveBtn = document.querySelector('#cell-modal-overlay button[onclick="saveCellModal()"]');
+  if (saveBtn) {
+    saveBtn.setAttribute('data-ng-key', key);
+    saveBtn.setAttribute('data-ng-col', colIndex);
+    saveBtn.setAttribute('data-ng-start', startMin);
+    saveBtn.setAttribute('data-ng-end', endMin);
+    saveBtn.onclick = () => saveCellModalNew(key, colIndex, startMin, endMin);
+  }
+  document.getElementById('cell-modal-overlay').style.display = 'flex';
+}
+
+async function saveCellModalNew(key, colIndex, startMin, endMin) {
+  let cellRecord = null;
+  if (cellModalMode === 'study') {
+    const mat = matSelectedId ? materials.find(m => m.id === matSelectedId) : null;
+    cellRecord = {
+      mode: 'study',
+      materialId: mat ? mat.id : null,
+      materialName: mat ? mat.name : null,
+      materialColor: mat ? mat.color : null,
+      pageFrom: parseInt(document.getElementById('mat-page-from').value) || null,
+      pageTo: parseInt(document.getElementById('mat-page-to').value) || null,
+      startMin, endMin
+    };
+  } else {
+    cellRecord = {
+      mode: 'event',
+      title: document.getElementById('event-title').value.trim() || '予定',
+      color: eventSelColor,
+      memo: document.getElementById('event-memo').value,
+      startMin, endMin
+    };
+  }
+  await saveCellDataNew(colIndex, startMin, endMin, cellRecord);
+  closeMatModal();
+  renderNewGrid();
+}
+
+// ════════════════════════════════════════
+// Phase 3: 移行スクリプト
+// ブラウザのコンソールから migrateSchedules() を実行してください
+// 実行前に必ずFirebaseのデータをバックアップしてください！
+// ════════════════════════════════════════
+async function migrateSchedules() {
+  if (!confirm('⚠️ 旧キー形式のデータを新キー形式に移行します。\nFirebaseのバックアップは取りましたか？\n\n「OK」で移行を開始します。')) return;
+
+  let migratedCount = 0;
+  let skippedCount  = 0;
+
+  try {
+    // schedules2コレクションの全ドキュメントを取得
+    const snapshot = await db.collection('schedules2').get();
+
+    for (const docSnap of snapshot.docs) {
+      const docId = docSnap.id;
+      const data  = docSnap.data();
+      const updates = {};
+      let hasOldKey = false;
+
+      for (const [key, val] of Object.entries(data)) {
+        // 旧キー判定: '2025-04-21-08' 形式（末尾が2桁の時刻）
+        const oldKeyMatch = key.match(/^(\d{4}-\d{2}-\d{2})-(\d{2})$/);
+        if (!oldKeyMatch) { skippedCount++; continue; }
+
+        const dateStr = oldKeyMatch[1];
+        const hour    = parseInt(oldKeyMatch[2]);
+        if (hour < 4 || hour >= 24) { skippedCount++; continue; }
+
+        // 新キー: 1時間スロットなので startMin〜endMin は hour*60〜(hour+1)*60
+        const startMin = hour * 60;
+        const endMin   = (hour + 1) * 60;
+        const newKey   = `${dateStr}-${startMin}-${endMin}`;
+
+        updates[newKey] = {
+          text: val.text || '',
+          color: val.color || '',
+          cell: val.cell ? { ...val.cell, startMin, endMin } : null,
+          startMin,
+          endMin
+        };
+        hasOldKey = true;
+        migratedCount++;
+      }
+
+      if (hasOldKey) {
+        // 新キーで上書き保存（既存の旧キーデータは残る→手動削除推奨）
+        await db.collection('schedules2').doc(docId).set(updates, { merge: true });
+      }
+    }
+
+    alert(`✅ 移行完了！\n変換したキー: ${migratedCount}件\nスキップ: ${skippedCount}件\n\n⚠️ 旧キーはFirebaseコンソールから手動削除することをお勧めします。`);
+    console.log(`migrateSchedules: 完了 変換=${migratedCount} スキップ=${skippedCount}`);
+  } catch (e) {
+    console.error('migrateSchedules エラー:', e);
+    alert('❌ 移行中にエラーが発生しました。コンソールを確認してください。\n' + e.message);
+  }
+}
+  
 init(); // 実行
 
 if ("serviceWorker" in navigator){
