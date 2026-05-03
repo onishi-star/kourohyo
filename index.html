@@ -753,7 +753,10 @@
       <div id="cell-modal-title" style="font-size:15px; font-weight:bold;"></div>
       <div id="cell-modal-time" style="font-size:12px; color:#888; background:#f3f4f6; padding:3px 10px; border-radius:10px;"></div>
     </div>
-
+    <div class="mode-tabs">
+      <button class="mode-tab active-study" id="mode-tab-study" onclick="switchCellMode('study')">📚 勉強予約</button>
+      <button class="mode-tab inactive"     id="mode-tab-event" onclick="switchCellMode('event')">📅 行事・予定</button>
+    </div>
     <div id="panel-study">
       <div style="font-size:12px; color:#777; margin-bottom:5px;">教材を選択（なしでもOK）</div>
       <div id="mat-list" style="max-height:180px; overflow-y:auto; border:1px solid #e8eef8; border-radius:8px; padding:4px; margin-bottom:8px;"></div>
@@ -1069,12 +1072,42 @@
   </div>
 </div>
 
-<!-- 新グリッドのみ使用 -->
+<!-- 新旧グリッド切り替えボタン（ウィークリービュー内のみ表示） -->
+<div id="view-toggle-bar">
+  <button class="view-toggle-btn active" id="btn-old-grid" onclick="switchGridView('old')">📅 旧グリッド（現行）</button>
+  <button class="view-toggle-btn"        id="btn-new-grid" onclick="switchGridView('new')">🆕 新グリッド（10分単位）</button>
+</div>
 
 <!-- 新グリッド（Phase 2 - 10分スロット） -->
 <div id="weekly-view-new"></div>
 
 <!-- ウィークリー -->
+<div id="weekly-view">
+  <div class="calendar" id="calendar">
+    <div class="header"></div>
+    <div class="header" id="header-0"></div>
+    <div class="header" id="header-1"></div>
+    <div class="header" id="header-2"></div>
+    <div class="header" id="header-3"></div>
+    <div class="header" id="header-4"></div>
+    <div class="header" id="header-5"></div>
+    <div class="header" id="header-6"></div>
+    <script>
+      for (let i = 4; i < 24; i++) {
+        const label = i === 4 ? '備考' : `${i}:00`;
+        document.write(`<div class="time">${label}</div>`);
+        for (let j = 0; j < 7; j++) {
+          const id = `cell-${i}-${j}`;
+          document.write(`
+            <div class="cell-wrapper" id="wrapper-${id}" style="position:relative; cursor:pointer;">
+              <div class="cell" id="${id}"></div>
+            </div>
+          `);
+        }
+      }
+    </script>
+  </div>
+</div>
 
 <!-- マンスリー -->
 <div id="monthly-view" style="display:none; padding:10px; box-sizing:border-box; width:100%;">
@@ -1233,8 +1266,13 @@ function escHtml(str) {
 // ════════════════════════════════════════
 function switchView(view) {
   currentView = view;
-  // 新グリッドをウィークリービューとして表示
-  document.getElementById("weekly-view-new").style.display = view==="weekly" ? "block" : "none";
+  // 切り替えバーはウィークリーのときだけ表示
+  const toggleBar = document.getElementById("view-toggle-bar");
+  if (toggleBar) toggleBar.style.display = view === "weekly" ? "flex" : "none";
+  // 新グリッドはウィークリー表示中のみ（かつ新グリッドモードのとき）見せる
+  const newGrid = document.getElementById("weekly-view-new");
+  if (newGrid && view !== "weekly") newGrid.style.display = "none";
+  document.getElementById("weekly-view").style.display  = view==="weekly"  ? "block" : "none";
   document.getElementById("monthly-view").style.display = view==="monthly" ? "block" : "none";
   document.getElementById("week-nav").style.display     = view==="weekly"  ? "flex"  : "none";
   document.getElementById("month-nav").style.display    = view==="monthly" ? "flex"  : "none";
@@ -2354,7 +2392,9 @@ function initEventTimeSelects(hour, saved) {
 
 function switchCellMode(mode,savedData) {
   cellModalMode=mode;
-  // モード選択タブは削除済みのためスキップ
+  const ts=document.getElementById("mode-tab-study"), te=document.getElementById("mode-tab-event");
+  if (mode==="study"){ ts.className="mode-tab active-study"; te.className="mode-tab inactive"; }
+  else { ts.className="mode-tab inactive"; te.className="mode-tab active-event"; }
   document.getElementById("cell-save-btn").style.background=mode==="study"?"#4a90e2":"#f06292";
   document.getElementById("panel-study").style.display=mode==="study"?"block":"none";
   document.getElementById("panel-event").style.display=mode==="event"?"block":"none";
@@ -3152,12 +3192,7 @@ function showApp() {
   document.getElementById('auth-container').style.display = 'none';
   document.getElementById('app-content').style.display = 'block';
   _initNav();
-  loadMaterials().then(() => {
-    loadWeek();
-    // 新グリッドをデフォルト表示
-    document.getElementById('weekly-view').style.display = 'none';
-    loadWeekNew().then(() => renderNewGrid());
-  });
+  loadMaterials().then(() => loadWeek());
   loadExams().then(() => refreshDeadlinePanel());
 }
 function showLogin() {
@@ -3382,26 +3417,6 @@ function renderNewGrid() {
       blockEl.innerHTML = makeBlockInnerHTML(title, startMin, endMin, cellRecord, `block-${key}`);
       blockEl.onclick = () => openBlockAction(key, j, startMin, endMin);
       colDiv.appendChild(blockEl);
-    });
-
-    // ── 空白タップで新規ブロック作成 ──
-    const d2 = new Date(start); d2.setDate(start.getDate() + j);
-    const dateStr2 = getDateKey(d2);
-    colDiv.addEventListener('click', (e) => {
-      // ブロック自体のクリックは伝播しない（blockEl.onclickで処理）
-      if (e.target !== colDiv) return;
-      // タップしたY座標からスロットを計算
-      const rect = colDiv.getBoundingClientRect();
-      const relY = e.clientY - rect.top + colDiv.scrollTop;
-      // px → 分に変換（SLOT_H_SHORTベースで近似）
-      const slotFromTop = Math.floor(relY / SLOT_H_SHORT);
-      const rawMin = NG_START_HOUR * 60 + slotFromTop * 10;
-      // 10分単位に丸める
-      const startMin = Math.round(rawMin / 10) * 10;
-      const endMin   = startMin + 60; // デフォルト60分
-      if (startMin < NG_START_HOUR * 60 || endMin > NG_END_HOUR * 60) return;
-      const key = `${dateStr2}-${startMin}-${endMin}`;
-      openCellModalNew(key, j, startMin, endMin);
     });
 
     gridBody.appendChild(colDiv);
