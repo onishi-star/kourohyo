@@ -1073,41 +1073,13 @@
 </div>
 
 <!-- 新旧グリッド切り替えボタン（ウィークリービュー内のみ表示） -->
-<div id="view-toggle-bar">
-  <button class="view-toggle-btn active" id="btn-old-grid" onclick="switchGridView('old')">📅 旧グリッド（現行）</button>
-  <button class="view-toggle-btn"        id="btn-new-grid" onclick="switchGridView('new')">🆕 新グリッド（10分単位）</button>
-</div>
+
 
 <!-- 新グリッド（Phase 2 - 10分スロット） -->
 <div id="weekly-view-new"></div>
 
 <!-- ウィークリー -->
-<div id="weekly-view">
-  <div class="calendar" id="calendar">
-    <div class="header"></div>
-    <div class="header" id="header-0"></div>
-    <div class="header" id="header-1"></div>
-    <div class="header" id="header-2"></div>
-    <div class="header" id="header-3"></div>
-    <div class="header" id="header-4"></div>
-    <div class="header" id="header-5"></div>
-    <div class="header" id="header-6"></div>
-    <script>
-      for (let i = 4; i < 24; i++) {
-        const label = i === 4 ? '備考' : `${i}:00`;
-        document.write(`<div class="time">${label}</div>`);
-        for (let j = 0; j < 7; j++) {
-          const id = `cell-${i}-${j}`;
-          document.write(`
-            <div class="cell-wrapper" id="wrapper-${id}" style="position:relative; cursor:pointer;">
-              <div class="cell" id="${id}"></div>
-            </div>
-          `);
-        }
-      }
-    </script>
-  </div>
-</div>
+
 
 <!-- マンスリー -->
 <div id="monthly-view" style="display:none; padding:10px; box-sizing:border-box; width:100%;">
@@ -1267,12 +1239,8 @@ function escHtml(str) {
 function switchView(view) {
   currentView = view;
   // 切り替えバーはウィークリーのときだけ表示
-  const toggleBar = document.getElementById("view-toggle-bar");
-  if (toggleBar) toggleBar.style.display = view === "weekly" ? "flex" : "none";
-  // 新グリッドはウィークリー表示中のみ（かつ新グリッドモードのとき）見せる
-  const newGrid = document.getElementById("weekly-view-new");
-  if (newGrid && view !== "weekly") newGrid.style.display = "none";
-  document.getElementById("weekly-view").style.display  = view==="weekly"  ? "block" : "none";
+
+
   document.getElementById("monthly-view").style.display = view==="monthly" ? "block" : "none";
   document.getElementById("week-nav").style.display     = view==="weekly"  ? "flex"  : "none";
   document.getElementById("month-nav").style.display    = view==="monthly" ? "flex"  : "none";
@@ -3192,7 +3160,10 @@ function showApp() {
   document.getElementById('auth-container').style.display = 'none';
   document.getElementById('app-content').style.display = 'block';
   _initNav();
-  loadMaterials().then(() => loadWeek());
+  loadMaterials().then(() => {
+    document.getElementById('weekly-view-new').style.display = 'block';
+    loadWeekNew().then(() => renderNewGrid());
+  });
   loadExams().then(() => refreshDeadlinePanel());
 }
 function showLogin() {
@@ -3255,27 +3226,7 @@ let currentGridMode = 'old';
   // Phase 3: 新グリッド用のデータキャッシュ
 let currentWeekDataNew = {}; // 新キー形式のデータ { '2025-04-21-480-510': {...} }
 
-// 新旧グリッド切り替え
-function switchGridView(mode) {
-  currentGridMode = mode;
-  const oldGrid = document.getElementById('weekly-view');
-  const newGrid = document.getElementById('weekly-view-new');
-  const btnOld  = document.getElementById('btn-old-grid');
-  const btnNew  = document.getElementById('btn-new-grid');
-
-  if (mode === 'new') {
-    oldGrid.style.display = 'none';
-    newGrid.style.display = 'block';
-    btnOld.classList.remove('active');
-    btnNew.classList.add('active');
-   loadWeekNew().then(() => renderNewGrid()); // Phase3: 実データ読み込み後に描画
-  } else {
-    newGrid.style.display = 'none';
-    oldGrid.style.display = 'block';
-    btnOld.classList.add('active');
-    btnNew.classList.remove('active');
-  }
-}
+// switchGridView: 旧グリッド削除のため不要
 
 // ── 新グリッド描画 ────────────────────────────
 // 1日の範囲: 4:00〜24:00 = 120スロット（1スロット=10分）
