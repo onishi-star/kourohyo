@@ -126,7 +126,10 @@ function _initNav() {
       document.body.style.transition = 'opacity 0.22s ease, transform 0.22s cubic-bezier(0.22,0.61,0.36,1)';
       document.body.style.opacity    = '1';
       document.body.style.transform  = 'translateX(0)';
-      setTimeout(function() { document.body.style.transition = ''; }, 260);
+      setTimeout(function() {
+        document.body.style.transition = '';
+        document.body.style.transform  = ''; // fixed要素のズレを防ぐためリセット
+      }, 260);
     });
   });
 }
