@@ -753,10 +753,7 @@
       <div id="cell-modal-title" style="font-size:15px; font-weight:bold;"></div>
       <div id="cell-modal-time" style="font-size:12px; color:#888; background:#f3f4f6; padding:3px 10px; border-radius:10px;"></div>
     </div>
-    <div class="mode-tabs">
-      <button class="mode-tab active-study" id="mode-tab-study" onclick="switchCellMode('study')">📚 勉強予約</button>
-      <button class="mode-tab inactive"     id="mode-tab-event" onclick="switchCellMode('event')">📅 行事・予定</button>
-    </div>
+
     <div id="panel-study">
       <div style="font-size:12px; color:#777; margin-bottom:5px;">教材を選択（なしでもOK）</div>
       <div id="mat-list" style="max-height:180px; overflow-y:auto; border:1px solid #e8eef8; border-radius:8px; padding:4px; margin-bottom:8px;"></div>
@@ -1072,11 +1069,7 @@
   </div>
 </div>
 
-<!-- 新旧グリッド切り替えボタン（ウィークリービュー内のみ表示） -->
-<div id="view-toggle-bar">
-  <button class="view-toggle-btn active" id="btn-old-grid" onclick="switchGridView('old')">📅 旧グリッド（現行）</button>
-  <button class="view-toggle-btn"        id="btn-new-grid" onclick="switchGridView('new')">🆕 新グリッド（10分単位）</button>
-</div>
+<!-- 新グリッドのみ使用 -->
 
 <!-- 新グリッド（Phase 2 - 10分スロット） -->
 <div id="weekly-view-new"></div>
@@ -1266,13 +1259,8 @@ function escHtml(str) {
 // ════════════════════════════════════════
 function switchView(view) {
   currentView = view;
-  // 切り替えバーはウィークリーのときだけ表示
-  const toggleBar = document.getElementById("view-toggle-bar");
-  if (toggleBar) toggleBar.style.display = view === "weekly" ? "flex" : "none";
-  // 新グリッドはウィークリー表示中のみ（かつ新グリッドモードのとき）見せる
-  const newGrid = document.getElementById("weekly-view-new");
-  if (newGrid && view !== "weekly") newGrid.style.display = "none";
-  document.getElementById("weekly-view").style.display  = view==="weekly"  ? "block" : "none";
+  // 新グリッドをウィークリービューとして表示
+  document.getElementById("weekly-view-new").style.display = view==="weekly" ? "block" : "none";
   document.getElementById("monthly-view").style.display = view==="monthly" ? "block" : "none";
   document.getElementById("week-nav").style.display     = view==="weekly"  ? "flex"  : "none";
   document.getElementById("month-nav").style.display    = view==="monthly" ? "flex"  : "none";
@@ -3192,7 +3180,12 @@ function showApp() {
   document.getElementById('auth-container').style.display = 'none';
   document.getElementById('app-content').style.display = 'block';
   _initNav();
-  loadMaterials().then(() => loadWeek());
+  loadMaterials().then(() => {
+    loadWeek();
+    // 新グリッドをデフォルト表示
+    document.getElementById('weekly-view').style.display = 'none';
+    loadWeekNew().then(() => renderNewGrid());
+  });
   loadExams().then(() => refreshDeadlinePanel());
 }
 function showLogin() {
