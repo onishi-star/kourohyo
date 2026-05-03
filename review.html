@@ -6,6 +6,7 @@
   <title>復習</title>
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
   <style>
     :root {
       --primary:      #2ecc87;
@@ -352,7 +353,18 @@ const firebaseConfig = {
   appId: "1:823858682336:web:ec4629dbe4ace91a7a7385"
 };
 if (!firebase.apps.length) firebase.initializeApp(firebaseConfig);
-const db = firebase.firestore();
+const db   = firebase.firestore();
+const auth = firebase.auth();
+
+// index.htmlと同じ匿名認証でログイン
+(function initAuth() {
+  if (localStorage.getItem('auth_ok') === '1') {
+    auth.signInAnonymously().catch(e => console.warn('auth error:', e));
+  } else {
+    // 未ログインならindex.htmlへ
+    window.location.href = 'index.html';
+  }
+})();
 
 // ══════════════════════════════════════════════════════════
 // 日付
@@ -941,6 +953,12 @@ function clearOcrImage(idx) {
 // 初期化
 // ══════════════════════════════════════════════════════════
 // ══════════════════════════════════════════════════════════
+// 認証完了を待ってからデータ読み込み（Firebaseセキュリティルール対応）
+auth.onAuthStateChanged(user => {
+  if (user) initApp();
+});
+
+function initApp() {
 // URLパラメータから新グリッドブロック情報を受け取る（Phase 6対応）
 // ══════════════════════════════════════════════════════════
 (function handleBlockParams() {
@@ -984,6 +1002,7 @@ loadTodayPlans().then(() => {
     }, 300);
   }
 });
+} // initApp end
 </script>
 </body>
 </html>
