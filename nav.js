@@ -77,7 +77,7 @@ function _initNav() {
     '.nav-tab.active .tab-label{color:var(--tc,#333);}',
     '.nav-tab.active::after{content:"";position:absolute;bottom:0;left:50%;transform:translateX(-50%);width:28px;height:3px;border-radius:3px 3px 0 0;background:var(--tc,#333);}',
 
-    'body{padding-bottom:58px!important;}'
+    '/* body padding-bottom削除 */'
   ].join('');
   document.head.appendChild(style);
 
@@ -101,18 +101,7 @@ function _initNav() {
   });
   document.body.appendChild(side);
 
-  /* 下部タブバー */
-  var bar = document.createElement('div');
-  bar.id = '_nav_bar';
-  NAV_PAGES.forEach(function(page, idx) {
-    var btn = document.createElement('button');
-    btn.className = 'nav-tab' + (idx === _NAV_CURRENT_IDX ? ' active' : '');
-    btn.style.setProperty('--tc', page.color);
-    btn.innerHTML = '<span class="tab-icon">' + page.label + '</span><span class="tab-label">' + page.title + '</span>';
-    btn.addEventListener('click', function() { navigateTo(idx); });
-    bar.appendChild(btn);
-  });
-  document.body.appendChild(bar);
+  /* 下部タブバー：非表示 */
 
   /* フェードイン */
   var prevIdx = parseInt(sessionStorage.getItem('_nav_prev') || '-1');
