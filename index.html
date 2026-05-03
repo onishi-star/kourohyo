@@ -3415,7 +3415,7 @@ function renderNewGrid() {
       }
       blockEl.id = `block-${key}`;
       blockEl.innerHTML = makeBlockInnerHTML(title, startMin, endMin, cellRecord, `block-${key}`);
-      blockEl.onclick = () => openCellModalNew(key, j, startMin, endMin);
+      blockEl.onclick = () => openBlockAction(key, j, startMin, endMin);
       colDiv.appendChild(blockEl);
     });
 
@@ -3514,6 +3514,159 @@ async function loadFromIDBNew() {
   all.filter(e => e.docId === currentWeekDocId && isNewKey(e.key))
      .forEach(e => { data[e.key] = { text: e.text, color: e.color, cell: e.cell || null, startMin: e.startMin, endMin: e.endMin }; });
   return data;
+}
+
+// ════════════════════════════════════════
+// Phase 6: 勉強予約・復習・AI問題を新グリッドに対応
+// ════════════════════════════════════════
+
+// 新グリッドブロックのタップ処理（分岐ロジック）
+function openBlockAction(key, colIndex, startMin, endMin) {
+  const val = currentWeekDataNew[key];
+  const cellRecord = val?.cell || null;
+  const blockType = cellRecord?.blockType || '';
+
+  // ① 復習モード中 → そのブロックに復習予約を紐付けて保存
+  if (reviewModeSub) {
+    scheduleReviewToBlock(key, colIndex, startMin, endMin);
+    return;
+  }
+
+  // ② ポモドーロブロック → pomo-boxのクリックで処理（ここには到達しない想定だがfallthrough防止）
+  if (blockType === 'pomo') {
+    openCellModalNew(key, colIndex, startMin, endMin);
+    return;
+  }
+
+  // ③ studyブロック（教材紐付け済み・非ポモ）→ ポモドーロモーダルを起動
+  if (cellRecord && cellRecord.mode === 'study' && cellRecord.materialId) {
+    openPomodoroModalNew(key, colIndex, startMin, endMin, cellRecord);
+    return;
+  }
+
+  // ④ classブロック → 教材紐付け＋復習予約＋AI問題の複合モーダル
+  if (blockType === 'class') {
+    openClassBlockModal(key, colIndex, startMin, endMin, cellRecord);
+    return;
+  }
+
+  // ⑤ それ以外 → 通常のセル編集モーダル
+  openCellModalNew(key, colIndex, startMin, endMin);
+}
+
+// ── 新グリッド用ポモドーロ起動モーダル ──
+function openPomodoroModalNew(key, colIndex, startMin, endMin, cellRecord) {
+  pomCellId   = 'ng-' + key;
+  pomCellCol  = colIndex;
+  pomCellHour = Math.floor(startMin / 60);
+  pomCellData = { ...cellRecord, _ngKey: key, _startMin: startMin, _endMin: endMin };
+
+  const matName = cellRecord.materialName || '（教材なし）';
+  document.getElementById('pom-subject').innerText = '📚 ' + matName;
+  const from = cellRecord.pageFrom, to = cellRecord.pageTo;
+  document.getElementById('pom-pages').innerText =
+    (from || to) ? `p${from||'?'}〜${to||'?'} ページ` : '';
+  document.getElementById('pomodoro-modal-overlay').style.display = 'flex';
+
+  // タイマーボタンを新グリッド用に差し替え
+  const timerBtn = document.querySelector('#pomodoro-modal-overlay button[onclick="pomGoToTimer()"]');
+  if (timerBtn) {
+    timerBtn.setAttribute('onclick', '');
+    timerBtn.onclick = () => pomGoToTimerNew(key, cellRecord);
+  }
+}
+
+function pomGoToTimerNew(key, cellRecord) {
+  const params = new URLSearchParams();
+  if (cellRecord.materialId)    params.set('matId',    cellRecord.materialId);
+  if (cellRecord.materialName)  params.set('matName',  cellRecord.materialName);
+  if (cellRecord.materialColor) params.set('matColor', cellRecord.materialColor);
+  if (cellRecord.pageFrom)      params.set('from',     cellRecord.pageFrom);
+  if (cellRecord.pageTo)        params.set('to',       cellRecord.pageTo);
+  params.set('blockKey', key);
+  window.location.href = 'pomodoro.html?' + params.toString();
+}
+
+// ── 復習予約を新グリッドブロックに紐付ける ──
+async function scheduleReviewToBlock(key, colIndex, startMin, endMin) {
+  const sub = reviewModeSub;
+  const val = currentWeekDataNew[key];
+  const existing = val?.cell || {};
+  const cellRecord = {
+    ...existing,
+    mode: existing.mode || 'study',
+    startMin,
+    endMin,
+    reviewId:    sub.id,
+    reviewName:  sub.name,
+    reviewColor: sub.color,
+    reviewScheduledAt: new Date().toISOString()
+  };
+  await saveCellDataNew(colIndex, startMin, endMin, cellRecord);
+  cancelReviewMode();
+  renderNewGrid();
+  alert(`「${sub.name}」をこのブロックに復習予約しました`);
+}
+
+// ── 授業ブロックタップ時の複合モーダル（教材紐付け＋復習予約＋AI問題） ──
+function openClassBlockModal(key, colIndex, startMin, endMin, cellRecord) {
+  // 既存のcell-modal-overlayを流用して教材紐付け可能にする
+  openCellModalNew(key, colIndex, startMin, endMin);
+
+  // 既存のAI復習ボタンがあれば除去してから追加
+  const existingBtn = document.getElementById('class-block-action-btns');
+  if (existingBtn) existingBtn.remove();
+
+  const box = document.querySelector('#cell-modal-overlay .modal-box');
+  if (!box) return;
+
+  const actionWrap = document.createElement('div');
+  actionWrap.id = 'class-block-action-btns';
+  actionWrap.style.cssText = 'margin-top:10px; display:flex; gap:8px; flex-wrap:wrap;';
+
+  const reviewBtn = document.createElement('button');
+  reviewBtn.textContent = '📚 復習予約モードへ';
+  reviewBtn.style.cssText = 'flex:1; min-width:120px; padding:9px 0; border-radius:8px; border:1.5px solid #9c27b0; background:#f3e5f5; color:#6a1b9a; font-size:13px; font-weight:bold; cursor:pointer;';
+  reviewBtn.onclick = () => {
+    closeMatModal();
+    reviewModeSub = {
+      id:    'block-' + key,
+      name:  cellRecord?.title || '授業',
+      color: '#9c27b0'
+    };
+    showReviewToast();
+  };
+
+  const aiBtn = document.createElement('button');
+  aiBtn.textContent = '🤖 AI復習問題';
+  aiBtn.style.cssText = 'flex:1; min-width:120px; padding:9px 0; border-radius:8px; border:1.5px solid #4a90e2; background:#e8f0fe; color:#1565c0; font-size:13px; font-weight:bold; cursor:pointer;';
+  aiBtn.onclick = () => {
+    closeMatModal();
+    openAiReviewFromBlock(key, colIndex, startMin, endMin, cellRecord);
+  };
+
+  actionWrap.appendChild(reviewBtn);
+  actionWrap.appendChild(aiBtn);
+  box.appendChild(actionWrap);
+}
+
+// ── AI復習問題をブロックから起動 ──
+function openAiReviewFromBlock(key, colIndex, startMin, endMin, cellRecord) {
+  const params = new URLSearchParams();
+  params.set('blockKey',   key);
+  params.set('blockTitle', cellRecord?.title || '授業');
+  if (cellRecord?.materialId)    params.set('matId',    cellRecord.materialId);
+  if (cellRecord?.materialName)  params.set('matName',  cellRecord.materialName);
+  if (cellRecord?.materialColor) params.set('matColor', cellRecord.materialColor);
+  params.set('startMin', startMin);
+  params.set('endMin',   endMin);
+  window.location.href = 'review.html?' + params.toString();
+}
+
+// ── 復習バッジHTML（ブロック内に表示） ──
+function buildReviewBadgeHTML(cellRecord) {
+  if (!cellRecord?.reviewId) return '';
+  return `<span style="font-size:9px; background:#e1bee7; color:#6a1b9a; border-radius:3px; padding:1px 4px; display:inline-block; margin-top:2px;">🔁 ${cellRecord.reviewName || '復習予約'}</span>`;
 }
 
 // 新グリッド用: セル編集モーダル（簡易版、Phase5で拡張予定）
@@ -3814,6 +3967,7 @@ function makeBlockInnerHTML(title, startMin, endMin, cellRecord, blockId) {
     <span class="ng-block-time">${ngFormatTime(startMin)}〜${ngFormatTime(endMin)}（${dur}分）</span>
     ${pomoHTML}
     ${reserveSummaryHTML}
+    ${buildReviewBadgeHTML(cellRecord)}
   `;
 }
 
