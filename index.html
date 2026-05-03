@@ -3419,6 +3419,26 @@ function renderNewGrid() {
       colDiv.appendChild(blockEl);
     });
 
+    // ── 空白タップで新規ブロック作成 ──
+    const d2 = new Date(start); d2.setDate(start.getDate() + j);
+    const dateStr2 = getDateKey(d2);
+    colDiv.addEventListener('click', (e) => {
+      // ブロック自体のクリックは伝播しない（blockEl.onclickで処理）
+      if (e.target !== colDiv) return;
+      // タップしたY座標からスロットを計算
+      const rect = colDiv.getBoundingClientRect();
+      const relY = e.clientY - rect.top + colDiv.scrollTop;
+      // px → 分に変換（SLOT_H_SHORTベースで近似）
+      const slotFromTop = Math.floor(relY / SLOT_H_SHORT);
+      const rawMin = NG_START_HOUR * 60 + slotFromTop * 10;
+      // 10分単位に丸める
+      const startMin = Math.round(rawMin / 10) * 10;
+      const endMin   = startMin + 60; // デフォルト60分
+      if (startMin < NG_START_HOUR * 60 || endMin > NG_END_HOUR * 60) return;
+      const key = `${dateStr2}-${startMin}-${endMin}`;
+      openCellModalNew(key, j, startMin, endMin);
+    });
+
     gridBody.appendChild(colDiv);
   }
 
