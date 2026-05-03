@@ -2798,13 +2798,29 @@ function colIndexOfDayOfWeek(dayOfWeek) {
 
 // 新グリッド用ブロックを保存するヘルパー
 async function saveNewBlock(colIndex, startMin, endMin, blockType, title, color) {
+  const dur = endMin - startMin;
+  // ポモドーロブロックの場合は箱数を計算してpomoCellsを生成
+  const pomoCells = blockType === 'pomo'
+    ? Array.from({ length: Math.max(1, Math.floor(dur / 30)) }, (_, i) => ({
+        index: i,
+        status: 'pending',
+        content: '',
+        materialId: null,
+        startedAt: null,
+        endedAt: null,
+        isManual: false,
+        memo: ''
+      }))
+    : undefined;
+
   const cellRecord = {
     mode: blockType === 'study' || blockType === 'pomo' ? 'study' : 'event',
     blockType,
     title,
     color: color || '#e3f2fd',
     startMin,
-    endMin
+    endMin,
+    ...(pomoCells ? { pomoCells } : {})
   };
   await saveCellDataNew(colIndex, startMin, endMin, cellRecord);
 }
