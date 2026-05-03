@@ -1075,32 +1075,6 @@
 <div id="weekly-view-new"></div>
 
 <!-- ウィークリー -->
-<div id="weekly-view">
-  <div class="calendar" id="calendar">
-    <div class="header"></div>
-    <div class="header" id="header-0"></div>
-    <div class="header" id="header-1"></div>
-    <div class="header" id="header-2"></div>
-    <div class="header" id="header-3"></div>
-    <div class="header" id="header-4"></div>
-    <div class="header" id="header-5"></div>
-    <div class="header" id="header-6"></div>
-    <script>
-      for (let i = 4; i < 24; i++) {
-        const label = i === 4 ? '備考' : `${i}:00`;
-        document.write(`<div class="time">${label}</div>`);
-        for (let j = 0; j < 7; j++) {
-          const id = `cell-${i}-${j}`;
-          document.write(`
-            <div class="cell-wrapper" id="wrapper-${id}" style="position:relative; cursor:pointer;">
-              <div class="cell" id="${id}"></div>
-            </div>
-          `);
-        }
-      }
-    </script>
-  </div>
-</div>
 
 <!-- マンスリー -->
 <div id="monthly-view" style="display:none; padding:10px; box-sizing:border-box; width:100%;">
@@ -2380,9 +2354,7 @@ function initEventTimeSelects(hour, saved) {
 
 function switchCellMode(mode,savedData) {
   cellModalMode=mode;
-  const ts=document.getElementById("mode-tab-study"), te=document.getElementById("mode-tab-event");
-  if (mode==="study"){ ts.className="mode-tab active-study"; te.className="mode-tab inactive"; }
-  else { ts.className="mode-tab inactive"; te.className="mode-tab active-event"; }
+  // モード選択タブは削除済みのためスキップ
   document.getElementById("cell-save-btn").style.background=mode==="study"?"#4a90e2":"#f06292";
   document.getElementById("panel-study").style.display=mode==="study"?"block":"none";
   document.getElementById("panel-event").style.display=mode==="event"?"block":"none";
