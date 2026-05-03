@@ -418,21 +418,27 @@ async function loadTodayPlans() {
     const data = doc.data();
 
     const plans = [];
+    const fmtMin = m => `${Math.floor(m/60)}:${String(m%60).padStart(2,'0')}`;
     Object.entries(data).forEach(([key, val]) => {
       if (!key.startsWith(dateStr)) return;
       if (!val.cell || val.cell.mode !== 'study' || !val.cell.materialId) return;
-      const hour = parseInt(key.split('-')[3]);
+      // 新キー: YYYY-MM-DD-startMin-endMin（5パーツ）/ 旧キー: YYYY-MM-DD-HH（4パーツ）
+      const parts    = key.split('-');
+      const isNewKey = parts.length === 5;
+      const startMin = isNewKey ? parseInt(parts[3]) : parseInt(parts[3]) * 60;
+      const endMin   = isNewKey ? parseInt(parts[4]) : startMin + 60;
       plans.push({
-        key, hour,
+        key, startMin, endMin,
+        timeLabel: fmtMin(startMin) + '〜' + fmtMin(endMin),
         matId:    val.cell.materialId,
-        matName:  val.cell.materialName,
-        matColor: val.cell.materialColor,
+        matName:  val.cell.materialName  || val.cell.material || '（教材）',
+        matColor: val.cell.materialColor || '#2ecc87',
         pageFrom: val.cell.pageFrom,
         pageTo:   val.cell.pageTo,
         done:     doneSet.has(key),
       });
     });
-    plans.sort((a, b) => a.hour - b.hour);
+    plans.sort((a, b) => a.startMin - b.startMin);
     todayPlans = plans;
     renderPlanList();
   } catch(e) { console.error(e); }
@@ -460,7 +466,7 @@ function renderPlanList() {
         <div class="plan-dot" style="background:${p.matColor}"></div>
         <div class="plan-info">
           <div class="plan-name">${p.matName}</div>
-          <div class="plan-sub">${p.hour}:00〜${p.hour+1}:00${pages}</div>
+          <div class="plan-sub">${p.timeLabel}${pages}</div>
         </div>
         <div class="plan-check">${p.done ? '✓' : ''}</div>
       </div>
@@ -934,7 +940,50 @@ function clearOcrImage(idx) {
 // ══════════════════════════════════════════════════════════
 // 初期化
 // ══════════════════════════════════════════════════════════
-loadTodayPlans();
+// ══════════════════════════════════════════════════════════
+// URLパラメータから新グリッドブロック情報を受け取る（Phase 6対応）
+// ══════════════════════════════════════════════════════════
+(function handleBlockParams() {
+  const params    = new URLSearchParams(location.search);
+  const blockKey  = params.get('blockKey');
+  const matId     = params.get('matId');
+  const matName   = params.get('matName');
+  const matColor  = params.get('matColor');
+  const startMin  = parseInt(params.get('startMin') || '0');
+  const endMin    = parseInt(params.get('endMin')   || '0');
+  const blockTitle = params.get('blockTitle') || '';
+
+  if (!blockKey || !matId) return; // パラメータなし → 通常モード
+
+  // aiNoteに対象教材を表示
+  const fmtMin = m => `${Math.floor(m/60)}:${String(m%60).padStart(2,'0')}`;
+  const timeLabel = (startMin && endMin)
+    ? fmtMin(startMin) + '〜' + fmtMin(endMin)
+    : '';
+
+  document.getElementById('aiNote').textContent =
+    `対象：${matName || blockTitle}${timeLabel ? '（' + timeLabel + '）' : ''}`;
+
+  // 「学んだことを記入する」欄を即座に開くための準備
+  // loadTodayPlans完了後にこのブロックがリストに含まれていれば自動で開く
+  window._focusBlockKey = blockKey;
+})();
+
+loadTodayPlans().then(() => {
+  // blockKeyに対応するプランがあれば「学んだこと」欄を自動で開く
+  const focusKey = window._focusBlockKey;
+  if (!focusKey) return;
+  const idx = todayPlans.findIndex(p => p.key === focusKey);
+  if (idx >= 0) {
+    setTimeout(() => {
+      const area = document.getElementById(`learnedArea-${idx}`);
+      if (area) {
+        area.style.display = 'block';
+        document.getElementById(`learnedText-${idx}`)?.focus();
+      }
+    }, 300);
+  }
+});
 </script>
 </body>
 </html>
