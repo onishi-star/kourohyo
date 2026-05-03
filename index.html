@@ -505,6 +505,24 @@
 .pomo5-btn-primary { background: #4a90e2; color: #fff; }
 .pomo5-btn-cancel  { background: #f5f5f5; color: #555; }
 .pomo5-btn-edit    { background: #ff9800; color: #fff; }
+
+/* ── 予約内容サマリー表示 ── */
+.ng-block-reserve-summary {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin-top: 4px;
+  padding-top: 3px;
+  border-top: 1px dashed rgba(0,0,0,0.15);
+}
+.ng-block-reserve-summary span {
+  font-size: 10px;
+  color: #333;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
+}
     
   </style>
 
@@ -622,7 +640,7 @@
       </div>
     </div>
     
-    <!-- プリセットパネル -->
+<!-- プリセットパネル -->
 <div id="panel-preset" style="display:none;">
       <h3 style="margin-bottom:10px; font-size:14px;">📅 曜日別ワンタッチ設定</h3>
       <div style="font-size:12px; color:#888; margin-bottom:12px;">ボタンを押すとその曜日の新グリッドにブロックを一括生成します</div>
@@ -646,6 +664,12 @@
           🗓 月〜金まとめて設定
         </button>
       </div>
+
+      <!-- ブロック時間カスタム設定 -->
+      <h3 style="margin-bottom:8px; font-size:14px;">⏱ ブロック時間のカスタム設定</h3>
+      <div style="font-size:12px; color:#888; margin-bottom:10px;">各ブロックの開始・終了時刻を変更できます</div>
+      <div id="block-time-editor" style="display:flex; flex-direction:column; gap:6px; margin-bottom:10px;"></div>
+      <button onclick="saveBlockTimePreset()" style="padding:7px 18px; background:#4a90e2; color:#fff; border:none; border-radius:6px; font-size:13px; font-weight:bold; cursor:pointer; margin-bottom:16px;">💾 時間設定を保存</button>
 
       <!-- 時間割テーブル -->
       <h3 style="margin-bottom:8px; font-size:14px;">📚 授業名プリセット</h3>
@@ -3614,6 +3638,136 @@ async function migrateSchedules() {
 // Phase 5: ポモドーロブロック・後入力・編集機能
 // ════════════════════════════════════════
 
+// ════════════════════════════════════════
+// ブロック時間カスタム設定
+// ════════════════════════════════════════
+
+// デフォルトのブロック定義（localStorageで上書き可能）
+const DEFAULT_BLOCK_TIMES = [
+  { id:'asagaku', label:'朝学習',   type:'pomo',  startMin:480,  endMin:510  },
+  { id:'class1',  label:'①授業',   type:'class', startMin:510,  endMin:570  },
+  { id:'class2',  label:'②授業',   type:'class', startMin:570,  endMin:630  },
+  { id:'class3',  label:'③授業',   type:'class', startMin:630,  endMin:690  },
+  { id:'class4',  label:'④授業',   type:'class', startMin:690,  endMin:750  },
+  { id:'lunch',   label:'昼休み',   type:'break', startMin:750,  endMin:780  },
+  { id:'class5',  label:'⑤授業',   type:'class', startMin:780,  endMin:840  },
+  { id:'class6',  label:'⑥授業',   type:'class', startMin:840,  endMin:900  },
+  { id:'class7',  label:'⑦授業',   type:'class', startMin:900,  endMin:960  },
+  { id:'club',    label:'部活',     type:'event', startMin:960,  endMin:1080 },
+  { id:'v1',      label:'V1',       type:'pomo',  startMin:1080, endMin:1140 },
+  { id:'move1',   label:'移動①',   type:'move',  startMin:1140, endMin:1160 },
+  { id:'v2',      label:'V2',       type:'pomo',  startMin:1160, endMin:1200 },
+  { id:'rest',    label:'休憩',     type:'break', startMin:1200, endMin:1210 },
+  { id:'move2',   label:'移動②',   type:'move',  startMin:1210, endMin:1230 },
+  { id:'v3',      label:'V3',       type:'pomo',  startMin:1230, endMin:1320 },
+];
+
+function getBlockTimes() {
+  try {
+    const saved = localStorage.getItem('blockTimePreset');
+    return saved ? JSON.parse(saved) : DEFAULT_BLOCK_TIMES;
+  } catch(e) { return DEFAULT_BLOCK_TIMES; }
+}
+
+function minToTimeStr(min) {
+  const h = String(Math.floor(min / 60)).padStart(2,'0');
+  const m = String(min % 60).padStart(2,'0');
+  return `${h}:${m}`;
+}
+
+function timeStrToMin(str) {
+  const [h, m] = str.split(':').map(Number);
+  return h * 60 + m;
+}
+
+function renderBlockTimeEditor() {
+  const container = document.getElementById('block-time-editor');
+  if (!container) return;
+  const blocks = getBlockTimes();
+  container.innerHTML = blocks.map(b => `
+    <div style="display:flex; align-items:center; gap:6px; padding:6px 8px; background:#f8f9ff; border-radius:8px; font-size:12px;">
+      <span style="width:58px; font-weight:bold; color:#444;">${b.label}</span>
+      <input type="time" id="bt-start-${b.id}" value="${minToTimeStr(b.startMin)}"
+        style="padding:4px 6px; border:1px solid #ccc; border-radius:6px; font-size:12px; width:90px;">
+      <span style="color:#888;">〜</span>
+      <input type="time" id="bt-end-${b.id}" value="${minToTimeStr(b.endMin)}"
+        style="padding:4px 6px; border:1px solid #ccc; border-radius:6px; font-size:12px; width:90px;">
+    </div>
+  `).join('');
+}
+
+function saveBlockTimePreset() {
+  const blocks = getBlockTimes();
+  const updated = blocks.map(b => {
+    const startEl = document.getElementById(`bt-start-${b.id}`);
+    const endEl   = document.getElementById(`bt-end-${b.id}`);
+    return {
+      ...b,
+      startMin: startEl ? timeStrToMin(startEl.value) : b.startMin,
+      endMin:   endEl   ? timeStrToMin(endEl.value)   : b.endMin,
+    };
+  });
+  localStorage.setItem('blockTimePreset', JSON.stringify(updated));
+  alert('⏱ 時間設定を保存しました！\n次回のワンタッチ設定から反映されます。');
+}
+
+// ブロック時間エディタをパネル表示時に描画
+const _origOpenPresetPanel = window.openPresetPanel;
+document.addEventListener('DOMContentLoaded', () => {
+  // タブ切替時にエディタを描画
+  document.querySelectorAll('[onclick*="panel-preset"]').forEach(el => {
+    el.addEventListener('click', () => setTimeout(renderBlockTimeEditor, 50));
+  });
+  renderBlockTimeEditor();
+});
+
+// buildAndSaveScheduleForDayをblockTimePreset対応に上書き
+const _origBuildAndSave = window.buildAndSaveScheduleForDay;
+async function buildAndSaveScheduleForDay(dayOfWeek, colIndex) {
+  const is7class = (dayOfWeek === 1 || dayOfWeek === 2 || dayOfWeek === 5);
+  const clubName = dayOfWeek === 2 ? '執行部' : '演劇部';
+  const bt = {};
+  getBlockTimes().forEach(b => { bt[b.id] = b; });
+
+  const blocks = [];
+  const g = id => bt[id] || DEFAULT_BLOCK_TIMES.find(d => d.id === id);
+
+  blocks.push({ ...g('asagaku'), title: '朝学習', color: '#e8f5e9' });
+  blocks.push({ ...g('class1'), title: getClassName(dayOfWeek,1), color: '#fce4ec' });
+  blocks.push({ ...g('class2'), title: getClassName(dayOfWeek,2), color: '#fce4ec' });
+  blocks.push({ ...g('class3'), title: getClassName(dayOfWeek,3), color: '#fce4ec' });
+  blocks.push({ ...g('class4'), title: getClassName(dayOfWeek,4), color: '#fce4ec' });
+  blocks.push({ ...g('lunch'),  title: '昼休み', color: '#fff9c4' });
+  blocks.push({ ...g('class5'), title: getClassName(dayOfWeek,5), color: '#fce4ec' });
+  blocks.push({ ...g('class6'), title: getClassName(dayOfWeek,6), color: '#fce4ec' });
+
+  if (is7class) {
+    blocks.push({ ...g('class7'), title: getClassName(dayOfWeek,7), color: '#fce4ec' });
+    blocks.push({ ...g('club'),   title: clubName, color: '#f3e5f5' });
+  } else {
+    const clubBlock = { ...g('club'), title: clubName, color: '#f3e5f5' };
+    // 水木は⑦授業なしで部活開始時刻を class7 の startMin に合わせる
+    clubBlock.startMin = g('class7').startMin;
+    blocks.push(clubBlock);
+  }
+
+  blocks.push({ ...g('v1'),    title: 'V1',   color: '#e8f5e9' });
+  blocks.push({ ...g('move1'), title: '移動', color: '#fff3e0' });
+  blocks.push({ ...g('v2'),    title: 'V2',   color: '#e8f5e9' });
+  blocks.push({ ...g('rest'),  title: '休憩', color: '#f5f5f5' });
+  blocks.push({ ...g('move2'), title: '移動', color: '#fff3e0' });
+  blocks.push({ ...g('v3'),    title: 'V3',   color: '#e8f5e9' });
+
+  for (const b of blocks) {
+    await saveNewBlock(colIndex, b.startMin, b.endMin, b.type, b.title, b.color);
+  }
+}
+
+// ════════════════════════════════════════════
+// Phase 5+: 予約内容をグリッド上に表示
+// ════════════════════════════════════════════
+
+// makeBlockInnerHTML を上書きして予約内容も表示
 function buildPomoBoxesHTML(pomoCells, blockId) {
   if (!pomoCells || pomoCells.length === 0) return '';
   return pomoCells.map((box, i) => {
@@ -3636,13 +3790,30 @@ function makeBlockInnerHTML(title, startMin, endMin, cellRecord, blockId) {
   const dur       = endMin - startMin;
   const isPomo    = cellRecord?.blockType === 'pomo';
   const pomoCells = cellRecord?.pomoCells || [];
-  const pomoHTML  = isPomo
+
+  // 予約内容サマリーを生成（reservedまたはdone/manualの箱の内容を表示）
+  let reserveSummaryHTML = '';
+  if (isPomo && pomoCells.length > 0) {
+    const reserved = pomoCells.filter(b => b.status !== 'pending' && b.content);
+    if (reserved.length > 0) {
+      reserveSummaryHTML = `<div class="ng-block-reserve-summary">${
+        reserved.map(b => {
+          const icon = b.status === 'done' ? '✅' : b.status === 'manual' ? '✏️' : '📌';
+          return `<span>${icon} ${b.content}</span>`;
+        }).join('')
+      }</div>`;
+    }
+  }
+
+  const pomoHTML = isPomo
     ? `<div class="pomo-boxes">${buildPomoBoxesHTML(pomoCells, blockId)}</div>`
     : '';
+
   return `
     <span style="font-size:11px;font-weight:bold;">${title}</span>
     <span class="ng-block-time">${ngFormatTime(startMin)}〜${ngFormatTime(endMin)}（${dur}分）</span>
     ${pomoHTML}
+    ${reserveSummaryHTML}
   `;
 }
 
