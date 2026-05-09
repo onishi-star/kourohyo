@@ -17,13 +17,13 @@
 <body>
 
 <!-- ══ ログイン画面 ══ -->
-<div id="auth-container" style="display:flex; flex-direction:column; align-items:center; justify-content:center; height:100vh; gap:15px; font-family:sans-serif;">
-  <div style="font-size:48px; margin-bottom:4px;">🗓</div>
-  <h2 style="color:#333; margin-bottom:4px;">行路表</h2>
-  <p style="color:#999; font-size:13px; margin:0 0 8px;">パスワードを入力してください</p>
-  <input type="password" id="auth-password" placeholder="パスワード" style="padding:10px; border:1px solid #ccc; border-radius:8px; width:250px; font-size:14px; text-align:center; letter-spacing:2px;">
-  <button id="auth-login" style="padding:10px 40px; background-color:#4a90e2; color:white; border:none; border-radius:8px; cursor:pointer; font-size:15px; font-weight:bold;">入る</button>
-  <p id="auth-error" style="color:red; display:none; margin:5px 0; font-size:13px;"></p>
+<div id="auth-container" class="auth-container">
+  <div class="auth-icon">🗓</div>
+  <h2 class="auth-title">行路表</h2>
+  <p class="auth-hint">パスワードを入力してください</p>
+  <input type="password" id="auth-password" placeholder="パスワード" class="auth-input">
+  <button id="auth-login" class="btn-login">入る</button>
+  <p id="auth-error" class="auth-error"></p>
 </div>
 
 <div id="app-content" style="display:none;">
@@ -31,120 +31,113 @@
 <!-- ══ 設定モーダル ══ -->
 <div id="modal-overlay" class="overlay hidden" style="z-index:200;">
   <div class="modal-box" style="min-width:320px; max-width:400px;">
-    <h2 style="margin-bottom:16px; font-size:16px;">⚙️ 設定</h2>
-    
+    <h2 class="modal-title">⚙️ 設定</h2>
+
     <!-- プリセット選択タブ -->
-    <div class="mode-tabs" style="margin-bottom:16px;">
+    <div class="mode-tabs">
       <button class="mode-tab active-study" id="tab-basic">基本設定</button>
       <button class="mode-tab inactive" id="tab-preset">プリセット</button>
     </div>
-    
+
     <!-- 基本設定パネル -->
     <div id="panel-basic">
-      <h3 style="margin-bottom:12px; font-size:14px;">週の開始曜日</h3>
+      <h3 class="section-title">週の開始曜日</h3>
       <div id="day-select-buttons" style="display:flex; flex-wrap:wrap; gap:8px; justify-content:center; margin-bottom:20px;"></div>
 
-      <h3 style="margin-bottom:10px; font-size:14px;">🎨 一括色塗り</h3>
-      <div style="margin-bottom:8px;">
-        <div style="font-size:12px; color:#888; margin-bottom:6px;">色を選んでセルをタップすると塗れます</div>
+      <h3 class="section-title-xs">🎨 一括色塗り</h3>
+      <div class="mb-12">
+        <div class="form-label-gap6">色を選んでセルをタップすると塗れます</div>
         <div id="custom-colors" style="display:flex; flex-wrap:wrap; gap:6px; margin-bottom:8px;"></div>
         <!-- 新しい色を追加するフォーム（常時表示） -->
         <div style="display:flex; gap:6px; align-items:center; flex-wrap:wrap; padding:10px; background:#f5f7ff; border-radius:8px; margin-bottom:8px;">
           <input type="color" id="new-color-picker" value="#ffd6a5" style="width:36px;height:36px;border:none;cursor:pointer;border-radius:6px;padding:0;">
-          <input type="text" id="new-color-name" placeholder="色の名前（例：英語）" style="flex:1;min-width:80px;padding:6px 10px;border:1px solid #ccc;border-radius:6px;font-size:13px;">
-          <button style="padding:6px 14px;background:#4a90e2;color:white;border:none;border-radius:6px;cursor:pointer;font-size:13px;white-space:nowrap;">＋追加</button>
+          <input type="text" id="new-color-name" placeholder="色の名前（例：英語）" class="input" style="flex:1;min-width:80px;">
+          <button class="btn-save" style="white-space:nowrap; padding:6px 14px;">＋追加</button>
         </div>
-        <div style="display:flex; gap:6px; flex-wrap:wrap; align-items:center;">
+        <div class="flex gap-6 flex-wrap" style="align-items:center;">
           <button class="color-btn" id="btn-clear" style="font-size:12px; padding:5px 12px;">🗑 色を消す</button>
           <button class="color-btn" id="btn-deselect" style="font-size:12px; padding:5px 12px;">解除</button>
         </div>
         <div id="current-color-label" style="font-size:12px; color:#4a90e2; margin-top:6px; font-weight:bold;"></div>
       </div>
     </div>
-    
+
 <!-- プリセットパネル -->
 <div id="panel-preset" class="hidden">
-      <h3 style="margin-bottom:10px; font-size:14px;">📅 曜日別ワンタッチ設定</h3>
-      <div style="font-size:12px; color:#888; margin-bottom:12px;">ボタンを押すとその曜日の新グリッドにブロックを一括生成します</div>
+      <h3 class="section-title-xs">📅 曜日別ワンタッチ設定</h3>
+      <div class="form-label-gap6">ボタンを押すとその曜日の新グリッドにブロックを一括生成します</div>
       <div style="display:flex; flex-direction:column; gap:8px; margin-bottom:16px;">
-        <button style="padding:12px 16px; border-radius:8px; border:none; background:linear-gradient(135deg,#4a90e2,#357abd); color:white; font-size:14px; font-weight:bold; cursor:pointer; text-align:left;">
-          月曜日　<span style="font-size:12px; font-weight:normal; opacity:0.85;">7限・演劇部</span>
+        <button class="btn-preset-blue">
+          月曜日　<span class="btn-preset-label">7限・演劇部</span>
         </button>
-        <button style="padding:12px 16px; border-radius:8px; border:none; background:linear-gradient(135deg,#9c27b0,#7b1fa2); color:white; font-size:14px; font-weight:bold; cursor:pointer; text-align:left;">
-          火曜日　<span style="font-size:12px; font-weight:normal; opacity:0.85;">7限・執行部</span>
+        <button class="btn-preset-purple">
+          火曜日　<span class="btn-preset-label">7限・執行部</span>
         </button>
-        <button style="padding:12px 16px; border-radius:8px; border:none; background:linear-gradient(135deg,#43a047,#2e7d32); color:white; font-size:14px; font-weight:bold; cursor:pointer; text-align:left;">
-          水曜日　<span style="font-size:12px; font-weight:normal; opacity:0.85;">6限・演劇部</span>
+        <button class="btn-preset-green">
+          水曜日　<span class="btn-preset-label">6限・演劇部</span>
         </button>
-        <button style="padding:12px 16px; border-radius:8px; border:none; background:linear-gradient(135deg,#43a047,#2e7d32); color:white; font-size:14px; font-weight:bold; cursor:pointer; text-align:left;">
-          木曜日　<span style="font-size:12px; font-weight:normal; opacity:0.85;">6限・演劇部</span>
+        <button class="btn-preset-green">
+          木曜日　<span class="btn-preset-label">6限・演劇部</span>
         </button>
-        <button style="padding:12px 16px; border-radius:8px; border:none; background:linear-gradient(135deg,#4a90e2,#357abd); color:white; font-size:14px; font-weight:bold; cursor:pointer; text-align:left;">
-          金曜日　<span style="font-size:12px; font-weight:normal; opacity:0.85;">7限・演劇部</span>
+        <button class="btn-preset-blue">
+          金曜日　<span class="btn-preset-label">7限・演劇部</span>
         </button>
-        <button style="padding:12px 16px; border-radius:8px; border:2px solid #ff9800; background:#fff8e1; color:#e65100; font-size:14px; font-weight:bold; cursor:pointer; text-align:center; margin-top:4px;">
+        <button class="btn-preset-all">
           🗓 月〜金まとめて設定
         </button>
       </div>
 
       <!-- ブロック時間カスタム設定 -->
-      <h3 style="margin-bottom:8px; font-size:14px;">⏱ ブロック時間のカスタム設定</h3>
-      <div style="font-size:12px; color:#888; margin-bottom:10px;">各ブロックの開始・終了時刻を変更できます</div>
+      <h3 class="section-title-sm">⏱ ブロック時間のカスタム設定</h3>
+      <div class="form-label" style="margin-bottom:10px;">各ブロックの開始・終了時刻を変更できます</div>
       <div id="block-time-editor" style="display:flex; flex-direction:column; gap:6px; margin-bottom:10px;"></div>
-      <button style="padding:7px 18px; background:#4a90e2; color:#fff; border:none; border-radius:6px; font-size:13px; font-weight:bold; cursor:pointer; margin-bottom:16px;">💾 時間設定を保存</button>
+      <button class="btn-save" style="margin-bottom:16px;">💾 時間設定を保存</button>
 
       <!-- 時間割テーブル -->
-      <h3 style="margin-bottom:8px; font-size:14px;">📚 授業名プリセット</h3>
-      <div style="font-size:12px; color:#888; margin-bottom:8px;">各時限の授業名を入力してください（省略可）</div>
+      <h3 class="section-title-sm">📚 授業名プリセット</h3>
+      <div class="form-label" style="margin-bottom:8px;">各時限の授業名を入力してください（省略可）</div>
       <div style="overflow-x:auto;">
         <table id="timetable-edit" style="border-collapse:collapse; font-size:12px; width:100%;">
           <thead>
             <tr>
-              <th style="padding:4px 6px; background:#f0f4ff; border:1px solid #d0d8e8;">時限</th>
-              <th style="padding:4px 6px; background:#f0f4ff; border:1px solid #d0d8e8;">月</th>
-              <th style="padding:4px 6px; background:#f0f4ff; border:1px solid #d0d8e8;">火</th>
-              <th style="padding:4px 6px; background:#f0f4ff; border:1px solid #d0d8e8;">水</th>
-              <th style="padding:4px 6px; background:#f0f4ff; border:1px solid #d0d8e8;">木</th>
-              <th style="padding:4px 6px; background:#f0f4ff; border:1px solid #d0d8e8;">金</th>
+              <th class="timetable-th">時限</th>
+              <th class="timetable-th">月</th>
+              <th class="timetable-th">火</th>
+              <th class="timetable-th">水</th>
+              <th class="timetable-th">木</th>
+              <th class="timetable-th">金</th>
             </tr>
           </thead>
           <tbody id="timetable-edit-body"></tbody>
         </table>
       </div>
-      <button style="margin-top:10px; padding:7px 18px; background:#4a90e2; color:#fff; border:none; border-radius:6px; font-size:13px; font-weight:bold; cursor:pointer;">💾 授業名を保存</button>
+      <button class="btn-save" style="margin-top:10px;">💾 授業名を保存</button>
     </div>
-    
-    <button style="padding:8px 24px; border-radius:6px; border:1px solid #ccc; cursor:pointer;">閉じる</button>
+
+    <button class="btn-close">閉じる</button>
   </div>
 </div>
 
 <!-- ══ 日メモモーダル（マンスリー用） ══ -->
 <div id="day-modal-overlay" class="overlay hidden" style="z-index:200;">
   <div class="modal-box" style="min-width:300px; max-width:400px;">
-    <h2 id="day-modal-title" style="margin-bottom:12px; font-size:16px;"></h2>
-    <div style="display:flex; gap:6px; flex-wrap:wrap; margin-bottom:10px;" id="day-modal-colors"></div>
-    <textarea id="day-modal-memo" style="width:100%; height:120px; border:1px solid #ccc; border-radius:6px; padding:8px; font-size:14px; resize:none; font-family:sans-serif;" placeholder="この日のメモを入力..."></textarea>
-    <div style="display:flex; align-items:center; gap:8px; margin-top:10px;">
+    <h2 id="day-modal-title" class="modal-title"></h2>
+    <div class="flex gap-6 flex-wrap" style="margin-bottom:10px;" id="day-modal-colors"></div>
+    <textarea id="day-modal-memo" class="input-full-lg" style="height:120px; resize:none; font-family:sans-serif;" placeholder="この日のメモを入力..."></textarea>
+    <div class="flex-center gap-8" style="margin-top:10px;">
       <input type="checkbox" id="day-modal-check">
       <label for="day-modal-check" style="font-size:14px;">完了</label>
     </div>
-    <div style="display:flex; gap:8px; margin-top:16px; justify-content:flex-end;">
-      <button style="padding:8px 20px; background:#4a90e2; color:white; border:none; border-radius:6px; cursor:pointer;">保存</button>
-      <button style="padding:8px 20px; border:1px solid #ccc; border-radius:6px; cursor:pointer;">閉じる</button>
+    <div class="row-end">
+      <button class="btn-save">保存</button>
+      <button class="btn-close">閉じる</button>
     </div>
   </div>
 </div>
 
 <!-- ══ ファイルビューアモーダル ══ -->
-<div id="file-viewer-overlay" class="hidden" style="
-  position:fixed; inset:0;
-  background:rgba(0,0,0,0.88); z-index:600;
-  align-items:center; justify-content:center; flex-direction:column; display:flex;">
-  <button style="
-    position:absolute; top:16px; right:16px;
-    background:rgba(255,255,255,0.15); border:none; color:white;
-    font-size:22px; width:40px; height:40px; border-radius:50%;
-    cursor:pointer; display:flex; align-items:center; justify-content:center;">✕</button>
+<div id="file-viewer-overlay" class="hidden" style="position:fixed; inset:0; background:rgba(0,0,0,0.88); z-index:600; align-items:center; justify-content:center; flex-direction:column; display:flex;">
+  <button style="position:absolute; top:16px; right:16px; background:rgba(255,255,255,0.15); border:none; color:white; font-size:22px; width:40px; height:40px; border-radius:50%; cursor:pointer; display:flex; align-items:center; justify-content:center;">✕</button>
   <div id="file-viewer-content" style="max-width:92vw; max-height:88vh; display:flex; align-items:center; justify-content:center;"></div>
   <div id="file-viewer-name" style="color:rgba(255,255,255,0.7); font-size:12px; margin-top:10px; text-align:center;"></div>
 </div>
@@ -155,15 +148,12 @@
     <div style="font-size:32px; margin-bottom:8px;">🍅</div>
     <div id="pom-subject" style="font-size:16px; font-weight:bold; margin-bottom:6px;"></div>
     <div id="pom-pages" style="font-size:12px; color:#7a9fd4; margin-bottom:20px;"></div>
-    <button id="pom-go-btn"
-      style="width:100%; padding:14px; background:#e05a2b; color:white; border:none; border-radius:10px; font-size:16px; font-weight:bold; cursor:pointer; margin-bottom:10px;">
+    <button id="pom-go-btn" style="width:100%; padding:14px; background:#e05a2b; color:white; border:none; border-radius:10px; font-size:16px; font-weight:bold; cursor:pointer; margin-bottom:10px;">
       ▶ ポモドーロタイマーへ
     </button>
-    <div style="display:flex; gap:8px; justify-content:center; margin-top:4px;">
-      <button
-        style="font-size:12px; color:#4a90e2; background:none; border:1px dashed #4a90e2; border-radius:6px; padding:5px 14px; cursor:pointer;">✏️ 予約を編集</button>
-      <button
-        style="font-size:12px; color:#aaa; background:none; border:1px solid #ddd; border-radius:6px; padding:5px 14px; cursor:pointer;">閉じる</button>
+    <div class="flex gap-8" style="justify-content:center; margin-top:4px;">
+      <button style="font-size:12px; color:#4a90e2; background:none; border:1px dashed #4a90e2; border-radius:6px; padding:5px 14px; cursor:pointer;">✏️ 予約を編集</button>
+      <button style="font-size:12px; color:#aaa; background:none; border:1px solid #ddd; border-radius:6px; padding:5px 14px; cursor:pointer;">閉じる</button>
     </div>
   </div>
 </div>
@@ -180,76 +170,71 @@
       <button class="mode-tab inactive"     id="mode-tab-event">📅 行事・予定</button>
     </div>
     <div id="panel-study">
-      <div style="font-size:12px; color:#777; margin-bottom:5px;">教材を選択（なしでもOK）</div>
+      <div class="form-label" style="margin-bottom:5px;">教材を選択（なしでもOK）</div>
       <div id="mat-list" style="max-height:180px; overflow-y:auto; border:1px solid #e8eef8; border-radius:8px; padding:4px; margin-bottom:8px;"></div>
-      <button id="new-mat-toggle"
-        style="font-size:12px; color:#4a90e2; border:1px dashed #4a90e2; background:#f0f6ff; border-radius:6px; padding:4px 12px; cursor:pointer; margin-bottom:4px;">
+      <button id="new-mat-toggle" style="font-size:12px; color:#4a90e2; border:1px dashed #4a90e2; background:#f0f6ff; border-radius:6px; padding:4px 12px; cursor:pointer; margin-bottom:4px;">
         ＋ 新しい教材を追加
       </button>
       <div class="new-mat-form hidden" id="new-mat-form">
         <input type="text" id="new-mat-name" placeholder="教材名（例：英単語帳、数学B）">
         <div class="form-row">
-          <label style="font-size:12px;">色：</label>
-          <input type="color" id="new-mat-color" value="#4a90e2" style="width:38px;height:28px;border:none;cursor:pointer;">
-          <label style="font-size:12px; margin-left:6px;">カテゴリ：</label>
-          <input type="text" id="new-mat-category" placeholder="例：英語、数学" style="flex:1; padding:4px 8px; border:1px solid #ccc; border-radius:6px; font-size:12px;">
-          <button style="padding:5px 12px; background:#4a90e2; color:#fff; border:none; border-radius:6px; font-size:12px; cursor:pointer;">追加</button>
+          <label class="form-label-color">色：</label>
+          <input type="color" id="new-mat-color" value="#4a90e2" class="input-color-picker">
+          <label class="form-label-color">カテゴリ：</label>
+          <input type="text" id="new-mat-category" placeholder="例：英語、数学" class="input-sm" style="flex:1;">
+          <button class="btn-add-sm">追加</button>
         </div>
       </div>
       <div class="progress-row">
         <label>ページ予定：</label>
         <input type="number" id="mat-page-from" min="0" placeholder="開始">
-        <span style="font-size:12px; color:#777;">〜</span>
+        <span class="form-label">〜</span>
         <input type="number" id="mat-page-to" min="0" placeholder="終了">
-        <span style="font-size:12px; color:#777;">p</span>
+        <span class="form-label">p</span>
       </div>
     </div>
     <div id="panel-event" class="hidden">
       <!-- 時間範囲 -->
-      <div style="margin-bottom:12px;">
-        <label style="font-size:12px; color:#777; display:block; margin-bottom:6px;">⏰ 時間</label>
-        <div style="display:flex; align-items:center; gap:8px;">
-          <select id="event-time-from" style="flex:1; padding:7px 8px; border:1px solid #ccc; border-radius:8px; font-size:14px; font-family:inherit;"></select>
-          <span style="color:#888; font-size:13px;">〜</span>
-          <select id="event-time-to" style="flex:1; padding:7px 8px; border:1px solid #ccc; border-radius:8px; font-size:14px; font-family:inherit;"></select>
+      <div class="form-block">
+        <label class="form-label-gap6">⏰ 時間</label>
+        <div class="flex-center gap-8">
+          <select id="event-time-from" class="select-time"></select>
+          <span class="form-label">〜</span>
+          <select id="event-time-to" class="select-time"></select>
         </div>
       </div>
-      <div style="margin-bottom:12px;">
-        <label style="font-size:12px; color:#777; display:block; margin-bottom:4px;">タイトル</label>
-        <input type="text" id="event-title" placeholder="例：部活、外出、塾、模試..."
-          style="width:100%; padding:8px 10px; border:1px solid #ccc; border-radius:8px; font-size:14px; box-sizing:border-box;">
+      <div class="form-block">
+        <label class="form-label">タイトル</label>
+        <input type="text" id="event-title" placeholder="例：部活、外出、塾、模試..." class="input-full-lg">
       </div>
-      <div style="margin-bottom:12px;">
-        <label style="font-size:12px; color:#777; display:block; margin-bottom:6px;">色</label>
-        <div id="event-color-swatches" style="display:flex; flex-wrap:wrap; gap:6px;"></div>
+      <div class="form-block">
+        <label class="form-label-gap6">色</label>
+        <div id="event-color-swatches" class="flex flex-wrap gap-6"></div>
       </div>
       <!-- セルの背景色・テキスト変更 -->
-      <div style="background:#f8f9fb; border-radius:8px; padding:10px; margin-bottom:12px;">
-        <label style="font-size:12px; color:#777; display:block; margin-bottom:6px;">🎨 セルの見た目（任意）</label>
-        <div style="display:flex; gap:8px; align-items:center; margin-bottom:8px;">
-          <label style="font-size:12px; color:#555; white-space:nowrap;">背景色：</label>
+      <div style="background:#f8f9fb; border-radius:8px; padding:10px;" class="form-block">
+        <label class="form-label-gap6">🎨 セルの見た目（任意）</label>
+        <div class="flex-center gap-8" style="margin-bottom:8px;">
+          <label class="form-label-inline">背景色：</label>
           <input type="color" id="event-cell-color" value="#ffffff" style="width:36px;height:28px;border:none;cursor:pointer;border-radius:4px;">
-          <label style="display:flex; align-items:center; gap:4px; font-size:12px; color:#555;">
+          <label class="form-label-inline-flex">
             <input type="checkbox" id="event-cell-color-on"> 適用する
           </label>
         </div>
-        <div style="display:flex; gap:8px; align-items:center;">
-          <label style="font-size:12px; color:#555; white-space:nowrap;">メモ：</label>
-          <input type="text" id="event-cell-text" placeholder="セル内に表示するテキスト（任意）"
-            style="flex:1; padding:5px 8px; border:1px solid #ccc; border-radius:6px; font-size:12px;">
+        <div class="flex-center gap-8">
+          <label class="form-label-inline">メモ：</label>
+          <input type="text" id="event-cell-text" placeholder="セル内に表示するテキスト（任意）" class="input-sm" style="flex:1;">
         </div>
       </div>
       <div>
-        <label style="font-size:12px; color:#777; display:block; margin-bottom:4px;">メモ</label>
-        <textarea id="event-memo" rows="2"
-          style="width:100%; border:1px solid #ccc; border-radius:8px; padding:8px; font-size:13px; resize:none; font-family:sans-serif; box-sizing:border-box;"
-          placeholder="メモを入力..."></textarea>
+        <label class="form-label">メモ</label>
+        <textarea id="event-memo" rows="2" class="input-full" style="border-radius:8px; resize:none; font-family:sans-serif;" placeholder="メモを入力..."></textarea>
       </div>
     </div>
-    <div style="display:flex; gap:8px; margin-top:18px; justify-content:flex-end; flex-wrap:wrap;">
-      <button style="padding:7px 14px; border:1px solid #e88; color:#c44; border-radius:6px; cursor:pointer; background:#fff; font-size:13px;">消す</button>
-      <button id="cell-save-btn" style="padding:7px 22px; background:#4a90e2; color:white; border:none; border-radius:6px; cursor:pointer; font-size:13px; font-weight:bold;">保存</button>
-      <button style="padding:7px 16px; border:1px solid #ccc; border-radius:6px; cursor:pointer; font-size:13px;">閉じる</button>
+    <div class="row-end-wrap">
+      <button class="btn-delete">消す</button>
+      <button id="cell-save-btn" class="btn-save">保存</button>
+      <button class="btn-close">閉じる</button>
     </div>
   </div>
 </div>
@@ -257,51 +242,44 @@
   <!-- ══ 自由記録モーダル ══ -->
 <div id="free-record-overlay" class="overlay hidden" style="z-index:350;">
   <div class="modal-box" style="max-width:400px;">
-    <h2 style="font-size:15px; margin:0 0 14px;">✏️ 自由記録（予約外の勉強）</h2>
+    <h2 class="modal-title-sm">✏️ 自由記録（予約外の勉強）</h2>
     <div style="display:flex; flex-direction:column; gap:10px;">
       <div>
-        <label style="font-size:12px; color:#777; display:block; margin-bottom:4px;">教材名 <span style="color:#e44;">*</span></label>
-        <input type="text" id="fr-name" placeholder="例：過去問、英単語帳"
-          style="width:100%; padding:7px 10px; border:1px solid #ccc; border-radius:7px; font-size:13px; box-sizing:border-box;">
+        <label class="form-label">教材名 <span class="form-required">*</span></label>
+        <input type="text" id="fr-name" placeholder="例：過去問、英単語帳" class="input-full">
       </div>
       <div>
-        <label style="font-size:12px; color:#777; display:block; margin-bottom:4px;">日付 <span style="color:#e44;">*</span></label>
-        <input type="date" id="fr-date"
-          style="width:100%; padding:7px 10px; border:1px solid #ccc; border-radius:7px; font-size:13px; box-sizing:border-box;">
+        <label class="form-label">日付 <span class="form-required">*</span></label>
+        <input type="date" id="fr-date" class="input-full">
       </div>
-      <div style="display:flex; gap:8px;">
+      <div class="flex gap-8">
         <div style="flex:1;">
-          <label style="font-size:12px; color:#777; display:block; margin-bottom:4px;">勉強時間（時間）</label>
-          <input type="number" id="fr-hours" min="0" max="24" value="0"
-            style="width:100%; padding:7px 10px; border:1px solid #ccc; border-radius:7px; font-size:13px; box-sizing:border-box;">
+          <label class="form-label">勉強時間（時間）</label>
+          <input type="number" id="fr-hours" min="0" max="24" value="0" class="input-full">
         </div>
         <div style="flex:1;">
-          <label style="font-size:12px; color:#777; display:block; margin-bottom:4px;">勉強時間（分）</label>
-          <input type="number" id="fr-minutes" min="0" max="59" step="5" value="0"
-            style="width:100%; padding:7px 10px; border:1px solid #ccc; border-radius:7px; font-size:13px; box-sizing:border-box;">
+          <label class="form-label">勉強時間（分）</label>
+          <input type="number" id="fr-minutes" min="0" max="59" step="5" value="0" class="input-full">
         </div>
       </div>
-      <div style="display:flex; gap:8px;">
+      <div class="flex gap-8">
         <div style="flex:1;">
-          <label style="font-size:12px; color:#777; display:block; margin-bottom:4px;">ページ（from）</label>
-          <input type="number" id="fr-page-from" min="1" placeholder="例：100"
-            style="width:100%; padding:7px 10px; border:1px solid #ccc; border-radius:7px; font-size:13px; box-sizing:border-box;">
+          <label class="form-label">ページ（from）</label>
+          <input type="number" id="fr-page-from" min="1" placeholder="例：100" class="input-full">
         </div>
         <div style="flex:1;">
-          <label style="font-size:12px; color:#777; display:block; margin-bottom:4px;">ページ（to）</label>
-          <input type="number" id="fr-page-to" min="1" placeholder="例：120"
-            style="width:100%; padding:7px 10px; border:1px solid #ccc; border-radius:7px; font-size:13px; box-sizing:border-box;">
+          <label class="form-label">ページ（to）</label>
+          <input type="number" id="fr-page-to" min="1" placeholder="例：120" class="input-full">
         </div>
       </div>
       <div>
-        <label style="font-size:12px; color:#777; display:block; margin-bottom:4px;">メモ</label>
-        <textarea id="fr-memo" rows="2" placeholder="自由に記入..."
-          style="width:100%; border:1px solid #ccc; border-radius:7px; padding:8px; font-size:13px; resize:none; font-family:sans-serif; box-sizing:border-box;"></textarea>
+        <label class="form-label">メモ</label>
+        <textarea id="fr-memo" rows="2" placeholder="自由に記入..." class="input-full" style="resize:none; font-family:sans-serif;"></textarea>
       </div>
     </div>
-    <div style="display:flex; gap:8px; margin-top:16px; justify-content:flex-end;">
-      <button style="padding:8px 22px; background:#43a047; color:white; border:none; border-radius:6px; cursor:pointer; font-size:13px; font-weight:bold;">保存</button>
-      <button style="padding:8px 16px; border:1px solid #ccc; border-radius:6px; cursor:pointer; font-size:13px;">閉じる</button>
+    <div class="row-end">
+      <button class="btn-save-green">保存</button>
+      <button class="btn-close">閉じる</button>
     </div>
   </div>
 </div>
@@ -311,12 +289,12 @@
   <div class="prog-modal-box" style="max-width:520px;">
 
     <!-- ステップヘッダー -->
-    <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:14px;">
+    <div class="row-between">
       <div class="step-header">
         <span id="exam-step-label">STEP 1</span>
         <span id="exam-step-desc" style="color:#333; font-weight:normal;">考査・模試を選択</span>
       </div>
-      <button style="border:none; background:none; font-size:20px; cursor:pointer; color:#999;">✕</button>
+      <button class="btn-icon-close">✕</button>
     </div>
 
     <!-- STEP1: 考査一覧 -->
@@ -324,98 +302,90 @@
       <div id="exam-list" style="max-height:240px; overflow-y:auto; margin-bottom:12px;"></div>
       <div style="border:1.5px dashed #ce93d8; border-radius:10px; padding:12px; background:#fdf5ff;">
         <div style="font-size:12px; font-weight:bold; color:#6a1b9a; margin-bottom:8px;">＋ 考査・模試を追加</div>
-        <div style="display:flex; gap:8px; flex-wrap:wrap; align-items:center;">
-          <input type="text" id="exam-new-name" placeholder="例：1学期中間考査"
-            style="flex:1; min-width:140px; padding:6px 10px; border:1px solid #ccc; border-radius:6px; font-size:13px;">
-          <input type="date" id="exam-new-date"
-            style="padding:6px 8px; border:1px solid #ccc; border-radius:6px; font-size:13px;">
-          <button style="padding:6px 14px; background:#9c27b0; color:#fff; border:none; border-radius:6px; font-size:13px; cursor:pointer; font-weight:bold;">追加</button>
+        <div class="flex gap-8 flex-wrap" style="align-items:center;">
+          <input type="text" id="exam-new-name" placeholder="例：1学期中間考査" class="input" style="flex:1; min-width:140px;">
+          <input type="date" id="exam-new-date" class="input-sm" style="padding:6px 8px;">
+          <button class="btn-add-purple">追加</button>
         </div>
       </div>
     </div>
 
     <!-- STEP2: 提出物一覧 -->
     <div id="exam-step2" class="exam-step">
-      <button style="font-size:12px; color:#888; background:none; border:none; cursor:pointer; margin-bottom:10px; padding:0;">← 考査一覧に戻る</button>
+      <button class="btn-text-back">← 考査一覧に戻る</button>
       <div id="exam-submission-list" style="max-height:220px; overflow-y:auto; margin-bottom:12px;"></div>
       <div style="border:1px dashed #bbb; border-radius:8px; padding:10px; background:#fafafa;">
-        <div style="font-size:12px; color:#888; margin-bottom:6px; font-weight:bold;">＋ 提出物を追加</div>
-        <div style="display:flex; gap:6px; flex-wrap:wrap; align-items:center; margin-bottom:6px;">
-          <input type="text" id="sub-new-subject" placeholder="科目（例：数学）"
-            style="width:80px; padding:5px 8px; border:1px solid #ccc; border-radius:6px; font-size:12px;">
-          <input type="text" id="sub-new-name" placeholder="提出物名（例：問題集p.1〜50）"
-            style="flex:1; min-width:120px; padding:5px 8px; border:1px solid #ccc; border-radius:6px; font-size:12px;">
+        <div class="form-label" style="margin-bottom:6px; font-weight:bold;">＋ 提出物を追加</div>
+        <div class="flex gap-6 flex-wrap" style="align-items:center; margin-bottom:6px;">
+          <input type="text" id="sub-new-subject" placeholder="科目（例：数学）" class="input-sm" style="width:80px;">
+          <input type="text" id="sub-new-name" placeholder="提出物名（例：問題集p.1〜50）" class="input-sm" style="flex:1; min-width:120px;">
         </div>
-        <div style="display:flex; gap:6px; flex-wrap:wrap; align-items:center;">
-          <input type="date" id="sub-new-deadline"
-            style="padding:5px 8px; border:1px solid #ccc; border-radius:6px; font-size:12px;">
-          <label style="font-size:12px; color:#555; display:flex; align-items:center; gap:4px;">
+        <div class="flex gap-6 flex-wrap" style="align-items:center;">
+          <input type="date" id="sub-new-deadline" class="input-sm" style="padding:5px 8px;">
+          <label class="form-label-inline-flex">
             <input type="checkbox" id="sub-new-hasprog"> 進捗管理
           </label>
-          <button style="padding:5px 12px; background:#7b1fa2; color:#fff; border:none; border-radius:6px; font-size:12px; cursor:pointer;">追加</button>
+          <button class="btn-add-purple-sm">追加</button>
         </div>
       </div>
     </div>
 
     <!-- STEP3: 提出物の進捗詳細 -->
     <div id="exam-step3" class="exam-step">
-      <button style="font-size:12px; color:#888; background:none; border:none; cursor:pointer; margin-bottom:10px; padding:0;">← 提出物一覧に戻る</button>
-      <div id="exam-sub-detail" style="margin-bottom:14px;"></div>
+      <button class="btn-text-back">← 提出物一覧に戻る</button>
+      <div id="exam-sub-detail" class="mb-14"></div>
     </div>
 
     <div style="display:flex; justify-content:flex-end; margin-top:14px;">
-      <button style="padding:8px 20px; border:1px solid #ccc; border-radius:8px; cursor:pointer; font-size:13px;">閉じる</button>
+      <button class="btn-close-lg">閉じる</button>
     </div>
   </div>
 </div>
-  
+
 <!-- ══ 進捗管理モーダル ══ -->
 <div id="progress-overlay" class="overlay hidden">
   <div class="prog-modal-box card">
-    <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:14px;">
-      <h2 id="prog-mat-name" style="font-size:15px; margin:0;"></h2>
-      <button style="border:none; background:none; font-size:20px; cursor:pointer; color:#999;">✕</button>
+    <div class="row-between">
+      <h2 id="prog-mat-name" class="modal-title-none"></h2>
+      <button class="btn-icon-close">✕</button>
     </div>
 
     <!-- 締切日 -->
-    <div style="display:flex; align-items:center; gap:8px; margin-bottom:14px; padding:10px; background:#f8f9fb; border-radius:10px;">
+    <div class="flex-center gap-8 mb-14" style="padding:10px; background:#f8f9fb; border-radius:10px;">
       <span style="font-size:13px; color:#555; white-space:nowrap;">📅 締切日：</span>
-      <input type="date" id="prog-deadline"
-        style="flex:1; padding:5px 8px; border:1px solid #ccc; border-radius:6px; font-size:13px;">
+      <input type="date" id="prog-deadline" class="input-sm" style="flex:1;">
       <span id="prog-deadline-badge" class="deadline-warning hidden"></span>
     </div>
 
     <!-- 周回タブ（教材全体で共通） -->
-    <div style="margin-bottom:14px; padding:10px; background:#f0f6ff; border-radius:10px;">
+    <div class="mb-14" style="padding:10px; background:#f0f6ff; border-radius:10px;">
       <div style="font-size:12px; color:#666; font-weight:bold; margin-bottom:6px;">📖 周回（教材全体）</div>
-      <div id="prog-round-tabs" style="display:flex; flex-wrap:wrap; gap:6px;"></div>
-      <button style="margin-top:8px; padding:5px 14px; border:1.5px dashed #4a90e2; border-radius:20px; color:#4a90e2; background:#fff; font-size:12px; cursor:pointer; font-weight:bold;">＋ 周追加</button>
+      <div id="prog-round-tabs" class="flex flex-wrap gap-6"></div>
+      <button class="btn-round-add">＋ 周追加</button>
     </div>
 
     <!-- 章タブ -->
     <div style="margin-bottom:10px;">
-      <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:6px;">
+      <div class="flex-between" style="margin-bottom:6px;">
         <div style="font-size:12px; color:#666; font-weight:bold;">📑 章</div>
-        <button style="padding:4px 12px; border:1.5px dashed #9c27b0; border-radius:20px; color:#9c27b0; background:#fdf3ff; font-size:12px; cursor:pointer; font-weight:bold;">＋ 章を追加</button>
+        <button class="btn-chapter-add">＋ 章を追加</button>
       </div>
-      <div id="prog-chapter-tabs" style="display:flex; flex-wrap:wrap; gap:6px; margin-bottom:8px;"></div>
+      <div id="prog-chapter-tabs" class="flex flex-wrap gap-6" style="margin-bottom:8px;"></div>
     </div>
 
     <!-- 現在の章のヘッダー -->
     <div id="prog-chapter-header" class="hidden" style="margin-bottom:10px; padding:8px 12px; background:#fdf3ff; border-radius:8px; border-left:3px solid #9c27b0;">
-      <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
-        <input id="prog-chapter-name" type="text" placeholder="章の名前（例：1章 式と計算）"
-          style="flex:1; min-width:120px; padding:4px 8px; border:1px solid #ccc; border-radius:6px; font-size:13px;">
-        <input type="number" id="prog-total" min="1" placeholder="問題数"
-          style="width:80px; padding:4px 8px; border:1px solid #ccc; border-radius:6px; font-size:13px;">
-        <button style="padding:4px 12px; background:#9c27b0; color:#fff; border:none; border-radius:6px; font-size:12px; cursor:pointer;">適用</button>
-        <button style="padding:4px 10px; color:#c44; border:1px solid #e88; border-radius:6px; font-size:11px; cursor:pointer; background:#fff;">削除</button>
+      <div class="flex-center gap-8 flex-wrap">
+        <input id="prog-chapter-name" type="text" placeholder="章の名前（例：1章 式と計算）" class="input-sm" style="flex:1; min-width:120px;">
+        <input type="number" id="prog-total" min="1" placeholder="問題数" class="input-sm" style="width:80px;">
+        <button class="btn-apply-sm">適用</button>
+        <button class="btn-delete-sm">削除</button>
       </div>
     </div>
 
     <!-- プログレスバー（現在の章） -->
-    <div style="margin-bottom:14px;">
-      <div style="display:flex; justify-content:space-between; font-size:12px; color:#666; margin-bottom:4px;">
+    <div class="mb-14">
+      <div class="flex-between" style="font-size:12px; color:#666; margin-bottom:4px;">
         <span id="prog-stats-label">章を選択してください</span>
         <span id="prog-pct-label" style="font-weight:bold; color:#4a90e2;"></span>
       </div>
@@ -428,30 +398,31 @@
     <div id="prog-question-list" style="max-height:320px; overflow-y:auto;"></div>
 
     <!-- 保存ボタン -->
-    <div style="display:flex; justify-content:flex-end; gap:8px; margin-top:16px;">
-      <button style="padding:8px 24px; background:#4a90e2; color:#fff; border:none; border-radius:8px; font-size:14px; font-weight:bold; cursor:pointer;">💾 保存</button>
-      <button style="padding:8px 16px; border:1px solid #ccc; border-radius:8px; cursor:pointer; font-size:13px;">閉じる</button>
+    <div class="row-end">
+      <button class="btn-save-lg">💾 保存</button>
+      <button class="btn-close-lg">閉じる</button>
     </div>
   </div>
 </div>
+
 <!-- ══ 教材管理モーダル ══ -->
 <div id="mat-manage-overlay" class="overlay hidden">
   <div class="modal-box" style="max-width:460px;">
-    <h2 style="font-size:15px; margin:0 0 14px;">📚 教材管理</h2>
+    <h2 class="modal-title-sm">📚 教材管理</h2>
     <div id="mat-manage-list" style="max-height:300px; overflow-y:auto; margin-bottom:14px;"></div>
     <div class="new-mat-form">
       <div style="font-size:12px; font-weight:bold; color:#555; margin-bottom:8px;">新しい教材を追加</div>
       <input type="text" id="manage-mat-name" placeholder="教材名（例：古文単語、物理基礎）">
       <div class="form-row">
-        <label style="font-size:12px;">色：</label>
-        <input type="color" id="manage-mat-color" value="#e07b54" style="width:38px;height:28px;border:none;cursor:pointer;">
-        <label style="font-size:12px; margin-left:6px;">カテゴリ：</label>
-        <input type="text" id="manage-mat-category" placeholder="例：英語、数学" style="flex:1; padding:4px 8px; border:1px solid #ccc; border-radius:6px; font-size:12px;">
-        <button style="padding:5px 12px; background:#4a90e2; color:#fff; border:none; border-radius:6px; font-size:12px; cursor:pointer;">追加</button>
+        <label class="form-label-color">色：</label>
+        <input type="color" id="manage-mat-color" value="#e07b54" class="input-color-picker">
+        <label class="form-label-color">カテゴリ：</label>
+        <input type="text" id="manage-mat-category" placeholder="例：英語、数学" class="input-sm" style="flex:1;">
+        <button class="btn-add-sm">追加</button>
       </div>
     </div>
     <div style="display:flex; justify-content:flex-end; margin-top:16px;">
-      <button style="padding:8px 22px; border:1px solid #ccc; border-radius:6px; cursor:pointer;">閉じる</button>
+      <button class="btn-close">閉じる</button>
     </div>
   </div>
 </div>
@@ -476,13 +447,13 @@
     </div>
     <div class="ctrl-row">
       <button>⚙️ 設定</button>
-      <button style="background:#fff8e1; border:1px solid #ffd54f; border-radius:6px; padding:4px 10px; cursor:pointer; font-size:13px;">📚 教材管理</button>
-      <button id="btn-logout" style="background:#f44336; color:white; border:none; border-radius:6px; padding:4px 10px; cursor:pointer; font-size:13px;">🔒 ロック</button>
+      <button class="btn-topbar-material">📚 教材管理</button>
+      <button id="btn-logout" class="btn-topbar-logout">🔒 ロック</button>
       <button style="font-size:12px;">🖨 印刷</button>
-      <button style="background:#e8f5e9; color:#2e7d32; border:1px solid #a5d6a7; border-radius:6px; padding:4px 10px; cursor:pointer; font-size:13px;">✏️ 自由記録</button>
-      <button style="background:#f3e5f5; color:#6a1b9a; border:1px solid #ce93d8; border-radius:6px; padding:4px 10px; cursor:pointer; font-size:13px;">📝 考査管理</button>
-      <span id="offline-indicator" style="display:none; font-size:12px; color:#e65100; background:#fff3e0; padding:3px 8px; border-radius:10px; border:1px solid #ffcc80;">📵 オフライン</span>
-      <span id="sync-indicator"   style="display:none; font-size:12px; color:#2e7d32; background:#e8f5e9; padding:3px 8px; border-radius:10px; border:1px solid #a5d6a7;">✅ 同期完了</span>
+      <button class="btn-topbar-record">✏️ 自由記録</button>
+      <button class="btn-topbar-exam">📝 考査管理</button>
+      <span id="offline-indicator" class="status-offline hidden">📵 オフライン</span>
+      <span id="sync-indicator"   class="status-sync hidden">✅ 同期完了</span>
     </div>
   </div>
   <div id="memo-area">
@@ -791,13 +762,13 @@ async function loadMonthly(){
         
         const blocks = await getBlocksForMonthlyDay(dayKey);
         if (blocks.length > 0) {
-          blockPreview.innerHTML = blocks.slice(0, 3).map(b => 
-            `<span style="display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">
-              <span style="color:#4a90e2;font-weight:bold;">${b.timeStr}</span> ${b.title}
+          blockPreview.innerHTML = blocks.slice(0, 3).map(b =>
+            `<span class="js-block-preview-item">
+              <span class="js-block-time">${b.timeStr}</span> ${b.title}
             </span>`
           ).join('');
           if (blocks.length > 3) {
-            blockPreview.innerHTML += `<span style="color:#999;">他${blocks.length-3}件</span>`;
+            blockPreview.innerHTML += `<span class="js-block-more">他${blocks.length-3}件</span>`;
           }
           cell.appendChild(blockPreview);
         }
@@ -963,12 +934,12 @@ async function saveFileMeta(meta) {
 async function loadFileList() {
   const grid = document.getElementById('file-grid');
   if (!grid) return;
-  grid.innerHTML = '<div style="color:#bbb;font-size:12px;padding:8px 0;">読み込み中...</div>';
+  grid.innerHTML = '<div class="js-loading-msg">読み込み中...</div>';
   try {
     const doc = await db.collection('monthly_files').doc(_fileMonthDocId).get();
     const files = doc.exists ? (doc.data()[_fileDayKey] || []) : [];
     if (!files.length) {
-      grid.innerHTML = '<div style="color:#bbb;font-size:12px;padding:8px 0;grid-column:1/-1;">まだファイルがありません</div>';
+      grid.innerHTML = '<div class="js-loading-msg" style="grid-column:1/-1;">まだファイルがありません</div>';
       return;
     }
     grid.innerHTML = '';
@@ -993,7 +964,7 @@ async function loadFileList() {
     });
   } catch(e) {
     console.error(e);
-    grid.innerHTML = '<div style="color:#e88;font-size:12px;padding:8px 0;grid-column:1/-1;">読み込みに失敗しました</div>';
+    grid.innerHTML = '<div class="js-error-msg">読み込みに失敗しました</div>';
   }
 }
 
@@ -1014,7 +985,7 @@ function openFileViewer(f) {
   document.getElementById('file-viewer-name').textContent = f.name;
   if (f.type === 'application/pdf') {
     content.innerHTML = `<div style="text-align:center;"><div style="font-size:64px;margin-bottom:16px;">📄</div>
-      <a href="${f.url}" target="_blank" style="display:inline-block;padding:12px 28px;background:#4a90e2;color:white;border-radius:8px;text-decoration:none;font-weight:bold;font-size:14px;">PDFを開く（新しいタブ）</a></div>`;
+      <a href="${f.url}" target="_blank" class="btn-save-lg" style="text-decoration:none;">PDFを開く（新しいタブ）</a></div>`;
   } else {
     content.innerHTML = `<img src="${f.url}" style="max-width:92vw;max-height:80vh;border-radius:8px;object-fit:contain;">`;
   }
@@ -1053,19 +1024,19 @@ async function attachFileBadges() {
   
   function renderMatManageList() {
   const el=document.getElementById("mat-manage-list"); el.innerHTML="";
-  if (!materials.length){ el.innerHTML='<div style="color:#aaa;font-size:13px;padding:8px;">教材が登録されていません</div>'; return; }
+  if (!materials.length){ el.innerHTML='<div class="js-empty-msg">教材が登録されていません</div>'; return; }
   materials.forEach((mat,idx)=>{
     const row=document.createElement("div");
-    row.style.cssText="display:flex;align-items:center;gap:8px;padding:8px 10px;border-radius:8px;border:1px solid #eee;margin-bottom:6px;background:#fafafa;";
+    row.className = "mat-list-item";
     const dot=document.createElement("div"); dot.className="mat-color-dot"; dot.style.background=mat.color;
-    const info=document.createElement("div"); info.style.cssText="flex:1;font-size:13px;"; info.innerHTML=`<b>${mat.name}</b>${mat.category?` <span style="color:#999;font-size:11px;">${mat.category}</span>`:""}`;
+    const info=document.createElement("div"); info.className="js-mat-info"; info.innerHTML=`<b>${mat.name}</b>${mat.category?` <span class="js-mat-category">${mat.category}</span>`:""}`;
 
     // ── 進捗ボタン（追加） ──
     const prog=document.createElement("button"); prog.innerText="📊"; prog.title="進捗管理";
-    prog.style.cssText="font-size:14px;border:1px solid #a5d6a7;border-radius:4px;padding:3px 8px;cursor:pointer;background:#e8f5e9;";
+    prog.className = "btn-exam-progress";
     prog.onclick=()=>{ closeMatManage(); openProgressModal(mat); };
 
-    const del=document.createElement("button"); del.innerText="削除"; del.style.cssText="font-size:11px;color:#c44;border:1px solid #e88;border-radius:4px;padding:3px 8px;cursor:pointer;background:#fff;";
+    const del=document.createElement("button"); del.innerText="削除"; del.className="btn-delete-sm";
     del.onclick=async()=>{ if(!confirm(`「${mat.name}」を削除しますか？`))return; materials.splice(idx,1); await saveMaterials(); renderMatManageList(); };
     row.appendChild(dot); row.appendChild(info); row.appendChild(prog); row.appendChild(del); el.appendChild(row);
   });
@@ -1257,7 +1228,7 @@ function renderProgQuestions() {
 
   if (!progData.chapters.length) {
     headerEl.classList.add("hidden");
-    el.innerHTML = '<div style="color:#aaa;font-size:13px;padding:12px 0;text-align:center;">「＋ 章を追加」から章を作成してください</div>';
+    el.innerHTML = '<div class="js-empty-msg-center">「＋ 章を追加」から章を作成してください</div>';
     updateProgBar(null);
     return;
   }
@@ -1277,7 +1248,7 @@ function renderProgQuestions() {
   const marks = round.marks || [];
 
   if (!marks.length) {
-    el.innerHTML = '<div style="color:#aaa;font-size:13px;padding:12px 0;text-align:center;">問題数を入力して「適用」を押してください</div>';
+    el.innerHTML = '<div class="js-empty-msg-center">問題数を入力して「適用」を押してください</div>';
     updateProgBar(round);
     return;
   }
@@ -1299,7 +1270,7 @@ function renderProgQuestions() {
       const row = document.createElement("div");
       row.className = "q-row";
       row.style.borderBottom = "none";
-      row.innerHTML = `<span style="color:#aaa;min-width:36px;font-size:12px;">${i+1}問</span>`;
+      row.innerHTML = `<span class="js-mat-category" style="min-width:36px;">${i+1}問</span>`;
 
       const states  = [null,   "o",      "t",        "x"    ];
       const labels  = ["－",   "◯",      "△",        "✕"    ];
@@ -1516,14 +1487,17 @@ function renderExamList() {
       }
       const subs = exam.submissions||[];
       const done = subs.filter(s=>s.done).length;
-      const subInfo = subs.length ? `<span style="font-size:11px;color:#999;"> ${done}/${subs.length}提出済</span>` : "";
+      const subInfo = subs.length ? `<span class="form-label" style="color:#999;display:inline;"> ${done}/${subs.length}提出済</span>` : "";
       div.innerHTML = `
         <span class="exam-item-name">${exam.name}${subInfo}</span>
         <span class="exam-item-date">${exam.date||""}</span>
         ${badge}
-        <button onclick="deleteExam(${i},event)" style="font-size:11px;color:#c44;border:1px solid #e88;border-radius:4px;padding:2px 6px;cursor:pointer;background:#fff;flex-shrink:0;">削除</button>
+        <button class="btn-delete-sm js-delete-exam" data-index="${i}">削除</button>
       `;
-      div.onclick = (e) => { if(e.target.tagName==="BUTTON") return; selectedExamIdx=i; goExamStep(2); };
+      div.onclick = (e) => {
+        if (e.target.classList.contains("js-delete-exam")) { deleteExam(parseInt(e.target.dataset.index), e); return; }
+        selectedExamIdx=i; goExamStep(2);
+      };
       el.appendChild(div);
     });
 }
@@ -1580,12 +1554,19 @@ function renderSubmissionList() {
       <span class="sub-item-name" style="font-weight:${sub.done?"normal":"bold"};color:${sub.done?"#aaa":"#333"};text-decoration:${sub.done?"line-through":"none"};">${sub.name}</span>
       ${dlBadge}
       <div style="display:flex;gap:4px;margin-left:auto;">
-        ${sub.hasProg?`<button onclick="openSubProgress(${si})" style="font-size:11px;background:#e8f5e9;border:1px solid #a5d6a7;border-radius:4px;padding:2px 7px;cursor:pointer;">📊 進捗</button>`:""}
-        <button onclick="startReviewMode(${selectedExamIdx},${si})" style="font-size:11px;background:#f3e5f5;color:#6a1b9a;border:1px solid #ce93d8;border-radius:4px;padding:2px 7px;cursor:pointer;">📅 復習へ</button>
-        <button onclick="deleteSubmission(${si},event)" style="font-size:11px;color:#c44;border:1px solid #e88;border-radius:4px;padding:2px 6px;cursor:pointer;background:#fff;">削除</button>
+        ${sub.hasProg?`<button class="btn-exam-progress js-open-sub-prog" data-si="${si}">📊 進捗</button>`:""}
+        <button class="btn-exam-review js-start-review" data-exam="${selectedExamIdx}" data-si="${si}">📅 復習へ</button>
+        <button class="btn-delete-sm js-delete-sub" data-si="${si}">削除</button>
       </div>
     `;
     div.prepend(checkBtn);
+    // data属性経由でイベント委譲
+    div.addEventListener("click", e => {
+      const t = e.target;
+      if (t.classList.contains("js-open-sub-prog"))  { openSubProgress(parseInt(t.dataset.si)); return; }
+      if (t.classList.contains("js-start-review"))   { startReviewMode(parseInt(t.dataset.exam), parseInt(t.dataset.si)); return; }
+      if (t.classList.contains("js-delete-sub"))     { deleteSubmission(parseInt(t.dataset.si), e); return; }
+    });
     el.appendChild(div);
   });
 }
@@ -1628,23 +1609,27 @@ function renderSubDetail() {
   el.innerHTML = `
     <div style="background:#f3e5f5;border-radius:8px;padding:10px 12px;margin-bottom:12px;">
       <div style="font-size:13px;font-weight:bold;color:#6a1b9a;">${sub.subject||""} ${sub.name}</div>
-      <div style="font-size:12px;color:#888;margin-top:2px;">締切：${sub.deadline||"未設定"} 　提出：${sub.done?"✅ 済み":"⬜ 未提出"}</div>
+      <div class="form-label" style="color:#888;margin-top:2px;">締切：${sub.deadline||"未設定"} 　提出：${sub.done?"✅ 済み":"⬜ 未提出"}</div>
     </div>
-    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px;">
-      <button onclick="toggleSubDone()"
+    <div class="flex gap-8 flex-wrap" style="margin-bottom:12px;">
+      <button class="js-toggle-sub-done"
         style="padding:7px 16px;border-radius:8px;font-size:13px;cursor:pointer;font-weight:bold;
                background:${sub.done?"#ffebee":"#e8f5e9"};color:${sub.done?"#c62828":"#2e7d32"};
                border:1.5px solid ${sub.done?"#ef9a9a":"#a5d6a7"};">
         ${sub.done?"⬜ 未提出に戻す":"✅ 提出済みにする"}
       </button>
-      <button onclick="startReviewMode(${selectedExamIdx},${selectedSubIdx})"
-        style="padding:7px 16px;border-radius:8px;font-size:13px;cursor:pointer;font-weight:bold;
-               background:#f3e5f5;color:#6a1b9a;border:1.5px solid #ce93d8;">
+      <button class="btn-exam-review js-start-review" data-exam="${selectedExamIdx}" data-si="${selectedSubIdx}">
         📅 復習へ（セル予約）
       </button>
     </div>
-    ${sub.hasProg?`<button onclick="openSubProgModal()" style="padding:6px 16px;background:#4a90e2;color:#fff;border:none;border-radius:8px;cursor:pointer;font-size:13px;">📊 進捗を開く</button>`:'<div style="color:#aaa;font-size:12px;">進捗管理なし</div>'}
+    ${sub.hasProg?`<button class="btn-save js-open-sub-prog-modal">📊 進捗を開く</button>`:'<div class="form-label" style="color:#aaa;">進捗管理なし</div>'}
   `;
+  // イベント委譲
+  el.addEventListener("click", e => {
+    if (e.target.classList.contains("js-toggle-sub-done"))   { toggleSubDone(); return; }
+    if (e.target.classList.contains("js-start-review"))      { startReviewMode(parseInt(e.target.dataset.exam), parseInt(e.target.dataset.si)); return; }
+    if (e.target.classList.contains("js-open-sub-prog-modal")){ openSubProgModal(); return; }
+  });
 }
 
 async function toggleSubDone() {
@@ -1774,16 +1759,16 @@ function openMatManage(){  renderMatManageList(); document.getElementById("mat-m
 function closeMatManage(){ document.getElementById("mat-manage-overlay").classList.add("hidden"); }
 function renderMatManageList() {
   const el=document.getElementById("mat-manage-list"); el.innerHTML="";
-  if (!materials.length){ el.innerHTML='<div style="color:#aaa;font-size:13px;padding:8px;">教材が登録されていません</div>'; return; }
+  if (!materials.length){ el.innerHTML='<div class="js-empty-msg">教材が登録されていません</div>'; return; }
   materials.forEach((mat,idx)=>{
     const row=document.createElement("div");
-    row.style.cssText="display:flex;align-items:center;gap:8px;padding:8px 10px;border-radius:8px;border:1px solid #eee;margin-bottom:6px;background:#fafafa;";
+    row.className = "mat-list-item";
     const dot=document.createElement("div"); dot.className="mat-color-dot"; dot.style.background=mat.color;
-    const info=document.createElement("div"); info.style.cssText="flex:1;font-size:13px;"; info.innerHTML=`<b>${mat.name}</b>${mat.category?` <span style="color:#999;font-size:11px;">${mat.category}</span>`:""}`;
-   const del=document.createElement("button"); del.innerText="削除"; del.style.cssText="font-size:11px;color:#c44;border:1px solid #e88;border-radius:4px;padding:3px 8px;cursor:pointer;background:#fff;";
+    const info=document.createElement("div"); info.className="js-mat-info"; info.innerHTML=`<b>${mat.name}</b>${mat.category?` <span class="js-mat-category">${mat.category}</span>`:""}`;
+   const del=document.createElement("button"); del.innerText="削除"; del.className="btn-delete-sm";
     del.onclick=async()=>{ if(!confirm(`「${mat.name}」を削除しますか？`))return; materials.splice(idx,1); await saveMaterials(); renderMatManageList(); };
     const prog=document.createElement("button"); prog.innerText="📊"; prog.title="進捗管理";
-    prog.style.cssText="font-size:14px;border:1px solid #a5d6a7;border-radius:4px;padding:3px 8px;cursor:pointer;background:#e8f5e9;";
+    prog.className = "btn-exam-progress";
     prog.onclick=()=>{ closeMatManage(); openProgressModal(mat); };
     row.appendChild(dot); row.appendChild(info); row.appendChild(prog); row.appendChild(del); el.appendChild(row);
   });
@@ -3118,7 +3103,7 @@ function openAiReviewFromBlock(key, colIndex, startMin, endMin, cellRecord) {
 // ── 復習バッジHTML（ブロック内に表示） ──
 function buildReviewBadgeHTML(cellRecord) {
   if (!cellRecord?.reviewId) return '';
-  return `<span style="font-size:9px; background:#e1bee7; color:#6a1b9a; border-radius:3px; padding:1px 4px; display:inline-block; margin-top:2px;">🔁 ${cellRecord.reviewName || '復習予約'}</span>`;
+  return `<span class="js-review-badge">🔁 ${cellRecord.reviewName || '復習予約'}</span>`;
 }
 
 // 新グリッド用: セル編集モーダル（簡易版、Phase5で拡張予定）
@@ -3290,13 +3275,11 @@ function renderBlockTimeEditor() {
   if (!container) return;
   const blocks = getBlockTimes();
   container.innerHTML = blocks.map(b => `
-    <div style="display:flex; align-items:center; gap:6px; padding:6px 8px; background:#f8f9ff; border-radius:8px; font-size:12px;">
-      <span style="width:58px; font-weight:bold; color:#444;">${b.label}</span>
-      <input type="time" id="bt-start-${b.id}" value="${minToTimeStr(b.startMin)}"
-        style="padding:4px 6px; border:1px solid #ccc; border-radius:6px; font-size:12px; width:90px;">
-      <span style="color:#888;">〜</span>
-      <input type="time" id="bt-end-${b.id}" value="${minToTimeStr(b.endMin)}"
-        style="padding:4px 6px; border:1px solid #ccc; border-radius:6px; font-size:12px; width:90px;">
+    <div class="js-block-time-row">
+      <span class="js-block-time-label">${b.label}</span>
+      <input type="time" id="bt-start-${b.id}" value="${minToTimeStr(b.startMin)}" class="input-sm" style="width:90px;">
+      <span class="js-block-time-sep">〜</span>
+      <input type="time" id="bt-end-${b.id}" value="${minToTimeStr(b.endMin)}" class="input-sm" style="width:90px;">
     </div>
   `).join('');
 }
@@ -3577,7 +3560,7 @@ if ("serviceWorker" in navigator){
 <div id="pomo5-reserve-overlay">
   <div class="pomo5-box">
     <h3>🍅 ポモドーロ予約</h3>
-    <label style="font-size:12px;color:#888;margin-bottom:4px;display:block;">勉強内容（必須）</label>
+    <label class="form-label" style="color:#888;">勉強内容（必須）</label>
     <input type="text" id="pomo5-reserve-content" placeholder="例：数学演習 p.30〜40">
     <div class="pomo5-btn-row">
       <button class="pomo5-btn pomo5-btn-cancel">キャンセル</button>
@@ -3589,9 +3572,9 @@ if ("serviceWorker" in navigator){
 <!-- ══ Phase 5: 完了確認モーダル ══ -->
 <div id="pomo5-done-overlay">
   <div class="pomo5-box">
-    <h3>✅ 完了済み <span id="pomo5-done-manual-mark" style="display:none;font-size:13px;">✏️後入力</span></h3>
+    <h3>✅ 完了済み <span id="pomo5-done-manual-mark" class="hidden" style="font-size:13px;">✏️後入力</span></h3>
     <div style="font-size:13px;margin-bottom:6px;">📖 <b id="pomo5-done-content"></b></div>
-    <div style="font-size:12px;color:#888;margin-bottom:14px;">🕐 <span id="pomo5-done-time"></span></div>
+    <div class="form-label" style="color:#888;margin-bottom:14px;">🕐 <span id="pomo5-done-time"></span></div>
     <div class="pomo5-btn-row">
       <button class="pomo5-btn pomo5-btn-cancel">閉じる</button>
       <button class="pomo5-btn pomo5-btn-edit">✏️ 編集</button>
@@ -3603,11 +3586,11 @@ if ("serviceWorker" in navigator){
 <div id="pomo5-manual-overlay">
   <div class="pomo5-box">
     <h3>✏️ 後から記録する</h3>
-    <label style="font-size:12px;color:#888;margin-bottom:4px;display:block;">勉強内容（必須）</label>
+    <label class="form-label" style="color:#888;">勉強内容（必須）</label>
     <input type="text" id="pomo5-manual-content" placeholder="例：数学演習 p.30〜40">
-    <label style="font-size:12px;color:#888;margin-bottom:4px;display:block;">実施時刻</label>
+    <label class="form-label" style="color:#888;">実施時刻</label>
     <input type="time" id="pomo5-manual-time">
-    <label style="font-size:12px;color:#888;margin-bottom:4px;display:block;">メモ（任意）</label>
+    <label class="form-label" style="color:#888;">メモ（任意）</label>
     <textarea id="pomo5-manual-memo" placeholder="気づきや反省点など"></textarea>
     <div class="pomo5-btn-row">
       <button class="pomo5-btn pomo5-btn-cancel">キャンセル</button>
@@ -3616,7 +3599,7 @@ if ("serviceWorker" in navigator){
   </div>
 </div>
 
- <div id="review-toast" class="hidden">📚 セルをタップして復習を予約してください　<button style="margin-left:10px; background:rgba(255,255,255,0.25); border:none; color:#fff; border-radius:10px; padding:2px 8px; cursor:pointer; font-size:12px;">キャンセル</button></div>   
+<div id="review-toast" class="hidden">📚 セルをタップして復習を予約してください　<button class="btn-toast-cancel">キャンセル</button></div>
 
 <script src="nav.js"></script>
 <script src="guide.js"></script>  ← これを追加
