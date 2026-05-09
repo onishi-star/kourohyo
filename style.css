@@ -584,3 +584,568 @@ body {
   color: #888;
 }
 .step-header span { font-weight: bold; color: #6a1b9a; }
+
+
+/* ════════════════════════════════════════
+   インラインスタイル削減クラス群
+   ════════════════════════════════════════ */
+
+/* ── ボタン共通 ── */
+/* 閉じるボタン（モーダル共通） */
+.btn-close {
+  padding: 8px 24px;
+  border: 1px solid #ccc;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 13px;
+  background: #fff;
+}
+.btn-close-lg {
+  padding: 8px 20px;
+  border: 1px solid #ccc;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 13px;
+  background: #fff;
+}
+
+/* 保存ボタン（青） */
+.btn-save {
+  padding: 8px 20px;
+  background: #4a90e2;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: bold;
+}
+.btn-save-lg {
+  padding: 8px 24px;
+  background: #4a90e2;
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: bold;
+  cursor: pointer;
+}
+
+/* 保存ボタン（緑） */
+.btn-save-green {
+  padding: 8px 22px;
+  background: #43a047;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: bold;
+}
+
+/* 削除ボタン（赤枠） */
+.btn-delete {
+  padding: 7px 14px;
+  border: 1px solid #e88;
+  color: #c44;
+  border-radius: 6px;
+  cursor: pointer;
+  background: #fff;
+  font-size: 13px;
+}
+.btn-delete-sm {
+  font-size: 11px;
+  color: #c44;
+  border: 1px solid #e88;
+  border-radius: 4px;
+  padding: 2px 6px;
+  cursor: pointer;
+  background: #fff;
+  flex-shrink: 0;
+}
+
+/* 追加ボタン（小・青） */
+.btn-add-sm {
+  padding: 5px 12px;
+  background: #4a90e2;
+  color: #fff;
+  border: none;
+  border-radius: 6px;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+/* 追加ボタン（小・紫） */
+.btn-add-purple {
+  padding: 6px 14px;
+  background: #9c27b0;
+  color: #fff;
+  border: none;
+  border-radius: 6px;
+  font-size: 13px;
+  cursor: pointer;
+  font-weight: bold;
+}
+.btn-add-purple-sm {
+  padding: 5px 12px;
+  background: #7b1fa2;
+  color: #fff;
+  border: none;
+  border-radius: 6px;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+/* テキストボタン（背景なし・戻るなど） */
+.btn-text-back {
+  font-size: 12px;
+  color: #888;
+  background: none;
+  border: none;
+  cursor: pointer;
+  margin-bottom: 10px;
+  padding: 0;
+}
+
+/* ✕ 閉じるボタン（モーダル右上） */
+.btn-icon-close {
+  border: none;
+  background: none;
+  font-size: 20px;
+  cursor: pointer;
+  color: #999;
+}
+
+/* ログインボタン */
+.btn-login {
+  padding: 10px 40px;
+  background-color: #4a90e2;
+  color: white;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 15px;
+  font-weight: bold;
+}
+
+/* プリセットボタン（曜日別） */
+.btn-preset-blue {
+  padding: 12px 16px;
+  border-radius: 8px;
+  border: none;
+  background: linear-gradient(135deg, #4a90e2, #357abd);
+  color: white;
+  font-size: 14px;
+  font-weight: bold;
+  cursor: pointer;
+  text-align: left;
+  width: 100%;
+}
+.btn-preset-purple {
+  padding: 12px 16px;
+  border-radius: 8px;
+  border: none;
+  background: linear-gradient(135deg, #9c27b0, #7b1fa2);
+  color: white;
+  font-size: 14px;
+  font-weight: bold;
+  cursor: pointer;
+  text-align: left;
+  width: 100%;
+}
+.btn-preset-green {
+  padding: 12px 16px;
+  border-radius: 8px;
+  border: none;
+  background: linear-gradient(135deg, #43a047, #2e7d32);
+  color: white;
+  font-size: 14px;
+  font-weight: bold;
+  cursor: pointer;
+  text-align: left;
+  width: 100%;
+}
+.btn-preset-all {
+  padding: 12px 16px;
+  border-radius: 8px;
+  border: 2px solid #ff9800;
+  background: #fff8e1;
+  color: #e65100;
+  font-size: 14px;
+  font-weight: bold;
+  cursor: pointer;
+  text-align: center;
+  margin-top: 4px;
+  width: 100%;
+}
+.btn-preset-label {
+  font-size: 12px;
+  font-weight: normal;
+  opacity: 0.85;
+}
+
+/* ヘッダーバーのアクションボタン群 */
+.btn-topbar {
+  border-radius: 6px;
+  padding: 4px 10px;
+  cursor: pointer;
+  font-size: 13px;
+  border: none;
+}
+.btn-topbar-material {
+  background: #fff8e1;
+  border: 1px solid #ffd54f;
+  border-radius: 6px;
+  padding: 4px 10px;
+  cursor: pointer;
+  font-size: 13px;
+}
+.btn-topbar-record {
+  background: #e8f5e9;
+  color: #2e7d32;
+  border: 1px solid #a5d6a7;
+  border-radius: 6px;
+  padding: 4px 10px;
+  cursor: pointer;
+  font-size: 13px;
+}
+.btn-topbar-exam {
+  background: #f3e5f5;
+  color: #6a1b9a;
+  border: 1px solid #ce93d8;
+  border-radius: 6px;
+  padding: 4px 10px;
+  cursor: pointer;
+  font-size: 13px;
+}
+.btn-topbar-logout {
+  background: #f44336;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  padding: 4px 10px;
+  cursor: pointer;
+  font-size: 13px;
+}
+
+/* 考査管理内 小ボタン */
+.btn-exam-progress {
+  font-size: 11px;
+  background: #e8f5e9;
+  border: 1px solid #a5d6a7;
+  border-radius: 4px;
+  padding: 2px 7px;
+  cursor: pointer;
+}
+.btn-exam-review {
+  font-size: 11px;
+  background: #f3e5f5;
+  color: #6a1b9a;
+  border: 1px solid #ce93d8;
+  border-radius: 4px;
+  padding: 2px 7px;
+  cursor: pointer;
+}
+
+/* 進捗管理内ボタン */
+.btn-round-add {
+  margin-top: 8px;
+  padding: 5px 14px;
+  border: 1.5px dashed #4a90e2;
+  border-radius: 20px;
+  color: #4a90e2;
+  background: #fff;
+  font-size: 12px;
+  cursor: pointer;
+  font-weight: bold;
+}
+.btn-chapter-add {
+  padding: 4px 12px;
+  border: 1.5px dashed #9c27b0;
+  border-radius: 20px;
+  color: #9c27b0;
+  background: #fdf3ff;
+  font-size: 12px;
+  cursor: pointer;
+  font-weight: bold;
+}
+.btn-apply-sm {
+  padding: 4px 12px;
+  background: #9c27b0;
+  color: #fff;
+  border: none;
+  border-radius: 6px;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+/* トーストキャンセルボタン */
+.btn-toast-cancel {
+  margin-left: 10px;
+  background: rgba(255,255,255,0.25);
+  border: none;
+  color: #fff;
+  border-radius: 10px;
+  padding: 2px 8px;
+  cursor: pointer;
+  font-size: 12px;
+}
+
+/* ── ラベル共通 ── */
+.form-label {
+  font-size: 12px;
+  color: #777;
+  display: block;
+  margin-bottom: 4px;
+}
+.form-label-gap6 {
+  font-size: 12px;
+  color: #777;
+  display: block;
+  margin-bottom: 6px;
+}
+.form-label-inline {
+  font-size: 12px;
+  color: #555;
+  white-space: nowrap;
+}
+.form-label-inline-flex {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 12px;
+  color: #555;
+}
+.form-label-color {
+  font-size: 12px;
+  margin-left: 6px;
+}
+.form-required {
+  color: #e44;
+}
+
+/* ── 見出し共通 ── */
+.modal-title {
+  margin-bottom: 16px;
+  font-size: 16px;
+}
+.modal-title-sm {
+  font-size: 15px;
+  margin: 0 0 14px;
+}
+.modal-title-none {
+  font-size: 15px;
+  margin: 0;
+}
+.section-title {
+  margin-bottom: 12px;
+  font-size: 14px;
+}
+.section-title-sm {
+  margin-bottom: 8px;
+  font-size: 14px;
+}
+.section-title-xs {
+  margin-bottom: 10px;
+  font-size: 14px;
+}
+
+/* ── 入力欄共通 ── */
+.input-full {
+  width: 100%;
+  padding: 7px 10px;
+  border: 1px solid #ccc;
+  border-radius: 7px;
+  font-size: 13px;
+  box-sizing: border-box;
+}
+.input-full-lg {
+  width: 100%;
+  padding: 8px 10px;
+  border: 1px solid #ccc;
+  border-radius: 8px;
+  font-size: 14px;
+  box-sizing: border-box;
+}
+.input-sm {
+  padding: 4px 8px;
+  border: 1px solid #ccc;
+  border-radius: 6px;
+  font-size: 12px;
+}
+.input-color-picker {
+  width: 38px;
+  height: 28px;
+  border: none;
+  cursor: pointer;
+}
+.select-time {
+  flex: 1;
+  padding: 7px 8px;
+  border: 1px solid #ccc;
+  border-radius: 8px;
+  font-size: 14px;
+  font-family: inherit;
+}
+
+/* ── レイアウト補助 ── */
+.row-between {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 14px;
+}
+.row-end {
+  display: flex;
+  gap: 8px;
+  margin-top: 16px;
+  justify-content: flex-end;
+}
+.row-end-wrap {
+  display: flex;
+  gap: 8px;
+  margin-top: 18px;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+}
+.mb-12 { margin-bottom: 12px; }
+.mb-14 { margin-bottom: 14px; }
+
+/* ── テーブルヘッダー（時間割） ── */
+.timetable-th {
+  padding: 4px 6px;
+  background: #f0f4ff;
+  border: 1px solid #d0d8e8;
+}
+
+/* ── ログイン画面 ── */
+.auth-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100vh;
+  gap: 15px;
+  font-family: sans-serif;
+}
+.auth-icon   { font-size: 48px; margin-bottom: 4px; }
+.auth-title  { color: #333; margin-bottom: 4px; }
+.auth-hint   { color: #999; font-size: 13px; margin: 0 0 8px; }
+.auth-input  {
+  padding: 10px;
+  border: 1px solid #ccc;
+  border-radius: 8px;
+  width: 250px;
+  font-size: 14px;
+  text-align: center;
+  letter-spacing: 2px;
+}
+.auth-error  { color: red; display: none; margin: 5px 0; font-size: 13px; }
+
+/* ── ステータス表示（オフライン・同期） ── */
+.status-offline {
+  font-size: 12px;
+  color: #e65100;
+  background: #fff3e0;
+  padding: 3px 8px;
+  border-radius: 10px;
+  border: 1px solid #ffcc80;
+}
+.status-sync {
+  font-size: 12px;
+  color: #2e7d32;
+  background: #e8f5e9;
+  padding: 3px 8px;
+  border-radius: 10px;
+  border: 1px solid #a5d6a7;
+}
+
+/* ── モーダル内フォームブロック ── */
+.form-block { margin-bottom: 12px; }
+
+/* ── JS生成要素の静的スタイル ── */
+.js-empty-msg {
+  color: #aaa;
+  font-size: 13px;
+  padding: 8px;
+}
+.js-empty-msg-center {
+  color: #aaa;
+  font-size: 13px;
+  padding: 12px 0;
+  text-align: center;
+}
+.js-empty-msg-sm {
+  color: #aaa;
+  font-size: 12px;
+  padding: 6px 0;
+}
+.js-loading-msg {
+  color: #bbb;
+  font-size: 12px;
+  padding: 8px 0;
+}
+.js-error-msg {
+  color: #e88;
+  font-size: 12px;
+  padding: 8px 0;
+  grid-column: 1/-1;
+}
+.js-mat-info {
+  flex: 1;
+  font-size: 13px;
+}
+.js-mat-category {
+  color: #999;
+  font-size: 11px;
+}
+.js-block-preview-item {
+  display: block;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.js-block-time {
+  color: #4a90e2;
+  font-weight: bold;
+}
+.js-block-more {
+  color: #999;
+}
+.js-review-badge {
+  font-size: 9px;
+  background: #e1bee7;
+  color: #6a1b9a;
+  border-radius: 3px;
+  padding: 1px 4px;
+  display: inline-block;
+  margin-top: 2px;
+}
+.js-sub-detail-box {
+  background: #f3e5f5;
+  border-radius: 8px;
+  padding: 10px 12px;
+  margin-bottom: 12px;
+}
+.js-sub-detail-title {
+  font-size: 13px;
+  font-weight: bold;
+  color: #6a1b9a;
+}
+.js-block-time-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 8px;
+  background: #f8f9ff;
+  border-radius: 8px;
+  font-size: 12px;
+}
+.js-block-time-label {
+  width: 58px;
+  font-weight: bold;
+  color: #444;
+}
+.js-block-time-sep {
+  color: #888;
+}
