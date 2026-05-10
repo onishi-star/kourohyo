@@ -3372,9 +3372,9 @@ function buildPomoBoxesHTML(pomoCells, blockId) {
     return `<span class="pomo-box ${statusClass}"
       data-block-id="${blockId}"
       data-box-index="${i}"
+      data-pomo-click="1"
+      data-pomo-context="1"
       title="${box.content || '未予約'}"
-      onclick="event.stopPropagation(); openPomoBoxAction('${blockId}', ${i})"
-      oncontextmenu="event.preventDefault(); event.stopPropagation(); openPomoManualInput('${blockId}', ${i})"
     >🍅${manualMark}</span>`;
   }).join('');
 }
@@ -3692,6 +3692,23 @@ document.addEventListener('click', function(e) {
 
   // ── 復習トースト ──
   if (t.matches('.btn-toast-cancel')) { cancelReviewMode(); return; }
+
+  // ── ポモドーロボックス（クリック） ──
+  if (t.closest('[data-pomo-click]')) {
+    const box = t.closest('[data-pomo-click]');
+    e.stopPropagation();
+    openPomoBoxAction(box.dataset.blockId, parseInt(box.dataset.boxIndex));
+    return;
+  }
+});
+
+// ── ポモドーロボックス（右クリック／長押し） ──
+document.addEventListener('contextmenu', function(e) {
+  const box = e.target.closest('[data-pomo-context]');
+  if (!box) return;
+  e.preventDefault();
+  e.stopPropagation();
+  openPomoManualInput(box.dataset.blockId, parseInt(box.dataset.boxIndex));
 });
 
 // ── 新材料フォームの表示切り替え（セル編集モーダル内）──
