@@ -2643,8 +2643,11 @@ function showApp() {
   document.getElementById('app-content').style.display = 'block';
   _initNav();
   loadMaterials().then(() => {
-    document.getElementById('weekly-view-new').style.display = 'block';
-    loadWeekNew().then(() => renderNewGrid());
+    const newGrid = document.getElementById('weekly-view-new');
+    if (newGrid) {
+      newGrid.style.display = 'block';
+      loadWeekNew().then(() => renderNewGrid());
+    }
   });
   loadExams().then(() => refreshDeadlinePanel());
 }
