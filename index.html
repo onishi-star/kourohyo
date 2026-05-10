@@ -3564,6 +3564,9 @@ if ("serviceWorker" in navigator){
 document.addEventListener('click', function(e) {
   const t = e.target;
 
+  // ログイン画面のクリックはデリゲーションで処理しない
+  if (t.closest('#auth-container')) return;
+
   // ── トップバー ──
   if (t.matches('#btn-weekly'))          { switchView('weekly'); return; }
   if (t.matches('#btn-monthly'))         { switchView('monthly'); return; }
