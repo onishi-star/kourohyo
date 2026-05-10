@@ -67,22 +67,22 @@
       <h3 class="section-title-xs">📅 曜日別ワンタッチ設定</h3>
       <div class="form-label-gap6">ボタンを押すとその曜日の新グリッドにブロックを一括生成します</div>
       <div style="display:flex; flex-direction:column; gap:8px; margin-bottom:16px;">
-        <button class="btn-preset-blue">
+        <button class="btn-preset-blue" id="btn-preset-mon">
           月曜日　<span class="btn-preset-label">7限・演劇部</span>
         </button>
-        <button class="btn-preset-purple">
+        <button class="btn-preset-purple" id="btn-preset-tue">
           火曜日　<span class="btn-preset-label">7限・執行部</span>
         </button>
-        <button class="btn-preset-green">
+        <button class="btn-preset-green" id="btn-preset-wed">
           水曜日　<span class="btn-preset-label">6限・演劇部</span>
         </button>
-        <button class="btn-preset-green">
+        <button class="btn-preset-green" id="btn-preset-thu">
           木曜日　<span class="btn-preset-label">6限・演劇部</span>
         </button>
-        <button class="btn-preset-blue">
+        <button class="btn-preset-blue" id="btn-preset-fri">
           金曜日　<span class="btn-preset-label">7限・演劇部</span>
         </button>
-        <button class="btn-preset-all">
+        <button class="btn-preset-all" id="btn-preset-all">
           🗓 月〜金まとめて設定
         </button>
       </div>
@@ -91,7 +91,7 @@
       <h3 class="section-title-sm">⏱ ブロック時間のカスタム設定</h3>
       <div class="form-label" style="margin-bottom:10px;">各ブロックの開始・終了時刻を変更できます</div>
       <div id="block-time-editor" style="display:flex; flex-direction:column; gap:6px; margin-bottom:10px;"></div>
-      <button class="btn-save" style="margin-bottom:16px;">💾 時間設定を保存</button>
+      <button class="btn-save" style="margin-bottom:16px;" id="btn-save-block-time">💾 時間設定を保存</button>
 
       <!-- 時間割テーブル -->
       <h3 class="section-title-sm">📚 授業名プリセット</h3>
@@ -111,7 +111,7 @@
           <tbody id="timetable-edit-body"></tbody>
         </table>
       </div>
-      <button class="btn-save" style="margin-top:10px;">💾 授業名を保存</button>
+      <button class="btn-save" style="margin-top:10px;" id="btn-save-timetable">💾 授業名を保存</button>
     </div>
 
     <button class="btn-close">閉じる</button>
@@ -879,7 +879,7 @@ function switchDayTab(tab) {
   const box = document.querySelector('#day-modal-overlay .modal-box');
   const memoEl2  = box.querySelector('textarea#day-modal-memo');
   const checkRow = box.querySelector('div:has(#day-modal-check)');
-  const btnRow   = box.querySelector('div:has(button[onclick="saveDayModal()"])');
+  const btnRow   = box.querySelector('.row-end');
   const colorDiv = document.getElementById('day-modal-colors');
   const filePanel = document.getElementById('day-file-panel');
   [memoEl2, checkRow, btnRow, colorDiv].forEach(el => { if (el) el.classList.toggle('hidden', !isMemo); });
@@ -1356,7 +1356,7 @@ async function saveProgress() {
   const uid = auth.currentUser?.uid || 'unknown';
   try {
     await db.collection("material_progress").doc(uid + "_" + progMatId).set(progData);
-    const btn = document.querySelector("#progress-overlay button[onclick='saveProgress()']");
+    const btn = document.querySelector("#progress-overlay .btn-save-lg");
     const orig = btn.textContent;
     btn.textContent = "✅ 保存完了！"; btn.disabled = true;
     refreshDeadlinePanel();
@@ -1813,6 +1813,9 @@ function openCellModal(cellId, colIndex, hour) {
     cancelReviewMode();
   }
   document.getElementById("cell-modal-overlay").classList.remove("hidden");
+  // 旧グリッド用なのでdata-ng-keyをクリア（デリゲーションが旧グリッド処理を使うよう）
+  const saveBtn = document.getElementById('cell-save-btn');
+  if (saveBtn) saveBtn.removeAttribute('data-ng-key');
 }
 
 function initEventTimeSelects(hour, saved) {
@@ -3005,11 +3008,11 @@ function openPomodoroModalNew(key, colIndex, startMin, endMin, cellRecord) {
     (from || to) ? `p${from||'?'}〜${to||'?'} ページ` : '';
   document.getElementById('pomodoro-modal-overlay').style.display = 'flex';
 
-  // タイマーボタンを新グリッド用に差し替え
-  const timerBtn = document.querySelector('#pomodoro-modal-overlay button[onclick="pomGoToTimer()"]');
+  // タイマーボタンに新グリッド用のdata属性をセット（デリゲーションで参照）
+  const timerBtn = document.getElementById('pom-go-btn');
   if (timerBtn) {
-    timerBtn.setAttribute('onclick', '');
-    timerBtn.onclick = () => pomGoToTimerNew(key, cellRecord);
+    timerBtn.setAttribute('data-ng-key', key);
+    timerBtn.setAttribute('data-ng-block', JSON.stringify(cellRecord));
   }
 }
 
@@ -3125,14 +3128,13 @@ function openCellModalNew(key, colIndex, startMin, endMin) {
   initEventTimeSelects(Math.floor(startMin / 60), saved);
   switchCellMode(mode, saved);
 
-  // 保存ボタンを新グリッド用に差し替え
-  const saveBtn = document.querySelector('#cell-modal-overlay button[onclick="saveCellModal()"]');
+  // 保存ボタンに新グリッド用のdata属性をセット（デリゲーションで参照）
+  const saveBtn = document.getElementById('cell-save-btn');
   if (saveBtn) {
-    saveBtn.setAttribute('data-ng-key', key);
-    saveBtn.setAttribute('data-ng-col', colIndex);
+    saveBtn.setAttribute('data-ng-key',   key);
+    saveBtn.setAttribute('data-ng-col',   colIndex);
     saveBtn.setAttribute('data-ng-start', startMin);
-    saveBtn.setAttribute('data-ng-end', endMin);
-    saveBtn.onclick = () => saveCellModalNew(key, colIndex, startMin, endMin);
+    saveBtn.setAttribute('data-ng-end',   endMin);
   }
   document.getElementById('cell-modal-overlay').style.display = 'flex';
 }
@@ -3554,7 +3556,157 @@ init(); // 実行
 if ("serviceWorker" in navigator){
   navigator.serviceWorker.register("./sw.js").then(()=>console.log("SW OK")).catch(e=>console.error(e));
 }
-</script>
+
+// ════════════════════════════════════════
+// イベントデリゲーション（nav.js設計に準拠）
+// onclick属性を使わず、クラス・IDで一括管理
+// ════════════════════════════════════════
+document.addEventListener('click', function(e) {
+  const t = e.target;
+
+  // ── トップバー ──
+  if (t.matches('#btn-weekly'))          { switchView('weekly'); return; }
+  if (t.matches('#btn-monthly'))         { switchView('monthly'); return; }
+  if (t.matches('#week-nav button:first-child'))  { changeWeek(-1); return; }
+  if (t.matches('#week-nav button:last-child'))   { changeWeek(1);  return; }
+  if (t.matches('#month-nav button:first-child')) { changeMonth(-1); return; }
+  if (t.matches('#month-nav button:last-child'))  { changeMonth(1);  return; }
+  if (t.closest('#left-controls') && t.textContent.trim() === '⚙️ 設定') { openModal(); return; }
+  if (t.matches('.btn-topbar-material')) { openMatManage(); return; }
+  if (t.matches('#btn-logout'))          { logout(); return; }
+  if (t.closest('#left-controls') && t.textContent.trim() === '🖨 印刷') { window.print(); return; }
+  if (t.matches('.btn-topbar-record'))   { openFreeRecordModal(); return; }
+  if (t.matches('.btn-topbar-exam'))     { openExamModal(); return; }
+
+  // ── 設定モーダル ──
+  if (t.matches('#tab-basic'))           { switchSettingsTab('basic'); return; }
+  if (t.matches('#tab-preset'))          { switchSettingsTab('preset'); return; }
+  if (t.closest('#modal-overlay') && t.classList.contains('btn-close'))  { closeModal(); return; }
+  if (t.closest('#panel-basic .mb-12') && t.classList.contains('btn-save')) { addCustomColor(); return; }
+  if (t.matches('#btn-clear'))           { setColor('clear'); return; }
+  if (t.matches('#btn-deselect'))        { deselectColor(); return; }
+  // プリセットボタン（ID判定）
+  if (t.matches('#btn-preset-mon') || t.closest('#btn-preset-mon')) { applyDayPreset(1); return; }
+  if (t.matches('#btn-preset-tue') || t.closest('#btn-preset-tue')) { applyDayPreset(2); return; }
+  if (t.matches('#btn-preset-wed') || t.closest('#btn-preset-wed')) { applyDayPreset(3); return; }
+  if (t.matches('#btn-preset-thu') || t.closest('#btn-preset-thu')) { applyDayPreset(4); return; }
+  if (t.matches('#btn-preset-fri') || t.closest('#btn-preset-fri')) { applyDayPreset(5); return; }
+  if (t.matches('#btn-preset-all') || t.closest('#btn-preset-all')) { applyAllDayPresets(); return; }
+  if (t.matches('#btn-save-block-time')) { saveBlockTimePreset(); return; }
+  if (t.matches('#btn-save-timetable'))  { saveTimetablePreset(); return; }
+
+  // ── 日メモモーダル（マンスリー） ──
+  if (t.closest('#day-modal-overlay') && t.classList.contains('btn-save'))  { saveDayModal(); return; }
+  if (t.closest('#day-modal-overlay') && t.classList.contains('btn-close')) { closeDayModal(); return; }
+  if (t.matches('#tab-memo')) { switchDayTab('memo'); return; }
+  if (t.matches('#tab-file')) { switchDayTab('file'); return; }
+
+  // ── セル編集モーダル ──
+  if (t.matches('#mode-tab-study'))      { switchCellMode('study', null); return; }
+  if (t.matches('#mode-tab-event'))      { switchCellMode('event', null); return; }
+  if (t.matches('#new-mat-toggle'))      { toggleNewMatForm(); return; }
+  if (t.closest('#new-mat-form') && t.classList.contains('btn-add-sm')) { addMaterialInline(); return; }
+  if (t.matches('#cell-save-btn')) {
+    const ngKey = t.getAttribute('data-ng-key');
+    if (ngKey) {
+      // 新グリッド用
+      saveCellModalNew(
+        ngKey,
+        parseInt(t.getAttribute('data-ng-col')),
+        parseInt(t.getAttribute('data-ng-start')),
+        parseInt(t.getAttribute('data-ng-end'))
+      );
+    } else {
+      saveCellModal();
+    }
+    return;
+  }
+  if (t.closest('#cell-modal-overlay') && t.classList.contains('btn-delete')) { clearCellRecord(); return; }
+  if (t.closest('#cell-modal-overlay') && t.classList.contains('btn-close'))  { closeMatModal(); return; }
+
+  // ── 自由記録モーダル ──
+  if (t.closest('#free-record-overlay') && t.classList.contains('btn-save-green')) { saveFreeRecord(); return; }
+  if (t.closest('#free-record-overlay') && t.classList.contains('btn-close'))      { closeFreeRecordModal(); return; }
+
+  // ── 教材管理モーダル ──
+  if (t.closest('#mat-manage-overlay .new-mat-form') && t.classList.contains('btn-add-sm')) { addMaterialFromManage(); return; }
+  if (t.closest('#mat-manage-overlay') && t.classList.contains('btn-close')) { closeMatManage(); return; }
+
+  // ── 進捗管理モーダル ──
+  if (t.closest('#progress-overlay') && t.classList.contains('btn-icon-close')) { document.getElementById('progress-overlay').classList.add('hidden'); return; }
+  if (t.closest('#progress-overlay') && t.classList.contains('btn-save-lg'))    { saveProgress(); return; }
+  if (t.closest('#progress-overlay') && t.classList.contains('btn-close-lg'))   { document.getElementById('progress-overlay').classList.add('hidden'); return; }
+  if (t.closest('#progress-overlay') && t.classList.contains('btn-round-add'))   { addRound(); return; }
+  if (t.closest('#progress-overlay') && t.classList.contains('btn-chapter-add')) { addChapter(); return; }
+  if (t.closest('#progress-overlay') && t.classList.contains('btn-apply-sm'))    { applyTotalQuestions(); return; }
+  if (t.closest('#progress-overlay') && t.classList.contains('btn-delete-sm'))   { deleteChapter(); return; }
+
+  // ── 考査管理モーダル ──
+  if (t.closest('#exam-overlay') && t.classList.contains('btn-icon-close')) { closeExamModal(); return; }
+  if (t.closest('#exam-overlay') && t.classList.contains('btn-close-lg'))   { closeExamModal(); return; }
+  if (t.closest('#exam-overlay') && t.classList.contains('btn-text-back')) {
+    if (currentExamStep === 3) { goExamStep(2); } else { goExamStep(1); }
+    return;
+  }
+  if (t.closest('#exam-step1') && t.classList.contains('btn-add-purple'))    { addExam(); return; }
+  if (t.closest('#exam-step2') && t.classList.contains('btn-add-purple-sm')) { addSubmission(); return; }
+
+  // ── ポモドーロ起動モーダル（旧グリッド） ──
+  if (t.matches('#pom-go-btn')) {
+    const ngKey = t.getAttribute('data-ng-key');
+    if (ngKey) {
+      try {
+        const cellRecord = JSON.parse(t.getAttribute('data-ng-block') || '{}');
+        pomGoToTimerNew(ngKey, cellRecord);
+      } catch(e) { pomGoToTimer(); }
+    } else {
+      pomGoToTimer();
+    }
+    return;
+  }
+  if (t.closest('#pomodoro-modal-overlay') && t.textContent.includes('予約を編集')) { openCellModalFromPom(); return; }
+  if (t.closest('#pomodoro-modal-overlay') && t.textContent.includes('閉じる'))     { closePomodoroModal(); return; }
+
+  // ── Phase5: ポモドーロ予約モーダル ──
+  if (t.closest('#pomo5-reserve-overlay') && t.classList.contains('pomo5-btn-cancel'))  { document.getElementById('pomo5-reserve-overlay').style.display = 'none'; return; }
+  if (t.closest('#pomo5-reserve-overlay') && t.classList.contains('pomo5-btn-primary')) { savePomoReserve(); return; }
+
+  // ── Phase5: 完了確認モーダル ──
+  if (t.closest('#pomo5-done-overlay') && t.classList.contains('pomo5-btn-cancel')) { document.getElementById('pomo5-done-overlay').style.display = 'none'; return; }
+  if (t.closest('#pomo5-done-overlay') && t.classList.contains('pomo5-btn-edit')) {
+    const el = document.getElementById('pomo5-done-overlay');
+    openPomoManualInput(el.dataset.blockId, parseInt(el.dataset.boxIndex));
+    el.style.display = 'none';
+    return;
+  }
+
+  // ── Phase5: 後入力モーダル ──
+  if (t.closest('#pomo5-manual-overlay') && t.classList.contains('pomo5-btn-cancel'))  { document.getElementById('pomo5-manual-overlay').style.display = 'none'; return; }
+  if (t.closest('#pomo5-manual-overlay') && t.classList.contains('pomo5-btn-primary')) { savePomoManual(); return; }
+
+  // ── 復習トースト ──
+  if (t.matches('.btn-toast-cancel')) { cancelReviewMode(); return; }
+});
+
+// ── 新材料フォームの表示切り替え（セル編集モーダル内）──
+// ※ toggleNewMatForm() は既存関数を使用（1900行付近に定義済み）
+
+// ── セル編集モーダル内の教材インライン追加 ──
+async function addMaterialInline() {
+  const name  = document.getElementById('new-mat-name').value.trim();
+  const color = document.getElementById('new-mat-color').value;
+  const cat   = document.getElementById('new-mat-category').value.trim();
+  if (!name) { alert('教材名を入力してください'); return; }
+  const mat = { id: genMatId(), name, color, category: cat };
+  materials.push(mat);
+  await saveMaterials();
+  matSelectedId = mat.id;
+  document.getElementById('new-mat-name').value     = '';
+  document.getElementById('new-mat-category').value = '';
+  document.getElementById('new-mat-form').classList.add('hidden');
+  document.getElementById('new-mat-toggle').innerText = '＋ 新しい教材を追加';
+  renderMatList();
+}
 
 <!-- ══ Phase 5: ポモドーロ予約モーダル ══ -->
 <div id="pomo5-reserve-overlay">
@@ -3602,6 +3754,6 @@ if ("serviceWorker" in navigator){
 <div id="review-toast" class="hidden">📚 セルをタップして復習を予約してください　<button class="btn-toast-cancel">キャンセル</button></div>
 
 <script src="nav.js"></script>
-<script src="guide.js"></script>  ← これを追加
+<script src="guide.js"></script>
 </body>
 </html>
