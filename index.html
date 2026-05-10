@@ -2289,6 +2289,7 @@ async function saveNewBlock(colIndex, startMin, endMin, blockType, title, color)
 
 // ════════════════════════════════════════
 // 自由記録
+  async function applyDayPreset(dayOfWeek) {
   const colIndex = colIndexOfDayOfWeek(dayOfWeek);
   if (colIndex === -1) { alert('今週にその曜日がありません'); return; }
   const dayNames = ['日','月','火','水','木','金','土'];
