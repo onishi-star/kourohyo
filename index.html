@@ -446,10 +446,10 @@
       <button>次の月 →</button>
     </div>
     <div class="ctrl-row">
-      <button>⚙️ 設定</button>
+      <button id="btn-settings">⚙️ 設定</button>
       <button class="btn-topbar-material">📚 教材管理</button>
       <button id="btn-logout" class="btn-topbar-logout">🔒 ロック</button>
-      <button style="font-size:12px;">🖨 印刷</button>
+      <button id="btn-print" style="font-size:12px;">🖨 印刷</button>
       <button class="btn-topbar-record">✏️ 自由記録</button>
       <button class="btn-topbar-exam">📝 考査管理</button>
       <span id="offline-indicator" class="status-offline hidden">📵 オフライン</span>
@@ -630,7 +630,6 @@ function deselectColor() {
   currentColor = "";
   document.querySelectorAll(".color-btn").forEach(b => { b.style.outline=""; b.style.fontWeight=""; });
   document.getElementById("current-color-label").innerText = "";
-  document.getElementById("calendar").style.cursor = "";
 }
 function escHtml(str) {
   return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
@@ -728,6 +727,7 @@ async function loadMonthly(){
   const today=new Date();
   db.collection("monthly").doc(`monthly-${year}-${String(month+1).padStart(2,'0')}`).get().then(async doc=>{
     const md=doc.exists?doc.data():{};
+    const holidays = await getHolidays();
     for (let i=0;i<rows*7;i++) {
       const cell=document.createElement("div");
       const dayNum=i-startOffset+1, isValid=dayNum>=1&&dayNum<=lastDay.getDate();
@@ -742,7 +742,6 @@ async function loadMonthly(){
         if (bg) cell.style.background=bg;
        // 土日祝の背景色を設定
         const dayOfWeek = dateObj.getDay();
-        const holidays = await getHolidays();
         const isHol = isHoliday(dayKey, holidays);
         if (dayOfWeek === 6) {
           cell.classList.add("monthly-sat");
@@ -750,6 +749,7 @@ async function loadMonthly(){
           cell.classList.add(dayOfWeek === 0 ? "monthly-sun" : "monthly-hol");
         }
         const dl=document.createElement("div");
+        dl.className="monthly-day-num";
         dl.style.cssText=`font-weight:bold;color:${isToday?'#f9a825':tc};margin-bottom:2px;`;
         dl.innerText=dayNum;
         if (saved.checked){const ck=document.createElement("span");ck.innerText=" ✓";ck.style.cssText="color:#4caf50;font-weight:bold;";dl.appendChild(ck);}
@@ -856,9 +856,8 @@ function injectFileTabs() {
   filePanel.id = 'day-file-panel';
   filePanel.classList.add('hidden');
   filePanel.innerHTML = `
-    <div class="upload-zone" id="upload-zone"
-         ondragover="onDragOver(event)" ondragleave="onDragLeave(event)" ondrop="onDrop(event)">
-      <input type="file" id="file-input" multiple accept="image/*,.pdf" onchange="onFileSelect(event)">
+    <div class="upload-zone" id="upload-zone">
+      <input type="file" id="file-input" multiple accept="image/*,.pdf">
       <div class="uz-icon">📁</div>
       <div class="uz-text">タップしてファイルを選択<br>または画像・PDFをここにドロップ</div>
     </div>
@@ -870,6 +869,14 @@ function injectFileTabs() {
   `;
   const memoArea = box.querySelector('textarea#day-modal-memo');
   memoArea.parentElement.before(filePanel);
+
+  // ドラッグ&ドロップ・ファイル選択イベントをJSで登録
+  const zone  = filePanel.querySelector('#upload-zone');
+  const input = filePanel.querySelector('#file-input');
+  zone.addEventListener('dragover',  onDragOver);
+  zone.addEventListener('dragleave', onDragLeave);
+  zone.addEventListener('drop',      onDrop);
+  input.addEventListener('change',   onFileSelect);
 }
 
 function switchDayTab(tab) {
@@ -1005,7 +1012,7 @@ async function attachFileBadges() {
     if (!doc.exists) return;
     const data = doc.data();
     document.querySelectorAll('#monthly-calendar > div').forEach(cell => {
-      const dayEl = cell.querySelector('div[style*="font-weight:bold"]');
+      const dayEl = cell.querySelector('.monthly-day-num');
       if (!dayEl) return;
       const dayNum = parseInt(dayEl.textContent);
       if (isNaN(dayNum)) return;
@@ -1022,25 +1029,6 @@ async function attachFileBadges() {
   } catch(e) {}
 }
   
-  function renderMatManageList() {
-  const el=document.getElementById("mat-manage-list"); el.innerHTML="";
-  if (!materials.length){ el.innerHTML='<div class="js-empty-msg">教材が登録されていません</div>'; return; }
-  materials.forEach((mat,idx)=>{
-    const row=document.createElement("div");
-    row.className = "mat-list-item";
-    const dot=document.createElement("div"); dot.className="mat-color-dot"; dot.style.background=mat.color;
-    const info=document.createElement("div"); info.className="js-mat-info"; info.innerHTML=`<b>${mat.name}</b>${mat.category?` <span class="js-mat-category">${mat.category}</span>`:""}`;
-
-    // ── 進捗ボタン（追加） ──
-    const prog=document.createElement("button"); prog.innerText="📊"; prog.title="進捗管理";
-    prog.className = "btn-exam-progress";
-    prog.onclick=()=>{ closeMatManage(); openProgressModal(mat); };
-
-    const del=document.createElement("button"); del.innerText="削除"; del.className="btn-delete-sm";
-    del.onclick=async()=>{ if(!confirm(`「${mat.name}」を削除しますか？`))return; materials.splice(idx,1); await saveMaterials(); renderMatManageList(); };
-    row.appendChild(dot); row.appendChild(info); row.appendChild(prog); row.appendChild(del); el.appendChild(row);
-  });
-}
 // ════════════════════════════════════════
 // 進捗管理（章対応版）
 // ════════════════════════════════════════
@@ -1733,7 +1721,7 @@ function setColor(color) {
   if (color==="clear") lbl.innerText="✏️ 色を消す";
   else if (color.startsWith("custom-")) { const idx=parseInt(color.split("-")[1]); lbl.innerText="✏️ "+customColors[idx].name; }
   else lbl.innerText="";
-  document.getElementById("calendar").style.cursor = color ? "crosshair" : "";
+  document.getElementById("monthly-calendar").style.cursor = color ? "crosshair" : "";
 }
 
 // ════════════════════════════════════════
@@ -2299,54 +2287,8 @@ async function saveNewBlock(colIndex, startMin, endMin, blockType, title, color)
   await saveCellDataNew(colIndex, startMin, endMin, cellRecord);
 }
 
-// Phase 4: 新グリッド用の曜日スケジュール生成＆保存
-async function buildAndSaveScheduleForDay(dayOfWeek, colIndex) {
-  const is7class = (dayOfWeek === 1 || dayOfWeek === 2 || dayOfWeek === 5); // 月火金
-  const clubName = dayOfWeek === 2 ? '執行部' : '演劇部';
-
-  const blocks = [];
-
-  // 朝学習 8:00-8:30（ポモドーロ1箱）
-  blocks.push({ startMin: 480,  endMin: 510,  type: 'pomo',  title: '朝学習',                 color: '#e8f5e9' });
-  // 授業①〜④
-  blocks.push({ startMin: 510,  endMin: 570,  type: 'class', title: getClassName(dayOfWeek,1), color: '#fce4ec' });
-  blocks.push({ startMin: 570,  endMin: 630,  type: 'class', title: getClassName(dayOfWeek,2), color: '#fce4ec' });
-  blocks.push({ startMin: 630,  endMin: 690,  type: 'class', title: getClassName(dayOfWeek,3), color: '#fce4ec' });
-  blocks.push({ startMin: 690,  endMin: 750,  type: 'class', title: getClassName(dayOfWeek,4), color: '#fce4ec' });
-  // 昼休み 12:30-13:00
-  blocks.push({ startMin: 750,  endMin: 780,  type: 'break', title: '昼休み',                 color: '#fff9c4' });
-  // 授業⑤⑥
-  blocks.push({ startMin: 780,  endMin: 840,  type: 'class', title: getClassName(dayOfWeek,5), color: '#fce4ec' });
-  blocks.push({ startMin: 840,  endMin: 900,  type: 'class', title: getClassName(dayOfWeek,6), color: '#fce4ec' });
-
-  if (is7class) {
-    // ⑦授業 15:00-16:00 + 部活 16:00-18:00
-    blocks.push({ startMin: 900,  endMin: 960,  type: 'class', title: getClassName(dayOfWeek,7), color: '#fce4ec' });
-    blocks.push({ startMin: 960,  endMin: 1080, type: 'event', title: clubName,                  color: '#f3e5f5' });
-  } else {
-    // 部活 15:00-18:00（水木）
-    blocks.push({ startMin: 900,  endMin: 1080, type: 'event', title: clubName,                  color: '#f3e5f5' });
-  }
-
-  // V1 18:00-19:00（ポモドーロ2箱）
-  blocks.push({ startMin: 1080, endMin: 1140, type: 'pomo',  title: 'V1',  color: '#e8f5e9' });
-  // 移動 19:00-19:20
-  blocks.push({ startMin: 1140, endMin: 1160, type: 'move',  title: '移動', color: '#fff3e0' });
-  // V2 19:20-20:00（ポモドーロ1箱）
-  blocks.push({ startMin: 1160, endMin: 1200, type: 'pomo',  title: 'V2',  color: '#e8f5e9' });
-  // 休憩 20:00-20:10
-  blocks.push({ startMin: 1200, endMin: 1210, type: 'break', title: '休憩', color: '#f5f5f5' });
-  // 移動 20:10-20:30
-  blocks.push({ startMin: 1210, endMin: 1230, type: 'move',  title: '移動', color: '#fff3e0' });
-  // V3 20:30-22:00（ポモドーロ3箱）
-  blocks.push({ startMin: 1230, endMin: 1320, type: 'pomo',  title: 'V3',  color: '#e8f5e9' });
-
-  for (const b of blocks) {
-    await saveNewBlock(colIndex, b.startMin, b.endMin, b.type, b.title, b.color);
-  }
-}
-
-async function applyDayPreset(dayOfWeek) {
+// ════════════════════════════════════════
+// 自由記録
   const colIndex = colIndexOfDayOfWeek(dayOfWeek);
   if (colIndex === -1) { alert('今週にその曜日がありません'); return; }
   const dayNames = ['日','月','火','水','木','金','土'];
@@ -2369,29 +2311,6 @@ async function applyAllDayPresets() {
   await loadWeekNew();
   renderNewGrid();
   alert('月〜金を設定しました！');
-}
-
-// 旧関数（互換性のため残す）
-function applyPreset(type) { currentPresetType = type; }
-function setStudyMode(mode) { currentStudyMode = mode; }
-async function applyCurrentPreset() {}
-let currentPresetType = '7class';
-let currentStudyMode  = 'proceed';
-
-// 旧グリッド用（互換性のため残す）
-async function applyPresetToCell(colIndex, schedule) {
-  const startHour = Math.floor(schedule.hour);
-  const hourSlots = Math.ceil(schedule.duration / 60);
-  for (let i = 0; i < hourSlots; i++) {
-    const hour = startHour + i;
-    if (hour < 4 || hour >= 24) continue;
-    const cellId = `cell-${hour}-${colIndex}`;
-    if (schedule.type === 'study') {
-      await saveCellData(cellId, colIndex, hour, { mode:"study", materialId:null, materialName:"教材未設定", materialColor:"#4a90e2", pageFrom:null, pageTo:null });
-    } else {
-      await saveCellData(cellId, colIndex, hour, { mode:"event", title:schedule.title, color:schedule.color||"#ffadad", memo:"" });
-    }
-  }
 }
 
 // ════════════════════════════════════════
@@ -3305,17 +3224,9 @@ function saveBlockTimePreset() {
 }
 
 // ブロック時間エディタをパネル表示時に描画
-const _origOpenPresetPanel = window.openPresetPanel;
 document.addEventListener('DOMContentLoaded', () => {
-  // タブ切替時にエディタを描画
-  document.querySelectorAll('[onclick*="panel-preset"]').forEach(el => {
-    el.addEventListener('click', () => setTimeout(renderBlockTimeEditor, 50));
-  });
   renderBlockTimeEditor();
 });
-
-// buildAndSaveScheduleForDayをblockTimePreset対応に上書き
-const _origBuildAndSave = window.buildAndSaveScheduleForDay;
 async function buildAndSaveScheduleForDay(dayOfWeek, colIndex) {
   const is7class = (dayOfWeek === 1 || dayOfWeek === 2 || dayOfWeek === 5);
   const clubName = dayOfWeek === 2 ? '執行部' : '演劇部';
@@ -3577,10 +3488,10 @@ document.addEventListener('click', function(e) {
   if (t.matches('#week-nav button:last-child'))   { changeWeek(1);  return; }
   if (t.matches('#month-nav button:first-child')) { changeMonth(-1); return; }
   if (t.matches('#month-nav button:last-child'))  { changeMonth(1);  return; }
-  if (t.closest('#left-controls') && t.textContent.trim() === '⚙️ 設定') { openModal(); return; }
+  if (t.matches('#btn-settings'))        { openModal(); return; }
   if (t.matches('.btn-topbar-material')) { openMatManage(); return; }
   if (t.matches('#btn-logout'))          { logout(); return; }
-  if (t.closest('#left-controls') && t.textContent.trim() === '🖨 印刷') { window.print(); return; }
+  if (t.matches('#btn-print'))           { window.print(); return; }
   if (t.matches('.btn-topbar-record'))   { openFreeRecordModal(); return; }
   if (t.matches('.btn-topbar-exam'))     { openExamModal(); return; }
 
@@ -3730,6 +3641,8 @@ async function addMaterialInline() {
   document.getElementById('new-mat-toggle').innerText = '＋ 新しい教材を追加';
   renderMatList();
 }
+
+</script>
 
 <!-- ══ Phase 5: ポモドーロ予約モーダル ══ -->
 <div id="pomo5-reserve-overlay">
