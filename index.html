@@ -644,6 +644,8 @@ function switchView(view) {
 
 
   document.getElementById("monthly-view").classList.toggle("hidden", view !== "monthly");
+  const newGrid = document.getElementById("weekly-view-new");
+  if (newGrid) newGrid.style.display = view === "weekly" ? "block" : "none";
   document.getElementById("week-nav").classList.toggle("hidden", view !== "weekly");
   document.getElementById("month-nav").classList.toggle("hidden", view !== "monthly");
   document.getElementById("btn-weekly").style.outline    = view==="weekly"  ? "3px solid #333" : "";
@@ -651,6 +653,7 @@ function switchView(view) {
   document.getElementById("btn-monthly").style.outline   = view==="monthly" ? "3px solid #333" : "";
   document.getElementById("btn-monthly").style.fontWeight= view==="monthly" ? "bold" : "";
   if (view==="monthly") loadMonthly();
+  if (view==="weekly") loadWeekNew().then(() => renderNewGrid());
   setTimeout(adjustHeaderTop, 50);
 }
 function changeMonth(offset) {
@@ -1964,7 +1967,11 @@ function closeMatModal() { document.getElementById("cell-modal-overlay").classLi
 // ════════════════════════════════════════
 // 週ナビゲーション
 // ════════════════════════════════════════
-function changeWeek(offset) { currentWeek+=offset; loadWeek(); }
+function changeWeek(offset) {
+  currentWeek += offset;
+  loadWeekNew().then(() => renderNewGrid());
+  loadWeek();
+}
 function getWeekMondayBase() {
   const today=new Date(), dow=today.getDay();
   const diff=dow===0?-6:1-dow;
@@ -3485,10 +3492,18 @@ document.addEventListener('click', function(e) {
   // ── トップバー ──
   if (t.matches('#btn-weekly'))          { switchView('weekly'); return; }
   if (t.matches('#btn-monthly'))         { switchView('monthly'); return; }
-  if (t.matches('#week-nav button:first-child'))  { changeWeek(-1); return; }
-  if (t.matches('#week-nav button:last-child'))   { changeWeek(1);  return; }
-  if (t.matches('#month-nav button:first-child')) { changeMonth(-1); return; }
-  if (t.matches('#month-nav button:last-child'))  { changeMonth(1);  return; }
+  if (t.closest('#week-nav') && t.tagName === 'BUTTON') {
+    const nav = document.getElementById('week-nav');
+    const btns = nav.querySelectorAll('button');
+    if (t === btns[0]) { changeWeek(-1); return; }
+    if (t === btns[btns.length - 1]) { changeWeek(1); return; }
+  }
+  if (t.closest('#month-nav') && t.tagName === 'BUTTON') {
+    const nav = document.getElementById('month-nav');
+    const btns = nav.querySelectorAll('button');
+    if (t === btns[0]) { changeMonth(-1); return; }
+    if (t === btns[btns.length - 1]) { changeMonth(1); return; }
+  }
   if (t.matches('#btn-settings'))        { openModal(); return; }
   if (t.matches('.btn-topbar-material')) { openMatManage(); return; }
   if (t.matches('#btn-logout'))          { logout(); return; }
@@ -3500,7 +3515,7 @@ document.addEventListener('click', function(e) {
   if (t.matches('#tab-basic'))           { switchSettingsTab('basic'); return; }
   if (t.matches('#tab-preset'))          { switchSettingsTab('preset'); return; }
   if (t.closest('#modal-overlay') && t.classList.contains('btn-close'))  { closeModal(); return; }
-  if (t.closest('#panel-basic .mb-12') && t.classList.contains('btn-save')) { addCustomColor(); return; }
+  if (t.closest('#panel-basic') && t.closest('.mb-12') && t.classList.contains('btn-save')) { addCustomColor(); return; }
   if (t.matches('#btn-clear'))           { setColor('clear'); return; }
   if (t.matches('#btn-deselect'))        { deselectColor(); return; }
   // プリセットボタン（ID判定）
@@ -3547,7 +3562,7 @@ document.addEventListener('click', function(e) {
   if (t.closest('#free-record-overlay') && t.classList.contains('btn-close'))      { closeFreeRecordModal(); return; }
 
   // ── 教材管理モーダル ──
-  if (t.closest('#mat-manage-overlay .new-mat-form') && t.classList.contains('btn-add-sm')) { addMaterialFromManage(); return; }
+  if (t.closest('#mat-manage-overlay') && t.closest('.new-mat-form') && t.classList.contains('btn-add-sm')) { addMaterialFromManage(); return; }
   if (t.closest('#mat-manage-overlay') && t.classList.contains('btn-close')) { closeMatManage(); return; }
 
   // ── 進捗管理モーダル ──
@@ -3566,8 +3581,8 @@ document.addEventListener('click', function(e) {
     if (currentExamStep === 3) { goExamStep(2); } else { goExamStep(1); }
     return;
   }
-  if (t.closest('#exam-step1') && t.classList.contains('btn-add-purple'))    { addExam(); return; }
-  if (t.closest('#exam-step2') && t.classList.contains('btn-add-purple-sm')) { addSubmission(); return; }
+  if (t.closest('#exam-overlay') && t.classList.contains('btn-add-purple'))    { addExam(); return; }
+  if (t.closest('#exam-overlay') && t.classList.contains('btn-add-purple-sm')) { addSubmission(); return; }
 
   // ── ポモドーロ起動モーダル（旧グリッド） ──
   if (t.matches('#pom-go-btn')) {
