@@ -159,7 +159,7 @@
 </div>
 
 <!-- ══ セル編集モーダル ══ -->
-<div id="cell-modal-overlay" class="overlay hidden">
+<div id="cell-modal-overlay" class="overlay hidden" style="z-index:200;">
   <div class="modal-box card">
     <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:14px;">
       <div id="cell-modal-title" style="font-size:15px; font-weight:bold;"></div>
@@ -285,7 +285,7 @@
 </div>
 
 <!-- ══ 考査管理モーダル ══ -->
-<div id="exam-overlay" class="overlay hidden">
+<div id="exam-overlay" class="overlay hidden" style="z-index:200;">
   <div class="prog-modal-box" style="max-width:520px;">
 
     <!-- ステップヘッダー -->
@@ -343,7 +343,7 @@
 </div>
 
 <!-- ══ 進捗管理モーダル ══ -->
-<div id="progress-overlay" class="overlay hidden">
+<div id="progress-overlay" class="overlay hidden" style="z-index:200;">
   <div class="prog-modal-box card">
     <div class="row-between">
       <h2 id="prog-mat-name" class="modal-title-none"></h2>
@@ -406,7 +406,7 @@
 </div>
 
 <!-- ══ 教材管理モーダル ══ -->
-<div id="mat-manage-overlay" class="overlay hidden">
+<div id="mat-manage-overlay" class="overlay hidden" style="z-index:200;">
   <div class="modal-box" style="max-width:460px;">
     <h2 class="modal-title-sm">📚 教材管理</h2>
     <div id="mat-manage-list" style="max-height:300px; overflow-y:auto; margin-bottom:14px;"></div>
@@ -469,7 +469,7 @@
 
 
 <!-- 新グリッド（Phase 2 - 10分スロット） -->
-<div id="weekly-view-new"></div>
+<div id="weekly-view-new" style="position:relative; z-index:1;"></div>
 
 <!-- ウィークリー -->
 
@@ -653,7 +653,6 @@ function switchView(view) {
   document.getElementById("btn-monthly").style.outline   = view==="monthly" ? "3px solid #333" : "";
   document.getElementById("btn-monthly").style.fontWeight= view==="monthly" ? "bold" : "";
   if (view==="monthly") loadMonthly();
-  if (view==="weekly") loadWeekNew().then(() => renderNewGrid());
   setTimeout(adjustHeaderTop, 50);
 }
 function changeMonth(offset) {
@@ -728,62 +727,73 @@ async function loadMonthly(){
     cal.appendChild(h);
   }
   const today=new Date();
-  db.collection("monthly").doc(`monthly-${year}-${String(month+1).padStart(2,'0')}`).get().then(async doc=>{
-    const md=doc.exists?doc.data():{};
-    const holidays = await getHolidays();
-    for (let i=0;i<rows*7;i++) {
-      const cell=document.createElement("div");
-      const dayNum=i-startOffset+1, isValid=dayNum>=1&&dayNum<=lastDay.getDate();
-      cell.style.cssText="border:1px solid #ccc;min-height:80px;padding:4px;box-sizing:border-box;cursor:pointer;position:relative;font-size:12px;";
+  // 月データとブロックプレビューを並列取得
+  Promise.all([
+    db.collection("monthly").doc(`monthly-${year}-${String(month+1).padStart(2,'0')}`).get().catch(()=>null),
+    getHolidays()
+  ]).then(async ([doc, holidays]) => {
+    const md = doc && doc.exists ? doc.data() : {};
+
+    // 表示対象の日キー一覧を先に作成
+    const dayKeys = [];
+    for (let i = 0; i < rows*7; i++) {
+      const dayNum = i - startOffset + 1;
+      if (dayNum >= 1 && dayNum <= lastDay.getDate()) {
+        dayKeys.push(`${year}-${String(month+1).padStart(2,'0')}-${String(dayNum).padStart(2,'0')}`);
+      } else {
+        dayKeys.push(null);
+      }
+    }
+
+    // ブロックプレビューを並列取得
+    const blockMap = {};
+    await Promise.all(dayKeys.filter(k=>k).map(async k => {
+      blockMap[k] = await getBlocksForMonthlyDay(k);
+    }));
+
+    // セルを一括描画
+    for (let i = 0; i < rows*7; i++) {
+      const cell = document.createElement("div");
+      const dayNum = i - startOffset + 1;
+      const isValid = dayNum >= 1 && dayNum <= lastDay.getDate();
+      cell.style.cssText = "border:1px solid #ccc;min-height:80px;padding:4px;box-sizing:border-box;cursor:pointer;position:relative;font-size:12px;";
       if (isValid) {
-        const dateObj=new Date(year,month,dayNum);
-        const isToday=dateObj.getFullYear()===today.getFullYear()&&dateObj.getMonth()===today.getMonth()&&dateObj.getDate()===today.getDate();
-        const dayKey=`${year}-${String(month+1).padStart(2,'0')}-${String(dayNum).padStart(2,'0')}`;
-        const saved=md[dayKey]||{memo:"",color:"",checked:false};
-        const bg=saved.color?getColorStyle(saved.color):(isToday?"#fffde7":"");
-        const tc=bg?getTextColor(bg):"#333";
-        if (bg) cell.style.background=bg;
-       // 土日祝の背景色を設定
+        const dateObj = new Date(year, month, dayNum);
+        const isToday = dateObj.getFullYear()===today.getFullYear() && dateObj.getMonth()===today.getMonth() && dateObj.getDate()===today.getDate();
+        const dayKey = dayKeys[i];
+        const saved = md[dayKey] || {memo:"", color:"", checked:false};
+        const bg = saved.color ? getColorStyle(saved.color) : (isToday ? "#fffde7" : "");
+        const tc = bg ? getTextColor(bg) : "#333";
+        if (bg) cell.style.background = bg;
         const dayOfWeek = dateObj.getDay();
         const isHol = isHoliday(dayKey, holidays);
-        if (dayOfWeek === 6) {
-          cell.classList.add("monthly-sat");
-        } else if (dayOfWeek === 0 || isHol) {
-          cell.classList.add(dayOfWeek === 0 ? "monthly-sun" : "monthly-hol");
-        }
-        const dl=document.createElement("div");
-        dl.className="monthly-day-num";
-        dl.style.cssText=`font-weight:bold;color:${isToday?'#f9a825':tc};margin-bottom:2px;`;
-        dl.innerText=dayNum;
-        if (saved.checked){const ck=document.createElement("span");ck.innerText=" ✓";ck.style.cssText="color:#4caf50;font-weight:bold;";dl.appendChild(ck);}
+        if (dayOfWeek === 6) { cell.classList.add("monthly-sat"); }
+        else if (dayOfWeek === 0 || isHol) { cell.classList.add(dayOfWeek === 0 ? "monthly-sun" : "monthly-hol"); }
+        const dl = document.createElement("div");
+        dl.className = "monthly-day-num";
+        dl.style.cssText = `font-weight:bold;color:${isToday?'#f9a825':tc};margin-bottom:2px;`;
+        dl.innerText = dayNum;
+        if (saved.checked) { const ck = document.createElement("span"); ck.innerText = " ✓"; ck.style.cssText = "color:#4caf50;font-weight:bold;"; dl.appendChild(ck); }
         cell.appendChild(dl);
-        
-        // Phase 7: 新グリッドブロックをプレビュー表示
-        const blockPreview = document.createElement("div");
-        blockPreview.style.cssText = `font-size:10px;color:${tc};overflow:hidden;max-height:48px;line-height:1.3;margin-bottom:2px;`;
-        blockPreview.className = 'monthly-block-preview';
-        
-        const blocks = await getBlocksForMonthlyDay(dayKey);
+        // ブロックプレビュー（並列取得済み）
+        const blocks = blockMap[dayKey] || [];
         if (blocks.length > 0) {
+          const blockPreview = document.createElement("div");
+          blockPreview.style.cssText = `font-size:10px;color:${tc};overflow:hidden;max-height:48px;line-height:1.3;margin-bottom:2px;`;
+          blockPreview.className = 'monthly-block-preview';
           blockPreview.innerHTML = blocks.slice(0, 3).map(b =>
-            `<span class="js-block-preview-item">
-              <span class="js-block-time">${b.timeStr}</span> ${b.title}
-            </span>`
+            `<span class="js-block-preview-item"><span class="js-block-time">${b.timeStr}</span> ${b.title}</span>`
           ).join('');
-          if (blocks.length > 3) {
-            blockPreview.innerHTML += `<span class="js-block-more">他${blocks.length-3}件</span>`;
-          }
+          if (blocks.length > 3) blockPreview.innerHTML += `<span class="js-block-more">他${blocks.length-3}件</span>`;
           cell.appendChild(blockPreview);
         }
-        
-        if (saved.memo){const mv=document.createElement("div");mv.style.cssText=`font-size:11px;color:${tc};overflow:hidden;max-height:48px;${saved.checked?'text-decoration:line-through;opacity:0.5;':''}`;mv.innerText=saved.memo;cell.appendChild(mv);}
-        cell.onclick=()=>openDayModal(dayKey,year,month,dayNum,md);
-      } else { cell.style.background="#f5f5f5"; cell.style.cursor="default"; }
+        if (saved.memo) { const mv = document.createElement("div"); mv.style.cssText = `font-size:11px;color:${tc};overflow:hidden;max-height:48px;${saved.checked?'text-decoration:line-through;opacity:0.5;':''}`; mv.innerText = saved.memo; cell.appendChild(mv); }
+        cell.onclick = () => openDayModal(dayKey, year, month, dayNum, md);
+      } else { cell.style.background = "#f5f5f5"; cell.style.cursor = "default"; }
       cal.appendChild(cell);
     }
-    // ファイルバッジを付加
     setTimeout(attachFileBadges, 300);
-  }).catch(e=>console.error(e));
+  }).catch(e => console.error(e));
 }
 
 function openDayModal(dayKey,year,month,dayNum,monthData) {
