@@ -573,7 +573,7 @@ window.addEventListener("online", async () => {
   const s = document.getElementById("sync-indicator");
   s.classList.remove("hidden");
   setTimeout(() => s.classList.add("hidden"), 2000);
-  loadWeek();
+  loadWeekNew().then(() => renderNewGrid());
 });
 
 // ════════════════════════════════════════
@@ -591,7 +591,7 @@ let currentDayKey   = "";
 let currentMonthDocId = "";
 let currentMonthData  = {};
 let materials       = [];
-let currentWeekData = {};
+
 let summaryChart    = null;
 
 let cellModalId     = null;
@@ -1672,7 +1672,7 @@ function openModal() {
     const b=document.createElement("button");
     b.innerText=name;
     b.style.cssText=`padding:8px 14px;border-radius:6px;cursor:pointer;font-size:14px;border:2px solid ${i===weekStartDay?'#333':'#ccc'};font-weight:${i===weekStartDay?'bold':'normal'};`;
-    b.onclick=()=>{weekStartDay=i;localStorage.setItem("weekStartDay",i);closeModal();currentWeek=0;loadWeek();};
+    b.onclick=()=>{weekStartDay=i;localStorage.setItem("weekStartDay",i);closeModal();currentWeek=0;loadWeekNew().then(()=>renderNewGrid());};
     c.appendChild(b);
   });
   renderCustomColorButtons();
@@ -1787,37 +1787,7 @@ async function addMaterialFromManage() {
 // ════════════════════════════════════════
 const EVENT_COLORS = ["#ffadad","#ffb347","#ffe066","#caffbf","#a0c4ff","#c77dff","#f06292","#90caf9","#aaa","#555"];
 
-function openCellModal(cellId, colIndex, hour) {
-  cellModalId=cellId; cellModalCol=colIndex; cellModalHour=hour;
-  const start=getStartOfWeek();
-  const d=new Date(start); d.setDate(start.getDate()+colIndex);
-  document.getElementById("cell-modal-title").innerText=`${d.getMonth()+1}/${d.getDate()}（${allDayNames[d.getDay()]}）`;
-  document.getElementById("cell-modal-time").innerText=`${hour}:00〜${hour+1}:00`;
-  const key=getCellDateKey(hour,colIndex);
-  const saved=(currentWeekData[key]||{}).cell||null;
-  const mode=saved?(saved.mode||"study"):"study";
 
-  // 時間セレクトを初期化（行事タブ用）
-  initEventTimeSelects(hour, saved);
-
-  switchCellMode(mode,saved);
-  // 復習モードなら提出物を教材として自動選択
-  if (reviewModeSub) {
-    switchCellMode("study", null);
-    matSelectedId = reviewModeSub.id;
-    // 仮教材をmaterialsに一時追加（既存でなければ）
-    if (!materials.find(m=>m.id===reviewModeSub.id)) {
-      materials.push({ id: reviewModeSub.id, name: reviewModeSub.name, color: reviewModeSub.color, category:"提出物" });
-    }
-    renderMatList();
-    // トーストを消す
-    cancelReviewMode();
-  }
-  document.getElementById("cell-modal-overlay").classList.remove("hidden");
-  // 旧グリッド用なのでdata-ng-keyをクリア（デリゲーションが旧グリッド処理を使うよう）
-  const saveBtn = document.getElementById('cell-save-btn');
-  if (saveBtn) saveBtn.removeAttribute('data-ng-key');
-}
 
 function initEventTimeSelects(hour, saved) {
   const fromSel = document.getElementById("event-time-from");
@@ -1921,57 +1891,7 @@ async function saveNewMaterial() {
   renderMatList();
 }
 
-async function saveCellModal() {
-  let cellRecord=null;
-  if (cellModalMode==="study") {
-    const mat=matSelectedId?materials.find(m=>m.id===matSelectedId):null;
-    cellRecord={mode:"study",materialId:mat?mat.id:null,materialName:mat?mat.name:null,materialColor:mat?mat.color:null,pageFrom:parseInt(document.getElementById("mat-page-from").value)||null,pageTo:parseInt(document.getElementById("mat-page-to").value)||null};
-    await saveCellData(cellModalId,cellModalCol,cellModalHour,cellRecord);
-  } else {
-    const title     = document.getElementById("event-title").value.trim();
-    const memo      = document.getElementById("event-memo").value;
-    const cellText  = document.getElementById("event-cell-text").value.trim();
-    const cellColorOn = document.getElementById("event-cell-color-on").checked;
-    const cellColor = cellColorOn ? document.getElementById("event-cell-color").value : null;
-    const timeFrom  = parseInt(document.getElementById("event-time-from").value);
-    const timeTo    = parseInt(document.getElementById("event-time-to").value);
-    const clampedTo = Math.min(timeTo, 24);
 
-    cellRecord = {
-      mode:"event", title:title||"予定", color:eventSelColor, memo,
-      timeFrom, timeTo:clampedTo,
-      cellColor, cellText,
-    };
-
-    // 時間範囲内の全セルに書き込む
-    for (let h = timeFrom; h < clampedTo; h++) {
-      if (h < 4 || h >= 24) continue;
-      const id = `cell-${h}-${cellModalCol}`;
-      await saveCellData(id, cellModalCol, h, cellRecord);
-    }
-    // 範囲外になった元のセルが含まれない場合はクリア不要（上書き済み）
-  }
-  closeMatModal();
-}
-
-async function clearCellRecord() {
-  if (cellModalMode === "event") {
-    // 行事の場合は時間範囲全体をクリア
-    const key = getCellDateKey(cellModalHour, cellModalCol);
-    const existing = (currentWeekData[key]||{}).cell;
-    const timeFrom = existing?.timeFrom ?? cellModalHour;
-    const timeTo   = existing?.timeTo   ?? cellModalHour + 1;
-    for (let h = timeFrom; h < timeTo; h++) {
-      if (h < 4 || h >= 24) continue;
-      const id = `cell-${h}-${cellModalCol}`;
-      await saveCellData(id, cellModalCol, h, null);
-    }
-    closeMatModal();
-  } else {
-    await saveCellData(cellModalId, cellModalCol, cellModalHour, null);
-    closeMatModal();
-  }
-}
 function closeMatModal() { document.getElementById("cell-modal-overlay").classList.add("hidden"); }
 
 // ════════════════════════════════════════
@@ -1980,7 +1900,6 @@ function closeMatModal() { document.getElementById("cell-modal-overlay").classLi
 function changeWeek(offset) {
   currentWeek += offset;
   loadWeekNew().then(() => renderNewGrid());
-  loadWeek();
 }
 function getWeekMondayBase() {
   const today=new Date(), dow=today.getDay();
@@ -2001,10 +1920,6 @@ function getStartOfWeek() {
 function formatDate(d){ return (d.getMonth()+1)+"/"+d.getDate(); }
 function getDateKey(d){ return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`; }
 function getWeekDocId(){ return getDateKey(getWeekMondayBase()); }
-function getCellDateKey(hour,col){
-  const s=getStartOfWeek(), d=new Date(s); d.setDate(s.getDate()+col); d.setHours(0,0,0,0);
-  return getDateKey(d)+`-${String(hour).padStart(2,'0')}`;
-}
 async function updateHeaders() {
   const today=new Date(), start=getStartOfWeek(), topBarH=document.getElementById("top-bar").offsetHeight;
   const holidays = await getHolidays();
@@ -2024,123 +1939,26 @@ async function updateHeaders() {
 }
 
 // ════════════════════════════════════════
-// セル保存
+// 集計（新グリッドデータ使用）
 // ════════════════════════════════════════
-async function saveCell(cellId,colIndex,hour,newText,newColor) {
-  if (!currentWeekDocId) return;
-  const key=getCellDateKey(hour,colIndex);
-  const cell=document.getElementById(cellId);
-  const existing=currentWeekData[key]||{};
-  const entry={id:currentWeekDocId+"__"+key,docId:currentWeekDocId,key,text:newText!==null?newText:(cell?.innerText.trim()||""),color:newColor!==null?newColor:(existing.color||""),cell:existing.cell||null};
-  await idbSet("cells",entry);
-  if (navigator.onLine){ const u={}; u[key]={text:entry.text,color:entry.color,cell:entry.cell}; db.collection("schedules2").doc(entry.docId).set(u,{merge:true}).catch(e=>console.error(e)); }
-  else await idbSet("pending",entry);
-  // 備考行（hour===4）のテキストをマンスリーのmemoに同期
-  if (hour===4 && navigator.onLine) { syncWeeklyToMonthly(colIndex, entry.text); }
-  setTimeout(loadWeek,200);
-}
-async function saveCellData(cellId,colIndex,hour,cellRecord) {
-  if (!currentWeekDocId) return;
-  const key=getCellDateKey(hour,colIndex);
-  const cell=document.getElementById(cellId);
-  const existing=currentWeekData[key]||{};
-  const entry={id:currentWeekDocId+"__"+key,docId:currentWeekDocId,key,text:existing.text||(cell?.innerText.trim()||""),color:existing.color||"",cell:cellRecord};
-  await idbSet("cells",entry);
-  if (navigator.onLine){ const u={}; u[key]={text:entry.text,color:entry.color,cell:entry.cell}; db.collection("schedules2").doc(entry.docId).set(u,{merge:true}).catch(e=>console.error(e)); }
-  else await idbSet("pending",entry);
-  currentWeekData[key]=entry;
-  setTimeout(loadWeek,200);
-}
-
-// ════════════════════════════════════════
-// 週読み込み・セル描画
-// ════════════════════════════════════════
-async function loadWeek() {
-  const start=getStartOfWeek(), end=new Date(start); end.setDate(start.getDate()+6);
-  document.getElementById("week-label").innerText=formatDate(start)+" 〜 "+formatDate(end);
-  currentWeekDocId=getWeekDocId(); updateHeaders();
-  let data={};
-  if (navigator.onLine) {
-    try {
-      const doc=await db.collection("schedules2").doc(currentWeekDocId).get();
-      data=doc.exists?doc.data():{};
-      for (const [k,v] of Object.entries(data)) {
-        await idbSet("cells",{id:currentWeekDocId+"__"+k,docId:currentWeekDocId,key:k,text:v.text||"",color:v.color||"",cell:v.cell||null});
-      }
-    } catch(err){ data=await loadFromIDB(); }
-  } else { data=await loadFromIDB(); }
-  currentWeekData=data;
-  applyWeekData(data,start);
-  await loadFreeRecordsForWeek();
-  renderSummary(data,start);
-  if (navigator.onLine) syncMonthlyMemoToWeekRow(data, start);
-}
-async function loadFromIDB() {
-  const all=await idbGetAll("cells");
-  const data={};
-  all.filter(e=>e.docId===currentWeekDocId).forEach(e=>{ data[e.key]={text:e.text,color:e.color,cell:e.cell||null}; });
-  return data;
-}
-function applyWeekData(data,start) {
-  const today=new Date();
-  for (let i=4;i<24;i++){
-    for (let j=0;j<7;j++){
-      const cellId=`cell-${i}-${j}`;
-      const cell=document.getElementById(cellId);
-      const wrapper=document.getElementById("wrapper-"+cellId);
-      if (!cell||!wrapper) continue;
-      const key=getCellDateKey(i,j);
-      const saved=data[key]||{text:"",color:"",cell:null};
-      const cellData=saved.cell||null;
-      let bgColor="", textCol="";
-      if (cellData&&cellData.mode==="event"){ bgColor=cellData.cellColor||cellData.color||"#ffadad"; textCol=getTextColor(bgColor); }
-      else if (saved.color){ bgColor=getColorStyle(saved.color); textCol=bgColor?getTextColor(bgColor):""; }
-      wrapper.style.background=bgColor||"";
-      cell.style.color=textCol||"";
-      const d=new Date(start); d.setDate(start.getDate()+j);
-      const isToday=d.getFullYear()===today.getFullYear()&&d.getMonth()===today.getMonth()&&d.getDate()===today.getDate();
-      if (isToday&&!bgColor) wrapper.classList.add("today-col"); else wrapper.classList.remove("today-col");
-      if (cellData&&cellData.mode==="study"&&cellData.materialId&&!saved.color) wrapper.classList.add("cell-study-bg"); else wrapper.classList.remove("cell-study-bg");
-      // テキストを必ずリセット（週切り替え時に前週の内容が残らないよう）
-      if (i===4) { cell.innerText = saved.text || ""; }
-      wrapper.querySelectorAll(".cell-mat-badge,.cell-page-hint,.cell-event-title").forEach(el=>el.remove());
-      if (cellData){
-        if (cellData.mode==="study"&&cellData.materialId){
-          const badge=document.createElement("div"); badge.className="cell-mat-badge"; badge.style.background=cellData.materialColor; badge.style.color=getTextColor(cellData.materialColor); badge.innerText=cellData.materialName; wrapper.appendChild(badge);
-          if (cellData.pageFrom||cellData.pageTo){ const ph=document.createElement("div"); ph.className="cell-page-hint"; ph.innerText=`p${cellData.pageFrom||"?"}〜${cellData.pageTo||"?"}`; wrapper.appendChild(ph); }
-        } else if (cellData.mode==="event"){
-          const et=document.createElement("div"); et.className="cell-event-title"; et.style.color=getTextColor(cellData.cellColor||cellData.color||"#ffadad"); et.innerText=cellData.cellText||cellData.title||"予定"; wrapper.appendChild(et);
-        }
-      }
-      wrapper.onclick=(e)=>{
-        if (currentColor){ const newColor=currentColor==="clear"?"":currentColor; const newBg=newColor?getColorStyle(newColor):""; cell.dataset.color=newColor; wrapper.style.background=newBg; cell.style.color=newBg?getTextColor(newBg):""; saveCell(cellId,j,i,null,newColor); }
-        else {
-          const key=getCellDateKey(i,j);
-          const savedEntry=currentWeekData[key]||{};
-          const cellRecord=savedEntry.cell||null;
-          if (cellRecord&&cellRecord.mode==="study") { openPomodoroModal(cellId,j,i,cellRecord); }
-          else { openCellModal(cellId,j,i); }
-        }
-      };
-    }
-  }
-}
-
-// ════════════════════════════════════════
-// 集計
-// ════════════════════════════════════════
-function renderSummary(data, start) {
+function renderSummary(start) {
   const totals = {}, daily = Array(7).fill(0);
 
-  // 予約セルの集計（既存）
-  for (let i = 4; i < 24; i++) {
-    for (let j = 0; j < 7; j++) {
-      const k = getCellDateKey(i, j), s = data[k];
-      if (s && s.cell && s.cell.mode === 'study' && s.cell.materialId) {
-        const id = s.cell.materialId;
-        if (!totals[id]) totals[id] = { name: s.cell.materialName, color: s.cell.materialColor, hours: 0, free: false };
-        totals[id].hours += 1;
-        daily[j] += 1;
+  // 新キー形式で集計
+  const startObj = getStartOfWeek();
+  for (let j = 0; j < 7; j++) {
+    const d = new Date(startObj); d.setDate(startObj.getDate() + j);
+    const dateStr = getDateKey(d);
+    for (const [key, val] of Object.entries(currentWeekDataNew)) {
+      if (!key.startsWith(dateStr + '-')) continue;
+      const cell = val.cell;
+      if (cell && cell.mode === 'study' && cell.materialId) {
+        const id = cell.materialId;
+        const parts = key.split('-');
+        const dur = (parseInt(parts[4]) - parseInt(parts[3])) / 60;
+        if (!totals[id]) totals[id] = { name: cell.materialName, color: cell.materialColor, hours: 0, free: false };
+        totals[id].hours += dur;
+        daily[j] += dur;
       }
     }
   }
@@ -2385,7 +2203,7 @@ async function saveFreeRecord() {
     const recDate = new Date(date);
     if (recDate >= start && recDate <= end) {
       await loadFreeRecordsForWeek();
-      renderSummary(currentWeekData, start);
+      renderSummary(start);
     }
     alert('記録しました！');
   } catch(e) {
@@ -2451,7 +2269,10 @@ function closePomodoroModal() {
 
 function openCellModalFromPom() {
   closePomodoroModal();
-  openCellModal(pomCellId, pomCellCol, pomCellHour);
+  // 新グリッド：pomCellDataの_ngKeyがあればopenCellModalNewへ
+  if (pomCellData && pomCellData._ngKey) {
+    openCellModalNew(pomCellData._ngKey, pomCellCol, pomCellData._startMin, pomCellData._endMin);
+  }
 }
 
 function pomGoToTimer() {
@@ -2463,8 +2284,8 @@ function pomGoToTimer() {
   if (pomCellData.pageFrom)      params.set("from",     pomCellData.pageFrom);
   if (pomCellData.pageTo)        params.set("to",       pomCellData.pageTo);
 
-  // ── 次の勉強予約セルを探してURLに追加 ──
-  const nextCell = findNextStudyCell(pomCellCol, pomCellHour);
+  // ── 次の勉強予約ブロックを探してURLに追加 ──
+  const nextCell = findNextStudyCell(pomCellCol, pomCellData._startMin || 0);
   if (nextCell) {
     if (nextCell.materialId)    params.set("nextMatId",    nextCell.materialId);
     if (nextCell.materialName)  params.set("nextMatName",  nextCell.materialName);
@@ -2476,97 +2297,39 @@ function pomGoToTimer() {
   window.location.href = "pomodoro.html?" + params.toString();
 }
 
-// 指定のコマより後で、最も近い勉強予約セルを探す
-function findNextStudyCell(colIndex, hour) {
-  // 同じ日の後の時間帯を先に探す
-  for (let h = hour + 1; h < 24; h++) {
-    const key = getCellDateKey(h, colIndex);
-    const entry = currentWeekData[key];
-    if (entry && entry.cell && entry.cell.mode === "study" && entry.cell.materialId) {
-      return entry.cell;
-    }
-  }
-  // 次の日以降も探す（今週内）
-  for (let col = colIndex + 1; col < 7; col++) {
-    for (let h = 4; h < 24; h++) {
-      const key = getCellDateKey(h, col);
-      const entry = currentWeekData[key];
-      if (entry && entry.cell && entry.cell.mode === "study" && entry.cell.materialId) {
-        return entry.cell;
+// 指定ブロックより後で、最も近い勉強予約ブロックを探す（新キー形式）
+function findNextStudyCell(colIndex, startMin) {
+  const start = getStartOfWeek();
+  // 同じ日以降のブロックを時刻順に検索
+  for (let j = colIndex; j < 7; j++) {
+    const d = new Date(start); d.setDate(start.getDate() + j);
+    const dateStr = getDateKey(d);
+    const candidates = Object.entries(currentWeekDataNew)
+      .filter(([k]) => k.startsWith(dateStr + '-'))
+      .sort(([a], [b]) => parseInt(a.split('-')[3]) - parseInt(b.split('-')[3]));
+    for (const [key, val] of candidates) {
+      const parts = key.split('-');
+      const sMin = parseInt(parts[3]);
+      if (j === colIndex && sMin <= startMin) continue; // 同じ日は現ブロック以前をスキップ
+      if (val.cell && val.cell.mode === 'study' && val.cell.materialId) {
+        return val.cell;
       }
     }
   }
   return null;
 }
 
-
 // ════════════════════════════════════════
-// 備考（4:00行）↔ マンスリー memo 双方向同期
+// マンスリー memo 同期
 // ════════════════════════════════════════
 
-// ウィークリー備考 → マンスリーmemo に書く
-function syncWeeklyToMonthly(colIndex, text) {
-  const start = getStartOfWeek();
-  const d = new Date(start); d.setDate(start.getDate() + colIndex);
-  const dayKey = getDateKey(d);
-  const monthDocId = `monthly-${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
-  const u = {}; u[dayKey] = { memo: text };
-  db.collection("monthly").doc(monthDocId).set(u, { merge: true }).catch(e => console.error(e));
-}
-
-// マンスリーmemo → ウィークリー備考（4:00行）に書く
+// マンスリーmemo → Firestore の monthly コレクションに保存
 async function syncMonthlyToWeekly(dayKey, memo) {
-  const d = new Date(dayKey);
-  if (isNaN(d)) return;
-  const start = getStartOfWeek();
-  let colIndex = -1;
-  for (let j = 0; j < 7; j++) {
-    const wd = new Date(start); wd.setDate(start.getDate() + j);
-    if (getDateKey(wd) === dayKey) { colIndex = j; break; }
-  }
-  if (colIndex === -1) return;
-  const cellId = `cell-4-${colIndex}`;
-  const key = getCellDateKey(4, colIndex);
-  const existing = currentWeekData[key] || {};
-  const entry = {
-    id: currentWeekDocId + "__" + key,
-    docId: currentWeekDocId,
-    key,
-    text: memo,
-    color: existing.color || "",
-    checked: existing.checked || false,
-    cell: existing.cell || null
-  };
-  await idbSet("cells", entry);
-  if (navigator.onLine) {
-    const u = {}; u[key] = { text: entry.text, color: entry.color, checked: entry.checked, cell: entry.cell };
-    db.collection("schedules2").doc(entry.docId).set(u, { merge: true }).catch(e => console.error(e));
-  }
-  currentWeekData[key] = entry;
-  const cellEl = document.getElementById(cellId);
-  if (cellEl) cellEl.innerText = memo;
-}
-
-// ウィークリー読み込み時、4:00行が空ならmonthlyのmemoを引っ張ってくる
-async function syncMonthlyMemoToWeekRow(data, start) {
-  for (let j = 0; j < 7; j++) {
-    const d = new Date(start); d.setDate(start.getDate() + j);
-    const dayKey = getDateKey(d);
-    const key = getCellDateKey(4, j);
-    const existing = data[key];
-    if (existing && existing.text) continue;
-    const monthDocId = `monthly-${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
-    try {
-      const doc = await db.collection("monthly").doc(monthDocId).get();
-      if (!doc.exists) continue;
-      const memo = (doc.data()[dayKey] || {}).memo || "";
-      if (!memo) continue;
-      if (!currentWeekData[key]) currentWeekData[key] = {};
-      currentWeekData[key].text = memo;
-      const cellEl = document.getElementById(`cell-4-${j}`);
-      if (cellEl && !cellEl.innerText.trim()) cellEl.innerText = memo;
-    } catch(e) {}
-  }
+  // 新グリッドでは備考行がないため、monthlyへの書き戻しのみ行う
+  const d = new Date(dayKey); if (isNaN(d)) return;
+  const monthDocId = `monthly-${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
+  const u = {}; u[dayKey] = { memo };
+  db.collection("monthly").doc(monthDocId).set(u, { merge: true }).catch(e => console.error(e));
 }
 
 // ════════════════════════════════════════
@@ -2855,17 +2618,20 @@ async function saveCellDataNew(colIndex, startMin, endMin, cellRecord) {
 // 新グリッド用: 週データ読み込み
 async function loadWeekNew() {
   currentWeekDocId = getWeekDocId();
+  const start = getStartOfWeek(), end = new Date(start); end.setDate(start.getDate() + 6);
+  document.getElementById("week-label").innerText = formatDate(start) + " 〜 " + formatDate(end);
+  updateHeaders();
   let data = {};
   if (navigator.onLine) {
     try {
       const doc = await db.collection('schedules2').doc(currentWeekDocId).get();
       data = doc.exists ? doc.data() : {};
-      // 新キー形式（日付-startMin-endMin）のエントリだけ抽出
-      for (const [k, v] of Object.entries(data)) {
-        if (isNewKey(k)) {
-          await idbSet('cells', { id: currentWeekDocId + '__' + k, docId: currentWeekDocId, key: k, ...v });
-        }
-      }
+      // 新キーのみ並列でIDBにキャッシュ
+      await Promise.all(
+        Object.entries(data)
+          .filter(([k]) => isNewKey(k))
+          .map(([k, v]) => idbSet('cells', { id: currentWeekDocId + '__' + k, docId: currentWeekDocId, key: k, ...v }))
+      );
     } catch (err) {
       data = await loadFromIDBNew();
     }
@@ -2877,6 +2643,8 @@ async function loadWeekNew() {
   for (const [k, v] of Object.entries(data)) {
     if (isNewKey(k)) currentWeekDataNew[k] = v;
   }
+  await loadFreeRecordsForWeek();
+  renderSummary(start);
 }
 
 // 新キー判定: '2025-04-21-480-510' 形式かどうか
