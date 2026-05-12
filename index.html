@@ -499,45 +499,87 @@ const auth = firebase.auth();
 // ════════════════════════════════════════
 // IndexedDB
 // ════════════════════════════════════════
+// ════════════════════════════════════════
+// IndexedDB 統合レイヤー
+// 接続を使い回し、全データをIDB優先で読み書き
+// Firestoreはバックグラウンド同期のみ
+// ════════════════════════════════════════
+let _idb = null;
 function openIDB() {
+  if (_idb) return Promise.resolve(_idb);
   return new Promise((res, rej) => {
-    const r = indexedDB.open("scheduleDB", 2);
+    const r = indexedDB.open("scheduleDB", 3);
     r.onupgradeneeded = e => {
-      const idb = e.target.result;
-      if (!idb.objectStoreNames.contains("cells"))     idb.createObjectStore("cells",     { keyPath:"id" });
-      if (!idb.objectStoreNames.contains("pending"))   idb.createObjectStore("pending",   { keyPath:"id" });
-      if (!idb.objectStoreNames.contains("materials")) idb.createObjectStore("materials", { keyPath:"id" });
+      const db = e.target.result;
+      // 既存
+      if (!db.objectStoreNames.contains("cells"))     db.createObjectStore("cells",     { keyPath:"id" });
+      if (!db.objectStoreNames.contains("pending"))   db.createObjectStore("pending",   { keyPath:"id" });
+      if (!db.objectStoreNames.contains("materials")) db.createObjectStore("materials", { keyPath:"id" });
+      // 新規追加（v3）
+      if (!db.objectStoreNames.contains("monthly"))   db.createObjectStore("monthly",   { keyPath:"id" });
+      if (!db.objectStoreNames.contains("config"))    db.createObjectStore("config",    { keyPath:"id" });
+      if (!db.objectStoreNames.contains("progress"))  db.createObjectStore("progress",  { keyPath:"id" });
+      if (!db.objectStoreNames.contains("freeRec"))   db.createObjectStore("freeRec",   { keyPath:"id" });
     };
-    r.onsuccess = e => res(e.target.result);
+    r.onsuccess = e => { _idb = e.target.result; res(_idb); };
     r.onerror   = e => rej(e.target.error);
   });
 }
 async function idbSet(store, val) {
-  const idb = await openIDB();
+  const db = await openIDB();
   return new Promise((res, rej) => {
-    const tx = idb.transaction(store, "readwrite");
+    const tx = db.transaction(store, "readwrite");
     tx.objectStore(store).put(val);
     tx.oncomplete = res;
     tx.onerror = e => rej(e.target.error);
   });
 }
-async function idbGetAll(store) {
-  const idb = await openIDB();
+async function idbGet(store, id) {
+  const db = await openIDB();
   return new Promise((res, rej) => {
-    const tx = idb.transaction(store, "readonly");
+    const tx = db.transaction(store, "readonly");
+    const r  = tx.objectStore(store).get(id);
+    r.onsuccess = e => res(e.target.result || null);
+    r.onerror   = e => rej(e.target.error);
+  });
+}
+async function idbGetAll(store) {
+  const db = await openIDB();
+  return new Promise((res, rej) => {
+    const tx = db.transaction(store, "readonly");
     const r  = tx.objectStore(store).getAll();
     r.onsuccess = e => res(e.target.result);
     r.onerror   = e => rej(e.target.error);
   });
 }
 async function idbDelete(store, id) {
-  const idb = await openIDB();
+  const db = await openIDB();
   return new Promise((res, rej) => {
-    const tx = idb.transaction(store, "readwrite");
+    const tx = db.transaction(store, "readwrite");
     tx.objectStore(store).delete(id);
     tx.oncomplete = res;
     tx.onerror = e => rej(e.target.error);
   });
+}
+
+// ── Firestoreへのバックグラウンド同期（fire-and-forget） ──
+function syncToFirestore(collection, docId, data) {
+  if (!navigator.onLine) return;
+  db.collection(collection).doc(docId).set(data, { merge: true })
+    .catch(e => console.warn('[sync]', e));
+}
+// ── Firestoreから取得してIDBに保存（起動時同期） ──
+async function fetchAndCacheFirestore(collection, docId, store, id) {
+  try {
+    const doc = await db.collection(collection).doc(docId).get();
+    if (!doc.exists) return null;
+    const data = doc.data();
+    await idbSet(store, { id, ...data });
+    return data;
+  } catch(e) {
+    console.warn('[fetchAndCache]', e);
+    return null;
+  }
 }
 
 // ════════════════════════════════════════
@@ -726,13 +768,28 @@ async function loadMonthly(){
     h.style.cssText=`background:${hBg};color:${hColor};text-align:center;padding:6px;font-size:13px;position:sticky;top:${topBarH}px;z-index:10;`;
     cal.appendChild(h);
   }
+  const monthDocId = `monthly-${year}-${String(month+1).padStart(2,'0')}`;
   const today=new Date();
-  // 月データとブロックプレビューを並列取得
+  // ① IDBから即座に読み込む
+  const idbRecord = await idbGet('monthly', monthDocId);
+  const md = idbRecord ? { ...idbRecord } : {};
+  delete md.id; // keyPathのidは除外
+
+  // ② バックグラウンドでFirestoreと同期
+  if (navigator.onLine) {
+    db.collection("monthly").doc(monthDocId).get()
+      .then(async doc => {
+        if (!doc.exists) return;
+        const fsData = doc.data();
+        await idbSet('monthly', { id: monthDocId, ...fsData });
+      }).catch(()=>{});
+  }
+
+  // ③ 祝日取得と並行してセルを描画
   Promise.all([
-    db.collection("monthly").doc(`monthly-${year}-${String(month+1).padStart(2,'0')}`).get().catch(()=>null),
+    Promise.resolve(md),
     getHolidays()
-  ]).then(async ([doc, holidays]) => {
-    const md = doc && doc.exists ? doc.data() : {};
+  ]).then(async ([mdData, holidays]) => {
 
     // 表示対象の日キー一覧を先に作成
     const dayKeys = [];
@@ -761,7 +818,7 @@ async function loadMonthly(){
         const dateObj = new Date(year, month, dayNum);
         const isToday = dateObj.getFullYear()===today.getFullYear() && dateObj.getMonth()===today.getMonth() && dateObj.getDate()===today.getDate();
         const dayKey = dayKeys[i];
-        const saved = md[dayKey] || {memo:"", color:"", checked:false};
+        const saved = mdData[dayKey] || {memo:"", color:"", checked:false};
         const bg = saved.color ? getColorStyle(saved.color) : (isToday ? "#fffde7" : "");
         const tc = bg ? getTextColor(bg) : "#333";
         if (bg) cell.style.background = bg;
@@ -788,7 +845,7 @@ async function loadMonthly(){
           cell.appendChild(blockPreview);
         }
         if (saved.memo) { const mv = document.createElement("div"); mv.style.cssText = `font-size:11px;color:${tc};overflow:hidden;max-height:48px;${saved.checked?'text-decoration:line-through;opacity:0.5;':''}`; mv.innerText = saved.memo; cell.appendChild(mv); }
-        cell.onclick = () => openDayModal(dayKey, year, month, dayNum, md);
+        cell.onclick = () => openDayModal(dayKey, year, month, dayNum, mdData);
       } else { cell.style.background = "#f5f5f5"; cell.style.cursor = "default"; }
       cal.appendChild(cell);
     }
@@ -820,18 +877,23 @@ function openDayModal(dayKey,year,month,dayNum,monthData) {
   loadFileList();
 }
 
-function saveDayModal() {
-  currentMonthData[currentDayKey]=currentMonthData[currentDayKey]||{};
-  currentMonthData[currentDayKey].memo=document.getElementById("day-modal-memo").value;
-  currentMonthData[currentDayKey].checked=document.getElementById("day-modal-check").checked;
-  const memo=currentMonthData[currentDayKey].memo;
-  const u={}; u[currentDayKey]=currentMonthData[currentDayKey];
-  db.collection("monthly").doc(currentMonthDocId).set(u,{merge:true}).then(()=>{
-    // マンスリーのmemoをウィークリー備考行（4:00）にも同期
-    syncMonthlyToWeekly(currentDayKey, memo);
-    closeDayModal();
-    loadMonthly();
-  }).catch(e=>console.error(e));
+async function saveDayModal() {
+  currentMonthData[currentDayKey] = currentMonthData[currentDayKey] || {};
+  currentMonthData[currentDayKey].memo    = document.getElementById("day-modal-memo").value;
+  currentMonthData[currentDayKey].checked = document.getElementById("day-modal-check").checked;
+  const memo = currentMonthData[currentDayKey].memo;
+
+  // IDBに即座に保存（currentMonthDataをまるごと上書き）
+  const idbRecord = await idbGet('monthly', currentMonthDocId) || {};
+  delete idbRecord.id;
+  Object.assign(idbRecord, { [currentDayKey]: currentMonthData[currentDayKey] });
+  await idbSet('monthly', { id: currentMonthDocId, ...idbRecord });
+
+  // Firestoreへはバックグラウンド同期
+  syncToFirestore('monthly', currentMonthDocId, { [currentDayKey]: currentMonthData[currentDayKey] });
+  syncMonthlyToWeekly(currentDayKey, memo);
+  closeDayModal();
+  loadMonthly();
 }
 
 function closeDayModal() {
@@ -1062,11 +1124,12 @@ let progData = null;
 async function openProgressModal(mat) {
   progMatId = mat.id;
   document.getElementById("prog-mat-name").textContent = "📊 " + mat.name;
-  try {
-    const uid = auth.currentUser?.uid || 'unknown';
-    const doc = await db.collection("material_progress").doc(uid + "_" + mat.id).get();
-    progData = doc.exists ? doc.data() : null;
-  } catch(e) { progData = null; }
+
+  const uid = auth.currentUser?.uid || 'unknown';
+  const idbId = uid + "_" + mat.id;
+  const cached = await idbGet("progress", idbId);
+  progData = cached ? { ...cached } : null;
+  if (progData) delete progData.id;
 
   // デフォルト構造
   if (!progData || !progData.chapters) {
@@ -1081,6 +1144,18 @@ async function openProgressModal(mat) {
   renderProgChapterTabs();
   renderProgQuestions();
   document.getElementById("progress-overlay").classList.remove("hidden");
+
+  // バックグラウンドでFirestoreと同期
+  if (navigator.onLine) {
+    db.collection("material_progress").doc(idbId).get()
+      .then(async doc => {
+        if (!doc.exists) return;
+        progData = doc.data();
+        await idbSet("progress", { id: idbId, ...progData });
+        progCurrentRound = progData.currentRound || 0;
+        renderProgRoundTabs(); renderProgChapterTabs(); renderProgQuestions();
+      }).catch(() => {});
+  }
 }
 
 function closeProgressModal() {
@@ -1355,16 +1430,14 @@ async function saveProgress() {
   progData.deadline     = document.getElementById("prog-deadline").value;
   progData.currentRound = progCurrentRound;
   const uid = auth.currentUser?.uid || 'unknown';
-  try {
-    await db.collection("material_progress").doc(uid + "_" + progMatId).set(progData);
-    const btn = document.querySelector("#progress-overlay .btn-save-lg");
-    const orig = btn.textContent;
-    btn.textContent = "✅ 保存完了！"; btn.disabled = true;
-    refreshDeadlinePanel();
-    setTimeout(() => { btn.textContent = orig; btn.disabled = false; }, 1500);
-  } catch(e) {
-    alert("保存に失敗しました: " + e.message);
-  }
+  const idbId = uid + "_" + progMatId;
+  await idbSet("progress", { id: idbId, ...progData });
+  syncToFirestore("material_progress", idbId, progData);
+  const btn = document.querySelector("#progress-overlay .btn-save-lg");
+  const orig = btn.textContent;
+  btn.textContent = "✅ 保存完了！"; btn.disabled = true;
+  refreshDeadlinePanel();
+  setTimeout(() => { btn.textContent = orig; btn.disabled = false; }, 1500);
 }
 
 // ════════════════════════════════════════
@@ -1379,14 +1452,11 @@ async function refreshDeadlinePanel() {
   const today = new Date(new Date().toDateString());
   const items = [];
   for (const mat of materials) {
-    try {
-      const doc = await db.collection("material_progress").doc(uid + "_" + mat.id).get();
-      if (!doc.exists) continue;
-      const data = doc.data();
-      if (!data.deadline) continue;
-      const diff = Math.ceil((new Date(data.deadline) - today) / 86400000);
-      items.push({ name: mat.name, deadline: data.deadline, diff, color: mat.color });
-    } catch(e) {}
+    const idbId = uid + "_" + mat.id;
+    const data = await idbGet("progress", idbId);
+    if (!data || !data.deadline) continue;
+    const diff = Math.ceil((new Date(data.deadline) - today) / 86400000);
+    items.push({ name: mat.name, deadline: data.deadline, diff, color: mat.color });
   }
 　// 考査・模試の締切も追加
   for (const exam of exams) {
@@ -1433,15 +1503,25 @@ function genExamId() { return "exam_"+Date.now()+"_"+Math.random().toString(36).
 
 async function loadExams() {
   const uid = auth.currentUser?.uid || 'unknown';
-  try {
-    const doc = await db.collection("app_config").doc("exams_"+uid).get();
-    exams = doc.exists ? (doc.data().list||[]) : [];
-  } catch(e) { exams = []; }
+  const idbId = "exams_" + uid;
+  const cached = await idbGet("config", idbId);
+  exams = cached ? (cached.list || []) : [];
+  if (navigator.onLine) {
+    db.collection("app_config").doc(idbId).get()
+      .then(async doc => {
+        if (!doc.exists) return;
+        exams = doc.data().list || [];
+        await idbSet("config", { id: idbId, list: exams });
+        refreshDeadlinePanel();
+      }).catch(() => {});
+  }
 }
 
 async function saveExams() {
   const uid = auth.currentUser?.uid || 'unknown';
-  try { await db.collection("app_config").doc("exams_"+uid).set({list:exams}); } catch(e) { console.error(e); }
+  const idbId = "exams_" + uid;
+  await idbSet("config", { id: idbId, list: exams });
+  syncToFirestore("app_config", idbId, { list: exams });
   refreshDeadlinePanel();
 }
 
@@ -1741,18 +1821,23 @@ function setColor(color) {
 // 教材マスタ管理
 // ════════════════════════════════════════
 async function loadMaterials() {
-  try {
-    const doc=await db.collection("app_config").doc("materials").get();
-    materials=doc.exists?(doc.data().list||[]):[];
-  } catch(e) {
-    const all=await idbGetAll("materials");
-    materials=all.length>0?(all[0].list||[]):[];
+  // IDBから即座に読み込む
+  const cached = await idbGet("materials", "materials");
+  materials = cached ? (cached.list || []) : [];
+  // バックグラウンドでFirestoreと同期
+  if (navigator.onLine) {
+    db.collection("app_config").doc("materials").get()
+      .then(async doc => {
+        if (!doc.exists) return;
+        const list = doc.data().list || [];
+        materials = list;
+        await idbSet("materials", { id: "materials", list });
+      }).catch(() => {});
   }
-  await idbSet("materials",{id:"materials",list:materials});
 }
 async function saveMaterials() {
-  try { await db.collection("app_config").doc("materials").set({list:materials}); } catch(e) { console.error(e); }
-  await idbSet("materials",{id:"materials",list:materials});
+  await idbSet("materials", { id: "materials", list: materials });
+  syncToFirestore("app_config", "materials", { list: materials });
 }
 function genMatId(){ return "mat_"+Date.now()+"_"+Math.random().toString(36).slice(2,6); }
 
@@ -2194,21 +2279,28 @@ async function saveFreeRecord() {
     createdAt: new Date().toISOString()
   };
 
-  try {
-    await db.collection('freeStudyRecords').add(record);
-    closeFreeRecordModal();
-    // 今週分なら集計を再描画
-    const start = getStartOfWeek();
-    const end   = new Date(start); end.setDate(start.getDate() + 6);
-    const recDate = new Date(date);
-    if (recDate >= start && recDate <= end) {
-      await loadFreeRecordsForWeek();
-      renderSummary(start);
-    }
-    alert('記録しました！');
-  } catch(e) {
-    alert('保存に失敗しました: ' + e.message);
+  const id = "fr_" + Date.now() + "_" + Math.random().toString(36).slice(2, 6);
+  const recordWithId = { ...record, id };
+
+  // IDBに即座に保存
+  await idbSet("freeRec", recordWithId);
+  closeFreeRecordModal();
+
+  // Firestoreへはバックグラウンド同期
+  if (navigator.onLine) {
+    db.collection('freeStudyRecords').doc(id).set(record)
+      .catch(e => console.warn('[saveFreeRecord sync]', e));
   }
+
+  // 今週分なら集計を再描画
+  const start = getStartOfWeek();
+  const end   = new Date(start); end.setDate(start.getDate() + 6);
+  const recDate = new Date(date);
+  if (recDate >= start && recDate <= end) {
+    await loadFreeRecordsForWeek();
+    renderSummary(start);
+  }
+  alert('記録しました！');
 }
 
 // ════════════════════════════════════════
@@ -2227,7 +2319,7 @@ function isHoliday(dateKey, holidays) {
   return !!holidays[dateKey];
 }
   
-// 今週の自由記録をFirestoreから取得してグローバルに保持
+// 今週の自由記録をIDBから取得（Firestoreはバックグラウンド同期）
 let currentFreeRecords = [];
 async function loadFreeRecordsForWeek() {
   const start = getStartOfWeek();
@@ -2235,15 +2327,26 @@ async function loadFreeRecordsForWeek() {
   const startKey = getDateKey(start);
   const endKey   = getDateKey(end);
   const uid = auth.currentUser?.uid || 'unknown';
-  try {
-    const snap = await db.collection('freeStudyRecords')
+
+  // IDBから読み込む
+  const all = await idbGetAll("freeRec");
+  currentFreeRecords = all.filter(r =>
+    (r.uid === uid || !r.uid) && r.date >= startKey && r.date <= endKey
+  );
+
+  // バックグラウンドでFirestoreと同期
+  if (navigator.onLine) {
+    db.collection('freeStudyRecords')
       .where('uid', '==', uid)
       .where('date', '>=', startKey)
       .where('date', '<=', endKey)
-      .get();
-    currentFreeRecords = snap.docs.map(d => d.data());
-  } catch(e) {
-    currentFreeRecords = [];
+      .get()
+      .then(async snap => {
+        const records = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+        await Promise.all(records.map(r => idbSet("freeRec", r)));
+        currentFreeRecords = records;
+        renderSummary(start);
+      }).catch(() => {});
   }
 }
   
@@ -2604,47 +2707,56 @@ async function saveCellDataNew(colIndex, startMin, endMin, cellRecord) {
     title: cellRecord?.title || '',
     cell: cellRecord
   };
+  // IDBに即座に保存
   await idbSet('cells', entry);
+  currentWeekDataNew[key] = entry;
+  // Firestoreへはバックグラウンド同期
   if (navigator.onLine) {
-    const u = {}; u[key] = { text: entry.text, color: entry.color, cell: entry.cell, startMin, endMin, mode: entry.mode, title: entry.title };
-    db.collection('schedules2').doc(entry.docId).set(u, { merge: true }).catch(e => console.error(e));
+    syncToFirestore('schedules2', entry.docId,
+      { [key]: { text: entry.text, color: entry.color, cell: entry.cell, startMin, endMin, mode: entry.mode, title: entry.title } });
   } else {
-    // Phase 7: pending キューに新キー形式のフィールドを含める
     await idbSet('pending', entry);
   }
-  currentWeekDataNew[key] = entry;
 }
 
-// 新グリッド用: 週データ読み込み
+// 新グリッド用: 週データ読み込み（IDBメイン・Firestore差分同期）
 async function loadWeekNew() {
   currentWeekDocId = getWeekDocId();
   const start = getStartOfWeek(), end = new Date(start); end.setDate(start.getDate() + 6);
   document.getElementById("week-label").innerText = formatDate(start) + " 〜 " + formatDate(end);
   updateHeaders();
-  let data = {};
+
+  // ① まずIDBから即座に読み込んで表示
+  const idbData = await loadFromIDBNew();
+  currentWeekDataNew = idbData;
+  await loadFreeRecordsForWeek();
+  renderSummary(start);
+
+  // ② バックグラウンドでFirestoreと差分同期（表示は①で完了済み）
   if (navigator.onLine) {
     try {
       const doc = await db.collection('schedules2').doc(currentWeekDocId).get();
-      data = doc.exists ? doc.data() : {};
-      // 新キーのみ並列でIDBにキャッシュ
+      if (!doc.exists) return;
+      const fsData = doc.data();
+      let updated = false;
       await Promise.all(
-        Object.entries(data)
+        Object.entries(fsData)
           .filter(([k]) => isNewKey(k))
-          .map(([k, v]) => idbSet('cells', { id: currentWeekDocId + '__' + k, docId: currentWeekDocId, key: k, ...v }))
+          .map(async ([k, v]) => {
+            const entry = { id: currentWeekDocId + '__' + k, docId: currentWeekDocId, key: k, ...v };
+            await idbSet('cells', entry);
+            // IDBと差分がある場合のみ画面を更新
+            const existing = JSON.stringify(currentWeekDataNew[k]);
+            if (existing !== JSON.stringify(v)) {
+              currentWeekDataNew[k] = v;
+              updated = true;
+            }
+          })
       );
-    } catch (err) {
-      data = await loadFromIDBNew();
-    }
-  } else {
-    data = await loadFromIDBNew();
+      // 差分があれば再描画
+      if (updated) { renderNewGrid(); renderSummary(start); }
+    } catch(e) { console.warn('[loadWeekNew sync]', e); }
   }
-  // 新キーのみ抽出してキャッシュ
-  currentWeekDataNew = {};
-  for (const [k, v] of Object.entries(data)) {
-    if (isNewKey(k)) currentWeekDataNew[k] = v;
-  }
-  await loadFreeRecordsForWeek();
-  renderSummary(start);
 }
 
 // 新キー判定: '2025-04-21-480-510' 形式かどうか
