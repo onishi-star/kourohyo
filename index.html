@@ -120,15 +120,46 @@
 
 <!-- ══ 日メモモーダル（マンスリー用） ══ -->
 <div id="day-modal-overlay" class="overlay hidden" style="z-index:200;">
-  <div class="modal-box" style="min-width:300px; max-width:400px;">
+  <div class="modal-box" style="min-width:300px; max-width:440px;">
     <h2 id="day-modal-title" class="modal-title"></h2>
     <div class="flex gap-6 flex-wrap" style="margin-bottom:10px;" id="day-modal-colors"></div>
-    <textarea id="day-modal-memo" class="input-full-lg" style="height:120px; resize:none; font-family:sans-serif;" placeholder="この日のメモを入力..."></textarea>
-    <div class="flex-center gap-8" style="margin-top:10px;">
+    <textarea id="day-modal-memo" class="input-full-lg" style="height:100px; resize:none; font-family:sans-serif;" placeholder="この日のメモを入力..."></textarea>
+    <div class="flex-center gap-8" style="margin-top:8px;">
       <input type="checkbox" id="day-modal-check">
       <label for="day-modal-check" style="font-size:14px;">完了</label>
     </div>
-    <div class="row-end">
+
+    <!-- ウィークリーへの誘導ボタン -->
+    <button id="day-modal-goto-weekly" style="width:100%; margin-top:10px; padding:8px 0; background:#e8f0fe; color:#1565c0; border:1.5px solid #90caf9; border-radius:8px; font-size:13px; font-weight:bold; cursor:pointer;">
+      📅 この日のウィークリーを表示
+    </button>
+
+    <!-- ウィークリーグリッドへ予約を追加するフォーム -->
+    <div id="day-modal-weekly-form" style="margin-top:10px; background:#f8f9fb; border-radius:10px; padding:10px; border:1px solid #e0e8f0;">
+      <div style="font-size:12px; font-weight:bold; color:#4a90e2; margin-bottom:8px;">➕ ウィークリーグリッドに予約を追加</div>
+      <!-- 時刻 -->
+      <div style="display:flex; align-items:center; gap:6px; margin-bottom:8px; flex-wrap:wrap;">
+        <span style="font-size:12px; color:#666;">⏰</span>
+        <select id="dm-time-from" class="select-time"></select>
+        <span style="font-size:12px; color:#666;">〜</span>
+        <select id="dm-time-to" class="select-time"></select>
+      </div>
+      <!-- タイトル -->
+      <div style="display:flex; gap:6px; align-items:center; margin-bottom:8px;">
+        <select id="dm-block-mode" style="padding:5px 8px; border:1px solid #d0d8e8; border-radius:6px; font-size:12px; color:#444; flex:none;">
+          <option value="event">📅 行事</option>
+          <option value="study">📚 勉強</option>
+        </select>
+        <input type="text" id="dm-event-title" placeholder="タイトル（例：部活・塾）" style="flex:1; padding:5px 8px; border:1px solid #d0d8e8; border-radius:6px; font-size:12px;">
+      </div>
+      <!-- 色 -->
+      <div style="display:flex; gap:5px; flex-wrap:wrap; margin-bottom:8px;" id="dm-color-swatches"></div>
+      <button id="day-modal-add-block" style="width:100%; padding:8px 0; background:#4a90e2; color:#fff; border:none; border-radius:8px; font-size:13px; font-weight:bold; cursor:pointer;">
+        ✅ グリッドに追加
+      </button>
+    </div>
+
+    <div class="row-end" style="margin-top:10px;">
       <button class="btn-save">保存</button>
       <button class="btn-close">閉じる</button>
     </div>
@@ -876,6 +907,51 @@ function openDayModal(dayKey,year,month,dayNum,monthData) {
   document.getElementById("day-modal-overlay").classList.remove("hidden");
   injectFileTabs();
   loadFileList();
+
+  // ── ウィークリー連携フォームの初期化 ──
+  initDayModalWeeklyForm(dayKey);
+}
+
+// マンスリーモーダル内のウィークリー追加フォームを初期化
+let _dmSelectedColor = '#a0c4ff';
+function initDayModalWeeklyForm(dayKey) {
+  // 時刻セレクト（5分刻み）を構築
+  const fromSel = document.getElementById('dm-time-from');
+  const toSel   = document.getElementById('dm-time-to');
+  if (!fromSel || !toSel) return;
+  fromSel.innerHTML = '';
+  toSel.innerHTML   = '';
+  for (let m = NG_START_HOUR * 60; m <= NG_END_HOUR * 60; m += 5) {
+    const o1 = document.createElement('option'); o1.value = m; o1.textContent = ngFormatTime(m);
+    if (m === 16 * 60) o1.selected = true; // デフォルト 16:00
+    fromSel.appendChild(o1);
+    const o2 = document.createElement('option'); o2.value = m; o2.textContent = ngFormatTime(m);
+    if (m === 17 * 60) o2.selected = true; // デフォルト 17:00
+    toSel.appendChild(o2);
+  }
+  fromSel.addEventListener('change', () => {
+    const s = parseInt(fromSel.value);
+    const e = Math.min(s + 60, NG_END_HOUR * 60);
+    toSel.value = e;
+  });
+
+  // 色スウォッチ
+  _dmSelectedColor = '#a0c4ff';
+  const swEl = document.getElementById('dm-color-swatches');
+  if (swEl) {
+    swEl.innerHTML = '';
+    const cols = ['#a0c4ff','#ffadad','#caffbf','#ffe066','#f8bbd0','#c77dff','#ffb347','#90caf9','#aaa'];
+    cols.forEach(col => {
+      const sw = document.createElement('div');
+      sw.style.cssText = `width:22px;height:22px;border-radius:50%;background:${col};cursor:pointer;border:2px solid ${col===_dmSelectedColor?'#333':'transparent'};box-sizing:border-box;`;
+      sw.addEventListener('click', () => {
+        _dmSelectedColor = col;
+        swEl.querySelectorAll('div').forEach(s => s.style.border = '2px solid transparent');
+        sw.style.border = '2px solid #333';
+      });
+      swEl.appendChild(sw);
+    });
+  }
 }
 
 async function saveDayModal() {
@@ -907,6 +983,99 @@ function closeDayModal() {
   const box = document.querySelector('#day-modal-overlay .modal-box');
   if (box) box.querySelectorAll('textarea, div').forEach(el => el.classList.remove('hidden'));
   document.getElementById("day-modal-overlay").classList.add("hidden");
+}
+
+// ════════════════════════════════════════
+// マンスリー → ウィークリー 連携
+// ════════════════════════════════════════
+
+// 「この日のウィークリーを表示」ボタン
+function gotoWeeklyFromMonthly() {
+  if (!currentDayKey) return;
+  // currentDayKey = "YYYY-MM-DD"
+  const [y, m, d] = currentDayKey.split('-').map(Number);
+  const targetDate = new Date(y, m - 1, d);
+  targetDate.setHours(0, 0, 0, 0);
+
+  // 週の開始日を求め、その週が何週目(currentWeek)かを計算
+  const today = new Date(); today.setHours(0, 0, 0, 0);
+  const todayDow = today.getDay();
+  const todayDiff = ((todayDow - weekStartDay) + 7) % 7;
+  const thisWeekStart = new Date(today); thisWeekStart.setDate(today.getDate() - todayDiff);
+
+  const diffDays = Math.round((targetDate - thisWeekStart) / 86400000);
+  const diffWeeks = Math.floor(diffDays / 7);
+
+  closeDayModal();
+  currentWeek = diffWeeks;
+  switchView('weekly');
+  loadWeekNew().then(() => renderNewGrid());
+}
+
+// 「グリッドに追加」ボタン：マンスリーの日付モーダルから直接ブロックを保存
+async function addBlockFromMonthly() {
+  if (!currentDayKey) return;
+  const fromSel = document.getElementById('dm-time-from');
+  const toSel   = document.getElementById('dm-time-to');
+  const titleEl = document.getElementById('dm-event-title');
+  const modeEl  = document.getElementById('dm-block-mode');
+  if (!fromSel || !toSel) return;
+
+  const startMin = parseInt(fromSel.value);
+  const endMin   = parseInt(toSel.value);
+  if (isNaN(startMin) || isNaN(endMin) || endMin <= startMin) {
+    alert('終了時刻は開始時刻より後にしてください'); return;
+  }
+
+  const title = (titleEl ? titleEl.value.trim() : '') || '予定';
+  const mode  = modeEl ? modeEl.value : 'event';
+
+  // currentDayKey = "YYYY-MM-DD" から colIndex を算出
+  const [y, m, d] = currentDayKey.split('-').map(Number);
+  const targetDate = new Date(y, m - 1, d); targetDate.setHours(0, 0, 0, 0);
+
+  // その週の週開始日を求める
+  const targetDow  = targetDate.getDay();
+  const targetDiff = ((targetDow - weekStartDay) + 7) % 7;
+  const weekStart  = new Date(targetDate); weekStart.setDate(targetDate.getDate() - targetDiff);
+
+  // currentWeekに対応する週開始日と比較して colIndex を確定
+  const today = new Date(); today.setHours(0, 0, 0, 0);
+  const todayDow  = today.getDay();
+  const todayDiff = ((todayDow - weekStartDay) + 7) % 7;
+  const thisWeekStart = new Date(today); thisWeekStart.setDate(today.getDate() - todayDiff);
+  const targetWeekStart = weekStart;
+  const weekOffset = Math.round((targetWeekStart - thisWeekStart) / (7 * 86400000));
+
+  // colIndexは weekStart から何日目か
+  const colIndex = Math.round((targetDate - weekStart) / 86400000);
+
+  // currentWeekを一時的に変更してcurrentWeekDocIdを正しく設定
+  const savedWeek = currentWeek;
+  currentWeek = weekOffset;
+  currentWeekDocId = getWeekDocId();
+
+  const cellRecord = {
+    mode,
+    title,
+    color: _dmSelectedColor || '#a0c4ff',
+    startMin,
+    endMin,
+    ...(mode === 'event' ? { memo: '' } : {})
+  };
+
+  await saveCellDataNew(colIndex, startMin, endMin, cellRecord);
+
+  // currentWeekを元に戻す
+  currentWeek = savedWeek;
+  currentWeekDocId = getWeekDocId();
+
+  // 成功メッセージ
+  const timeLabel = `${ngFormatTime(startMin)}〜${ngFormatTime(endMin)}`;
+  alert(`「${title}」（${timeLabel}）をウィークリーグリッドに追加しました！`);
+
+  // タイトル欄をリセット
+  if (titleEl) titleEl.value = '';
 }
 
 // ════════════════════════════════════════
@@ -1978,7 +2147,15 @@ async function saveNewMaterial() {
 }
 
 
-function closeMatModal() { document.getElementById("cell-modal-overlay").classList.add("hidden"); }
+function closeMatModal() {
+  // 時刻セレクト行（新規予約時に追加）を削除
+  const tRow = document.getElementById('cell-modal-time-selects');
+  if (tRow) tRow.remove();
+  // data-ng-isnew をリセット
+  const saveBtn = document.getElementById('cell-save-btn');
+  if (saveBtn) saveBtn.removeAttribute('data-ng-isnew');
+  document.getElementById("cell-modal-overlay").classList.add("hidden");
+}
 
 // ════════════════════════════════════════
 // 週ナビゲーション
@@ -2610,7 +2787,7 @@ function renderNewGrid() {
     for (let j = 0; j < 7; j++) {
       const colDiv = document.createElement('div');
       colDiv.id = 'ng-col-' + j;
-      colDiv.style.cssText = `position:relative; height:${TOTAL_HEIGHT}px; border-right:1px solid #eee; box-sizing:border-box;`;
+      colDiv.style.cssText = `position:relative; height:${TOTAL_HEIGHT}px; border-right:1px solid #eee; box-sizing:border-box; cursor:pointer;`;
       // 横罫線
       for (let h = NG_START_HOUR; h <= NG_END_HOUR; h++) {
         const top = (h - NG_START_HOUR) * 6 * SLOT_H_SHORT;
@@ -2623,6 +2800,25 @@ function renderNewGrid() {
       blockContainer.id = 'ng-blocks-' + j;
       blockContainer.style.cssText = 'position:absolute; inset:0; pointer-events:none;';
       colDiv.appendChild(blockContainer);
+
+      // 空白クリックで新規予約モーダルを開く
+      (function(colIndex) {
+        colDiv.addEventListener('click', function(e) {
+          // ブロック要素（.ng-block）やpomo-box上のクリックは除外
+          if (e.target.closest('.ng-block') || e.target.closest('[data-pomo-click]')) return;
+          const rect = colDiv.getBoundingClientRect();
+          const relY = e.clientY - rect.top + colDiv.scrollTop;
+          // px→分に変換（1スロット=SLOT_H_SHORT px = 10分）
+          const slotsFromTop = Math.floor(relY / SLOT_H_SHORT);
+          const rawMin = NG_START_HOUR * 60 + slotsFromTop * 10;
+          // 30分単位に丸める
+          const startMin = Math.round(rawMin / 30) * 30;
+          const endMin   = startMin + 60; // デフォルト1時間
+          if (startMin < NG_START_HOUR * 60 || endMin > NG_END_HOUR * 60) return;
+          openNewBlockModal(colIndex, startMin, Math.min(endMin, NG_END_HOUR * 60));
+        });
+      })(j);
+
       gridBody.appendChild(colDiv);
     }
     container.appendChild(gridBody);
@@ -2958,8 +3154,17 @@ function buildReviewBadgeHTML(cellRecord) {
   return `<span class="js-review-badge">🔁 ${cellRecord.reviewName || '復習予約'}</span>`;
 }
 
-// 新グリッド用: セル編集モーダル（簡易版、Phase5で拡張予定）
-function openCellModalNew(key, colIndex, startMin, endMin) {
+// ── 空白クリック時の新規予約モーダルを開く ──
+function openNewBlockModal(colIndex, startMin, endMin) {
+  const s = getStartOfWeek();
+  const d = new Date(s); d.setDate(s.getDate() + colIndex);
+  const key = `${getDateKey(d)}-${startMin}-${endMin}`;
+  openCellModalNew(key, colIndex, startMin, endMin, true);
+}
+
+// 新グリッド用: セル編集モーダル
+// isNew=true のとき新規作成（時刻を編集可能にする）
+function openCellModalNew(key, colIndex, startMin, endMin, isNew) {
   // 既存のcell-modal-overlayを流用
   cellModalId  = 'ng-' + key;
   cellModalCol = colIndex;
@@ -2969,8 +3174,48 @@ function openCellModalNew(key, colIndex, startMin, endMin) {
   const d = new Date(s); d.setDate(s.getDate() + colIndex);
   document.getElementById('cell-modal-title').innerText =
     `${d.getMonth()+1}/${d.getDate()}（${allDayNames[d.getDay()]}）`;
-  document.getElementById('cell-modal-time').innerText =
-    `${ngFormatTime(startMin)}〜${ngFormatTime(endMin)}`;
+
+  // ── 時刻表示エリア：新規時は時刻セレクトを表示、既存はラベル表示 ──
+  const timeEl = document.getElementById('cell-modal-time');
+  // 既存の時刻セレクト行があれば削除
+  const existingTimeRow = document.getElementById('cell-modal-time-selects');
+  if (existingTimeRow) existingTimeRow.remove();
+
+  if (isNew) {
+    timeEl.innerText = '';
+    // 時刻セレクト行を追加
+    const timeRow = document.createElement('div');
+    timeRow.id = 'cell-modal-time-selects';
+    timeRow.style.cssText = 'display:flex; align-items:center; gap:6px; margin-bottom:10px; flex-wrap:wrap;';
+    timeRow.innerHTML = `
+      <span style="font-size:12px; color:#888;">⏰ 時刻：</span>
+      <select id="ng-new-time-from" class="select-time"></select>
+      <span style="font-size:12px; color:#888;">〜</span>
+      <select id="ng-new-time-to" class="select-time"></select>
+    `;
+    timeEl.after(timeRow);
+    // セレクトに選択肢を追加（5分刻み）
+    const fromSel = document.getElementById('ng-new-time-from');
+    const toSel   = document.getElementById('ng-new-time-to');
+    for (let m = NG_START_HOUR * 60; m <= NG_END_HOUR * 60; m += 5) {
+      const o1 = document.createElement('option');
+      o1.value = m; o1.textContent = ngFormatTime(m);
+      if (m === startMin) o1.selected = true;
+      fromSel.appendChild(o1);
+      const o2 = document.createElement('option');
+      o2.value = m; o2.textContent = ngFormatTime(m);
+      if (m === endMin) o2.selected = true;
+      toSel.appendChild(o2);
+    }
+    // fromが変わったらtoのデフォルトを+60分に
+    fromSel.addEventListener('change', () => {
+      const newStart = parseInt(fromSel.value);
+      const newEnd   = Math.min(newStart + 60, NG_END_HOUR * 60);
+      toSel.value    = newEnd;
+    });
+  } else {
+    timeEl.innerText = `${ngFormatTime(startMin)}〜${ngFormatTime(endMin)}`;
+  }
 
   const saved = (currentWeekDataNew[key] || {}).cell || null;
   const mode  = saved ? (saved.mode || 'event') : 'event';
@@ -2984,11 +3229,32 @@ function openCellModalNew(key, colIndex, startMin, endMin) {
     saveBtn.setAttribute('data-ng-col',   colIndex);
     saveBtn.setAttribute('data-ng-start', startMin);
     saveBtn.setAttribute('data-ng-end',   endMin);
+    saveBtn.setAttribute('data-ng-isnew', isNew ? '1' : '');
   }
   document.getElementById('cell-modal-overlay').style.display = 'flex';
 }
 
 async function saveCellModalNew(key, colIndex, startMin, endMin) {
+  // 新規作成モード時は時刻セレクトから実際の時刻を取得
+  const saveBtn = document.getElementById('cell-save-btn');
+  const isNew   = saveBtn && saveBtn.getAttribute('data-ng-isnew') === '1';
+  if (isNew) {
+    const fromSel = document.getElementById('ng-new-time-from');
+    const toSel   = document.getElementById('ng-new-time-to');
+    if (fromSel && toSel) {
+      const newStart = parseInt(fromSel.value);
+      const newEnd   = parseInt(toSel.value);
+      if (!isNaN(newStart) && !isNaN(newEnd) && newEnd > newStart) {
+        startMin = newStart;
+        endMin   = newEnd;
+        // キーを新しい時刻で再生成
+        const s2 = getStartOfWeek();
+        const d2 = new Date(s2); d2.setDate(s2.getDate() + colIndex);
+        key = `${getDateKey(d2)}-${startMin}-${endMin}`;
+      }
+    }
+  }
+
   let cellRecord = null;
   if (cellModalMode === 'study') {
     const mat = matSelectedId ? materials.find(m => m.id === matSelectedId) : null;
@@ -3011,6 +3277,9 @@ async function saveCellModalNew(key, colIndex, startMin, endMin) {
     };
   }
   await saveCellDataNew(colIndex, startMin, endMin, cellRecord);
+  // 時刻セレクト行を片付け
+  const tRow = document.getElementById('cell-modal-time-selects');
+  if (tRow) tRow.remove();
   closeMatModal();
   renderNewGrid();
 }
@@ -3452,6 +3721,8 @@ document.addEventListener('click', function(e) {
   if (t.closest('#day-modal-overlay') && t.classList.contains('btn-close')) { closeDayModal(); return; }
   if (t.matches('#tab-memo')) { switchDayTab('memo'); return; }
   if (t.matches('#tab-file')) { switchDayTab('file'); return; }
+  if (t.matches('#day-modal-goto-weekly')) { gotoWeeklyFromMonthly(); return; }
+  if (t.matches('#day-modal-add-block'))   { addBlockFromMonthly(); return; }
 
   // ── セル編集モーダル ──
   if (t.matches('#mode-tab-study'))      { switchCellMode('study', null); return; }
