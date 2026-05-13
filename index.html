@@ -192,9 +192,16 @@
 <!-- ══ セル編集モーダル ══ -->
 <div id="cell-modal-overlay" class="overlay hidden" style="z-index:200;">
   <div class="modal-box card">
-    <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:14px;">
+    <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:8px;">
       <div id="cell-modal-title" style="font-size:15px; font-weight:bold;"></div>
       <div id="cell-modal-time" style="font-size:12px; color:#888; background:#f3f4f6; padding:3px 10px; border-radius:10px;"></div>
+    </div>
+    <!-- 新規予約時の時刻セレクトがここに動的挿入される -->
+    <div id="cell-modal-time-selects" style="display:none; align-items:center; gap:6px; margin-bottom:10px; flex-wrap:wrap;">
+      <span style="font-size:12px; color:#555; font-weight:bold;">⏰ 時刻：</span>
+      <select id="ng-new-time-from" class="select-time"></select>
+      <span style="font-size:12px; color:#888;">〜</span>
+      <select id="ng-new-time-to" class="select-time"></select>
     </div>
     <div class="mode-tabs">
       <button class="mode-tab active-study" id="mode-tab-study">📚 勉強予約</button>
@@ -2148,13 +2155,18 @@ async function saveNewMaterial() {
 
 
 function closeMatModal() {
-  // 時刻セレクト行（新規予約時に追加）を削除
-  const tRow = document.getElementById('cell-modal-time-selects');
-  if (tRow) tRow.remove();
+  // 時刻セレクト行を非表示に戻す
+  const timeSelRow = document.getElementById('cell-modal-time-selects');
+  if (timeSelRow) timeSelRow.style.display = 'none';
+  // 時刻ラベルを再表示
+  const timeEl = document.getElementById('cell-modal-time');
+  if (timeEl) timeEl.style.display = '';
   // data-ng-isnew をリセット
   const saveBtn = document.getElementById('cell-save-btn');
   if (saveBtn) saveBtn.removeAttribute('data-ng-isnew');
-  document.getElementById("cell-modal-overlay").classList.add("hidden");
+  const overlay = document.getElementById('cell-modal-overlay');
+  overlay.classList.add('hidden');
+  overlay.style.display = '';
 }
 
 // ════════════════════════════════════════
@@ -2801,23 +2813,8 @@ function renderNewGrid() {
       blockContainer.style.cssText = 'position:absolute; inset:0; pointer-events:none;';
       colDiv.appendChild(blockContainer);
 
-      // 空白クリックで新規予約モーダルを開く
-      (function(colIndex) {
-        colDiv.addEventListener('click', function(e) {
-          // ブロック要素（.ng-block）やpomo-box上のクリックは除外
-          if (e.target.closest('.ng-block') || e.target.closest('[data-pomo-click]')) return;
-          const rect = colDiv.getBoundingClientRect();
-          const relY = e.clientY - rect.top + colDiv.scrollTop;
-          // px→分に変換（1スロット=SLOT_H_SHORT px = 10分）
-          const slotsFromTop = Math.floor(relY / SLOT_H_SHORT);
-          const rawMin = NG_START_HOUR * 60 + slotsFromTop * 10;
-          // 30分単位に丸める
-          const startMin = Math.round(rawMin / 30) * 30;
-          const endMin   = startMin + 60; // デフォルト1時間
-          if (startMin < NG_START_HOUR * 60 || endMin > NG_END_HOUR * 60) return;
-          openNewBlockModal(colIndex, startMin, Math.min(endMin, NG_END_HOUR * 60));
-        });
-      })(j);
+      // 空白クリック判定用のdata属性を付与
+      colDiv.setAttribute('data-ng-col-index', j);
 
       gridBody.appendChild(colDiv);
     }
@@ -2887,7 +2884,7 @@ function renderNewGrid() {
         }
         blockEl.id = `block-${key}`;
         blockEl.innerHTML = makeBlockInnerHTML(title, startMin, endMin, cellRecord, `block-${key}`);
-        blockEl.onclick = () => openBlockAction(key, j, startMin, endMin);
+        blockEl.onclick = (e) => { e.stopPropagation(); openBlockAction(key, j, startMin, endMin); };
         blockContainer.appendChild(blockEl);
       });
     }
@@ -3163,9 +3160,8 @@ function openNewBlockModal(colIndex, startMin, endMin) {
 }
 
 // 新グリッド用: セル編集モーダル
-// isNew=true のとき新規作成（時刻を編集可能にする）
+// isNew=true のとき新規作成（時刻セレクトを表示）
 function openCellModalNew(key, colIndex, startMin, endMin, isNew) {
-  // 既存のcell-modal-overlayを流用
   cellModalId  = 'ng-' + key;
   cellModalCol = colIndex;
   cellModalHour = Math.floor(startMin / 60);
@@ -3175,28 +3171,19 @@ function openCellModalNew(key, colIndex, startMin, endMin, isNew) {
   document.getElementById('cell-modal-title').innerText =
     `${d.getMonth()+1}/${d.getDate()}（${allDayNames[d.getDay()]}）`;
 
-  // ── 時刻表示エリア：新規時は時刻セレクトを表示、既存はラベル表示 ──
-  const timeEl = document.getElementById('cell-modal-time');
-  // 既存の時刻セレクト行があれば削除
-  const existingTimeRow = document.getElementById('cell-modal-time-selects');
-  if (existingTimeRow) existingTimeRow.remove();
+  const timeEl     = document.getElementById('cell-modal-time');
+  const timeSelRow = document.getElementById('cell-modal-time-selects');
+  const fromSel    = document.getElementById('ng-new-time-from');
+  const toSel      = document.getElementById('ng-new-time-to');
 
   if (isNew) {
-    timeEl.innerText = '';
-    // 時刻セレクト行を追加
-    const timeRow = document.createElement('div');
-    timeRow.id = 'cell-modal-time-selects';
-    timeRow.style.cssText = 'display:flex; align-items:center; gap:6px; margin-bottom:10px; flex-wrap:wrap;';
-    timeRow.innerHTML = `
-      <span style="font-size:12px; color:#888;">⏰ 時刻：</span>
-      <select id="ng-new-time-from" class="select-time"></select>
-      <span style="font-size:12px; color:#888;">〜</span>
-      <select id="ng-new-time-to" class="select-time"></select>
-    `;
-    timeEl.after(timeRow);
-    // セレクトに選択肢を追加（5分刻み）
-    const fromSel = document.getElementById('ng-new-time-from');
-    const toSel   = document.getElementById('ng-new-time-to');
+    // 時刻ラベルを非表示、セレクト行を表示
+    timeEl.style.display     = 'none';
+    timeSelRow.style.display = 'flex';
+
+    // セレクトの選択肢を再構築（5分刻み）
+    fromSel.innerHTML = '';
+    toSel.innerHTML   = '';
     for (let m = NG_START_HOUR * 60; m <= NG_END_HOUR * 60; m += 5) {
       const o1 = document.createElement('option');
       o1.value = m; o1.textContent = ngFormatTime(m);
@@ -3207,13 +3194,15 @@ function openCellModalNew(key, colIndex, startMin, endMin, isNew) {
       if (m === endMin) o2.selected = true;
       toSel.appendChild(o2);
     }
-    // fromが変わったらtoのデフォルトを+60分に
-    fromSel.addEventListener('change', () => {
-      const newStart = parseInt(fromSel.value);
-      const newEnd   = Math.min(newStart + 60, NG_END_HOUR * 60);
-      toSel.value    = newEnd;
-    });
+    // fromを変えたら toを+60分に自動更新（一度だけ登録）
+    fromSel.onchange = () => {
+      const ns = parseInt(fromSel.value);
+      toSel.value = Math.min(ns + 60, NG_END_HOUR * 60);
+    };
   } else {
+    // 既存ブロック編集：ラベル表示、セレクト行を非表示
+    timeEl.style.display     = '';
+    timeSelRow.style.display = 'none';
     timeEl.innerText = `${ngFormatTime(startMin)}〜${ngFormatTime(endMin)}`;
   }
 
@@ -3222,7 +3211,6 @@ function openCellModalNew(key, colIndex, startMin, endMin, isNew) {
   initEventTimeSelects(Math.floor(startMin / 60), saved);
   switchCellMode(mode, saved);
 
-  // 保存ボタンに新グリッド用のdata属性をセット（デリゲーションで参照）
   const saveBtn = document.getElementById('cell-save-btn');
   if (saveBtn) {
     saveBtn.setAttribute('data-ng-key',   key);
@@ -3231,7 +3219,10 @@ function openCellModalNew(key, colIndex, startMin, endMin, isNew) {
     saveBtn.setAttribute('data-ng-end',   endMin);
     saveBtn.setAttribute('data-ng-isnew', isNew ? '1' : '');
   }
-  document.getElementById('cell-modal-overlay').style.display = 'flex';
+  // overlay は hidden クラスで制御
+  const overlay = document.getElementById('cell-modal-overlay');
+  overlay.classList.remove('hidden');
+  overlay.style.display = '';
 }
 
 async function saveCellModalNew(key, colIndex, startMin, endMin) {
@@ -3277,9 +3268,6 @@ async function saveCellModalNew(key, colIndex, startMin, endMin) {
     };
   }
   await saveCellDataNew(colIndex, startMin, endMin, cellRecord);
-  // 時刻セレクト行を片付け
-  const tRow = document.getElementById('cell-modal-time-selects');
-  if (tRow) tRow.remove();
   closeMatModal();
   renderNewGrid();
 }
@@ -3723,6 +3711,25 @@ document.addEventListener('click', function(e) {
   if (t.matches('#tab-file')) { switchDayTab('file'); return; }
   if (t.matches('#day-modal-goto-weekly')) { gotoWeeklyFromMonthly(); return; }
   if (t.matches('#day-modal-add-block'))   { addBlockFromMonthly(); return; }
+
+  // ── ウィークリーグリッド空白タップ（新規予約） ──
+  {
+    const colDiv = t.closest('[data-ng-col-index]');
+    if (colDiv && !t.closest('.ng-block') && !t.closest('[data-pomo-click]') && !t.closest('[data-pomo-context]')) {
+      const colIndex = parseInt(colDiv.getAttribute('data-ng-col-index'));
+      const rect     = colDiv.getBoundingClientRect();
+      const SLOT_H   = 18; // SLOT_H_SHORT
+      const relY     = e.clientY - rect.top;
+      const slotsFromTop = Math.floor(relY / SLOT_H);
+      const rawMin   = NG_START_HOUR * 60 + slotsFromTop * 10;
+      const startMin = Math.round(rawMin / 30) * 30;
+      const endMin   = Math.min(startMin + 60, NG_END_HOUR * 60);
+      if (startMin >= NG_START_HOUR * 60 && endMin <= NG_END_HOUR * 60 && endMin > startMin) {
+        openNewBlockModal(colIndex, startMin, endMin);
+      }
+      return;
+    }
+  }
 
   // ── セル編集モーダル ──
   if (t.matches('#mode-tab-study'))      { switchCellMode('study', null); return; }
