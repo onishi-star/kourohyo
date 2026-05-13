@@ -708,45 +708,44 @@ function changeMonth(offset) {
 // ════════════════════════════════════════
 // Phase 7: マンスリー用・新グリッドデータ集計
 // ════════════════════════════════════════
-async function getBlocksForMonthlyDay(dateStr) {
-  // dateStr: 'YYYY-MM-DD' 形式
-  // schedules2 コレクションから該当日のすべてのブロック（新キー形式）を取得
-  try {
-    const doc = await db.collection("schedules2").doc(dateStr).get();
-    if (!doc.exists) return [];
-    
-    const data = doc.data();
-    const blocks = [];
-    
-    for (const [key, val] of Object.entries(data)) {
-      // 新キー形式: 'YYYY-MM-DD-startMin-endMin'
-      const match = key.match(/^(\d{4})-(\d{2})-(\d{2})-(\d+)-(\d+)$/);
-      if (!match) continue;
-      
-      const startMin = parseInt(match[4]);
-      const endMin = parseInt(match[5]);
-      const title = val.title || val.text || '(無題)';
-      const startTime = ngFormatTime(startMin);
-      const endTime = ngFormatTime(endMin);
-      const isPomoBlock = val.cell?.pomoCells && val.cell.pomoCells.length > 0;
-      
-      blocks.push({
-        key, startMin, endMin, title,
-        timeStr: `${startTime}〜${endTime}`,
-        duration: endMin - startMin,
-        color: val.color || '#f5f5f5',
-        isPomo: isPomoBlock,
-        mode: val.mode || 'schedule'
-      });
-    }
-    
-    // 時刻でソート
-    blocks.sort((a, b) => a.startMin - b.startMin);
-    return blocks;
-  } catch (e) {
-    console.error("getBlocksForMonthlyDay error:", e);
-    return [];
+// マンスリー用ブロックプレビューキャッシュ（月ごと）
+let _monthlyBlockCache = {}; // { 'YYYY-MM': { 'YYYY-MM-DD': [...blocks] } }
+
+// 月の全ブロックをIDBから一括取得してキャッシュ
+async function preloadMonthlyBlocks(year, month) {
+  const monthKey = `${year}-${String(month+1).padStart(2,'0')}`;
+  const all = await idbGetAll('cells');
+  const byDay = {};
+  for (const entry of all) {
+    if (!entry.key) continue;
+    const match = entry.key.match(/^(\d{4}-\d{2}-\d{2})-(\d+)-(\d+)$/);
+    if (!match) continue;
+    const dateStr = match[1];
+    if (!dateStr.startsWith(monthKey)) continue;
+    const startMin = parseInt(match[2]);
+    const endMin   = parseInt(match[3]);
+    if (!byDay[dateStr]) byDay[dateStr] = [];
+    byDay[dateStr].push({
+      key: entry.key, startMin, endMin,
+      title: entry.title || entry.text || '(無題)',
+      timeStr: `${ngFormatTime(startMin)}〜${ngFormatTime(endMin)}`,
+      duration: endMin - startMin,
+      color: entry.color || '#f5f5f5',
+      isPomo: entry.cell?.pomoCells?.length > 0,
+      mode: entry.mode || 'schedule'
+    });
   }
+  // 時刻でソート
+  for (const d of Object.keys(byDay)) byDay[d].sort((a,b) => a.startMin - b.startMin);
+  _monthlyBlockCache[monthKey] = byDay;
+  return byDay;
+}
+
+function getBlocksForMonthlyDay(dateStr) {
+  const [y, m] = dateStr.split('-');
+  const monthKey = `${y}-${m}`;
+  const cache = _monthlyBlockCache[monthKey];
+  return Promise.resolve(cache ? (cache[dateStr] || []) : []);
 }
 
 async function loadMonthly(){
@@ -758,6 +757,8 @@ async function loadMonthly(){
   const topBarH=document.getElementById("top-bar").offsetHeight;
   const cal=document.getElementById("monthly-calendar");
   cal.innerHTML="";
+  // ブロックプレビューをIDBから一括プリロード（getBlocksForMonthlyDayが同期で参照できる）
+  await preloadMonthlyBlocks(year, month);
   for (let i=0;i<7;i++) {
     const h=document.createElement("div");
     const dow=(weekStartDay+i)%7;
@@ -2005,13 +2006,15 @@ function getStartOfWeek() {
 function formatDate(d){ return (d.getMonth()+1)+"/"+d.getDate(); }
 function getDateKey(d){ return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`; }
 function getWeekDocId(){ return getDateKey(getWeekMondayBase()); }
-async function updateHeaders() {
+function updateHeaders() {
+  // 祝日はキャッシュから同期で取得（awaitなし）
+  const holidays = _holidayCache || {};
   const today=new Date(), start=getStartOfWeek(), topBarH=document.getElementById("top-bar").offsetHeight;
-  const holidays = await getHolidays();
   for (let j=0;j<7;j++){
     const d=new Date(start); d.setDate(start.getDate()+j);
     const isToday=d.getFullYear()===today.getFullYear()&&d.getMonth()===today.getMonth()&&d.getDate()===today.getDate();
     const h=document.getElementById("header-"+j);
+    if (!h) continue;
     h.innerText=formatDate(d)+" "+allDayNames[d.getDay()]; h.style.top=topBarH+"px";
     const dow=d.getDay();
     const dayKey=getDateKey(d);
@@ -2445,6 +2448,11 @@ function showApp() {
   document.getElementById('auth-container').style.display = 'none';
   document.getElementById('app-content').style.display = 'block';
   _initNav();
+  // 祝日を起動時に先読みしてキャッシュを温める（以降はawaitなしで参照可能）
+  getHolidays().then(() => {
+    updateHeaders();
+    renderNewGrid(); // ヘッダー色も含めて再描画
+  });
   loadMaterials().then(() => {
     const newGrid = document.getElementById('weekly-view-new');
     if (newGrid) {
@@ -2551,130 +2559,151 @@ function ngFormatTime(minutes) {
   return `${h}:${String(m).padStart(2,'0')}`;
 }
 
+// グリッド骨格の構築済みフラグ
+let _gridBuilt = false;
+
 function renderNewGrid() {
   const container = document.getElementById('weekly-view-new');
-  container.innerHTML = '';
-
-  // 1スロット(10分)の高さを決定するため、全ブロックを考慮
-
-  // ── ヘッダー行（曜日） ──
-  const headerRow = document.createElement('div');
-  headerRow.style.cssText = 'display:grid; grid-template-columns:44px repeat(7,1fr); min-width:520px; position:sticky; top:0; z-index:6; background:#fff; border-bottom:2px solid #d0d8e8;';
-
-  const emptyH = document.createElement('div');
-  emptyH.style.cssText = 'border-right:1px solid #e0e0e0; background:#f5f7fa;';
-  headerRow.appendChild(emptyH);
-
+  const SLOT_H_SHORT = 18;
+  const SLOT_H_LONG  = 28;
+  const TOTAL_HEIGHT = NG_TOTAL_SLOTS * SLOT_H_SHORT;
   const start = getStartOfWeek();
   const today = new Date();
+
+  // ── ① 骨格が未構築なら初回のみ全体を構築 ──
+  if (!_gridBuilt) {
+    container.innerHTML = '';
+
+    // ヘッダー行
+    const headerRow = document.createElement('div');
+    headerRow.id = 'ng-header-row';
+    headerRow.style.cssText = 'display:grid; grid-template-columns:44px repeat(7,1fr); min-width:520px; position:sticky; top:0; z-index:6; background:#fff; border-bottom:2px solid #d0d8e8;';
+    const emptyH = document.createElement('div');
+    emptyH.style.cssText = 'border-right:1px solid #e0e0e0; background:#f5f7fa;';
+    headerRow.appendChild(emptyH);
+    for (let j = 0; j < 7; j++) {
+      const cell = document.createElement('div');
+      cell.className = 'ng-day-header';
+      cell.id = 'ng-header-' + j;
+      headerRow.appendChild(cell);
+    }
+    container.appendChild(headerRow);
+
+    // グリッド本体
+    const gridBody = document.createElement('div');
+    gridBody.id = 'ng-grid-body';
+    gridBody.style.cssText = `display:grid; grid-template-columns:44px repeat(7,1fr); min-width:520px; position:relative;`;
+
+    // 時刻ラベル列
+    const timeLabelCol = document.createElement('div');
+    timeLabelCol.style.cssText = `position:relative; border-right:1px solid #e0e0e0; height:${TOTAL_HEIGHT}px;`;
+    for (let h = NG_START_HOUR; h <= NG_END_HOUR; h++) {
+      const top = (h - NG_START_HOUR) * 6 * SLOT_H_SHORT;
+      const label = document.createElement('div');
+      label.style.cssText = `position:absolute; top:${top}px; right:4px; font-size:10px; color:#999; transform:translateY(-50%); white-space:nowrap; user-select:none;`;
+      label.textContent = `${h}:00`;
+      timeLabelCol.appendChild(label);
+    }
+    gridBody.appendChild(timeLabelCol);
+
+    // 曜日ごとのカラム（骨格のみ）
+    for (let j = 0; j < 7; j++) {
+      const colDiv = document.createElement('div');
+      colDiv.id = 'ng-col-' + j;
+      colDiv.style.cssText = `position:relative; height:${TOTAL_HEIGHT}px; border-right:1px solid #eee; box-sizing:border-box;`;
+      // 横罫線
+      for (let h = NG_START_HOUR; h <= NG_END_HOUR; h++) {
+        const top = (h - NG_START_HOUR) * 6 * SLOT_H_SHORT;
+        const line = document.createElement('div');
+        line.style.cssText = `position:absolute; top:${top}px; left:0; right:0; border-top:${h % 6 === 0 ? '1px solid #c8cdd8' : '1px solid #eef0f4'}; pointer-events:none;`;
+        colDiv.appendChild(line);
+      }
+      // ブロックコンテナ
+      const blockContainer = document.createElement('div');
+      blockContainer.id = 'ng-blocks-' + j;
+      blockContainer.style.cssText = 'position:absolute; inset:0; pointer-events:none;';
+      colDiv.appendChild(blockContainer);
+      gridBody.appendChild(colDiv);
+    }
+    container.appendChild(gridBody);
+
+    // バナー
+    const banner = document.createElement('div');
+    banner.id = 'ng-banner';
+    banner.style.cssText = 'padding:8px 12px; font-size:11px; color:#888; background:#e8f5e9; border-top:1px solid #a5d6a7; margin:0;';
+    container.appendChild(banner);
+
+    _gridBuilt = true;
+  }
+
+  // ── ② 毎回：ヘッダーの日付・色を更新 ──
+  // 祝日は同期キャッシュから取得（awaitなし）
+  const holidays = _holidayCache || {};
   for (let j = 0; j < 7; j++) {
     const d = new Date(start); d.setDate(start.getDate() + j);
     const isToday = d.getFullYear()===today.getFullYear() && d.getMonth()===today.getMonth() && d.getDate()===today.getDate();
     const dow = d.getDay();
-    const cell = document.createElement('div');
-    cell.className = 'ng-day-header';
+    const dayKey = getDateKey(d);
+    const cell = document.getElementById('ng-header-' + j);
     cell.textContent = `${d.getMonth()+1}/${d.getDate()} ${allDayNames[dow]}`;
-    if (isToday) cell.style.cssText += 'background:#fffde7; color:#f9a825;';
-    else if (dow === 0) cell.style.color = '#c0392b';
+    cell.style.cssText = '';
+    if (isToday) cell.style.cssText = 'background:#fffde7; color:#f9a825;';
+    else if (dow === 0 || isHoliday(dayKey, holidays)) cell.style.color = '#c0392b';
     else if (dow === 6) cell.style.color = '#1a6bbf';
-    headerRow.appendChild(cell);
   }
-  container.appendChild(headerRow);
 
-  // ── グリッド本体 ──
-  // スロット高さは仮に18px（短ブロック基準）で計算する
-  // ブロックの top/height は各ブロックの duration に応じて計算
-  const SLOT_H_SHORT = 18;
-  const SLOT_H_LONG  = 28;
-  const TOTAL_HEIGHT = NG_TOTAL_SLOTS * SLOT_H_SHORT; // 最大高さ（短スロット基準）
+  // ── ③ 毎回：ブロックのみ差し替え（requestAnimationFrameで分割） ──
+  requestAnimationFrame(() => {
+    for (let j = 0; j < 7; j++) {
+      const blockContainer = document.getElementById('ng-blocks-' + j);
+      blockContainer.innerHTML = '';
+      blockContainer.style.pointerEvents = 'auto';
 
-  const gridBody = document.createElement('div');
-  gridBody.style.cssText = `display:grid; grid-template-columns:44px repeat(7,1fr); min-width:520px; position:relative;`;
+      const d = new Date(start); d.setDate(start.getDate() + j);
+      const dateStr = getDateKey(d);
 
-  // 時刻ラベル列 + 横線を同時に構築
-  // 時刻ラベル列
-  const timeLabelCol = document.createElement('div');
-  timeLabelCol.style.cssText = `position:relative; border-right:1px solid #e0e0e0; height:${TOTAL_HEIGHT}px;`;
+      Object.entries(currentWeekDataNew).forEach(([key, val]) => {
+        if (!key.startsWith(dateStr + '-')) return;
+        const parts = key.split('-');
+        const startMin = parseInt(parts[3]);
+        const endMin   = parseInt(parts[4]);
+        if (isNaN(startMin) || isNaN(endMin)) return;
+        const dur    = endMin - startMin;
+        const slotH  = dur <= 30 ? SLOT_H_SHORT : SLOT_H_LONG;
+        const top    = (startMin - NG_START_HOUR * 60) / 10 * SLOT_H_SHORT;
+        const height = Math.round((dur / 10) * slotH);
 
-  for (let h = NG_START_HOUR; h <= NG_END_HOUR; h++) {
-    const slot = (h - NG_START_HOUR) * 6;
-    const top  = slot * SLOT_H_SHORT;
-    const label = document.createElement('div');
-    label.style.cssText = `position:absolute; top:${top}px; right:4px; font-size:10px; color:#999; transform:translateY(-50%); white-space:nowrap; user-select:none;`;
-    label.textContent = `${h}:00`;
-    timeLabelCol.appendChild(label);
-  }
-  gridBody.appendChild(timeLabelCol);
+        const cellRecord = val.cell || null;
+        const blockType  = cellRecord ? (cellRecord.blockType || (cellRecord.mode === 'study' ? 'study' : 'event')) : 'event';
+        const title      = cellRecord ? (cellRecord.title || cellRecord.materialName || '予定') : (val.text || '予定');
+        const bgColor    = cellRecord ? (cellRecord.color || cellRecord.materialColor || '#a0c4ff') : '#a0c4ff';
 
-  // 曜日ごとのカラム（ブロックを absolute 配置）
-  for (let j = 0; j < 7; j++) {
-    const colDiv = document.createElement('div');
-    colDiv.style.cssText = `position:relative; height:${TOTAL_HEIGHT}px; border-right:1px solid #eee; box-sizing:border-box;`;
-
-    // 1時間ごとの横罫線
-    for (let h = NG_START_HOUR; h <= NG_END_HOUR; h++) {
-      const slot = (h - NG_START_HOUR) * 6;
-      const top  = slot * SLOT_H_SHORT;
-      const line = document.createElement('div');
-      line.style.cssText = `position:absolute; top:${top}px; left:0; right:0; border-top:${h % 6 === 0 ? '1px solid #c8cdd8' : '1px solid #eef0f4'}; pointer-events:none;`;
-      colDiv.appendChild(line);
+        const blockEl = document.createElement('div');
+        blockEl.className = `ng-block ng-block-${blockType}`;
+        blockEl.style.cssText = `top:${top}px; height:${height}px; position:absolute; left:1px; right:1px; overflow:hidden; border-radius:4px; cursor:pointer; box-sizing:border-box;`;
+        blockEl.setAttribute('data-duration', dur <= 30 ? 'short' : 'long');
+        blockEl.setAttribute('data-start-min', startMin);
+        blockEl.setAttribute('data-end-min', endMin);
+        if (cellRecord?.color || cellRecord?.materialColor) {
+          blockEl.style.background = bgColor;
+          blockEl.style.color = getTextColor(bgColor);
+          blockEl.style.border = 'none';
+        }
+        blockEl.id = `block-${key}`;
+        blockEl.innerHTML = makeBlockInnerHTML(title, startMin, endMin, cellRecord, `block-${key}`);
+        blockEl.onclick = () => openBlockAction(key, j, startMin, endMin);
+        blockContainer.appendChild(blockEl);
+      });
     }
 
-// Phase 3: 実データをこの列に描画
-    const d = new Date(start); d.setDate(start.getDate() + j);
-    const dateStr = getDateKey(d);
-
-    Object.entries(currentWeekDataNew).forEach(([key, val]) => {
-      // キー形式: '2025-04-21-480-510'
-      if (!key.startsWith(dateStr + '-')) return;
-      const parts = key.split('-');
-      // parts: ['2025','04','21','480','510']
-      const startMin = parseInt(parts[3]);
-      const endMin   = parseInt(parts[4]);
-      if (isNaN(startMin) || isNaN(endMin)) return;
-      const dur  = endMin - startMin;
-      const slotH = dur <= 30 ? SLOT_H_SHORT : SLOT_H_LONG;
-      const startSlot = (startMin - NG_START_HOUR * 60) / 10;
-      const top    = startSlot * SLOT_H_SHORT;
-      const height = Math.round((dur / 10) * slotH);
-
-      const cellRecord = val.cell || null;
-      const blockType  = cellRecord ? (cellRecord.blockType || (cellRecord.mode === 'study' ? 'study' : 'event')) : 'event';
-      const title      = cellRecord ? (cellRecord.title || cellRecord.materialName || '予定') : (val.text || '予定');
-      const bgColor    = cellRecord ? (cellRecord.color || cellRecord.materialColor || '#a0c4ff') : '#a0c4ff';
-
-      const blockEl = document.createElement('div');
-      blockEl.className = `ng-block ng-block-${blockType}`;
-      blockEl.style.top    = `${top}px`;
-      blockEl.style.height = `${height}px`;
-      // Phase 7: 印刷用データ属性を追加
-      blockEl.setAttribute('data-duration', dur <= 30 ? 'short' : 'long');
-      blockEl.setAttribute('data-start-min', startMin);
-      blockEl.setAttribute('data-end-min', endMin);
-      if (cellRecord?.color || cellRecord?.materialColor) {
-        blockEl.style.background = bgColor;
-        blockEl.style.color = getTextColor(bgColor);
-        blockEl.style.border = 'none';
-      }
-      blockEl.id = `block-${key}`;
-      blockEl.innerHTML = makeBlockInnerHTML(title, startMin, endMin, cellRecord, `block-${key}`);
-      blockEl.onclick = () => openBlockAction(key, j, startMin, endMin);
-      colDiv.appendChild(blockEl);
-    });
-
-    gridBody.appendChild(colDiv);
-  }
-
-  container.appendChild(gridBody);
-
-  // サンプル説明バナー
-  // Phase 3: 実データバナー（サンプルバナーを置き換え）
-  const banner = document.createElement('div');
-  banner.style.cssText = 'padding:8px 12px; font-size:11px; color:#888; background:#e8f5e9; border-top:1px solid #a5d6a7; margin:0;';
-  const blockCount = Object.keys(currentWeekDataNew).length;
-  banner.innerHTML = `✅ <b>Phase 3 実データ表示</b>：新キー形式（日付＋開始分＋終了分）で読み込み中。今週のブロック数：${blockCount}件`;
-  container.appendChild(banner);
-} 
+    // バナー更新
+    const banner = document.getElementById('ng-banner');
+    if (banner) {
+      const blockCount = Object.keys(currentWeekDataNew).length;
+      banner.innerHTML = `✅ <b>Phase 3 実データ表示</b>：今週のブロック数：${blockCount}件`;
+    }
+  });
+}
 // ════════════════════════════════════════
 // Phase 3: 新キー形式のFirebase保存・読み込み
 // ════════════════════════════════════════
