@@ -38,22 +38,6 @@
       <h3 class="section-title">週の開始曜日</h3>
       <div id="day-select-buttons" style="display:flex; flex-wrap:wrap; gap:8px; justify-content:center; margin-bottom:20px;"></div>
 
-      <h3 class="section-title-xs">🎨 一括色塗り</h3>
-      <div class="mb-12">
-        <div class="form-label-gap6">色を選んでセルをタップすると塗れます</div>
-        <div id="custom-colors" style="display:flex; flex-wrap:wrap; gap:6px; margin-bottom:8px;"></div>
-        <!-- 新しい色を追加するフォーム（常時表示） -->
-        <div style="display:flex; gap:6px; align-items:center; flex-wrap:wrap; padding:10px; background:#f5f7ff; border-radius:8px; margin-bottom:8px;">
-          <input type="color" id="new-color-picker" value="#ffd6a5" style="width:36px;height:36px;border:none;cursor:pointer;border-radius:6px;padding:0;">
-          <input type="text" id="new-color-name" placeholder="色の名前（例：英語）" class="input" style="flex:1;min-width:80px;">
-          <button class="btn-save" style="white-space:nowrap; padding:6px 14px;">＋追加</button>
-        </div>
-        <div class="flex gap-6 flex-wrap" style="align-items:center;">
-          <button class="color-btn" id="btn-clear" style="font-size:12px; padding:5px 12px;">🗑 色を消す</button>
-          <button class="color-btn" id="btn-deselect" style="font-size:12px; padding:5px 12px;">解除</button>
-        </div>
-        <div id="current-color-label" style="font-size:12px; color:#4a90e2; margin-top:6px; font-weight:bold;"></div>
-      </div>
     </div>
 
     <div style="display:flex; gap:8px; margin-top:4px; margin-bottom:4px;">
@@ -94,31 +78,39 @@
         </button>
       </div>
 
-      <!-- ブロック時間カスタム設定 -->
-      <h3 class="section-title-sm">⏱ ブロック時間のカスタム設定</h3>
-      <div class="form-label" style="margin-bottom:10px;">各ブロックの開始・終了時刻を変更できます</div>
-      <div id="block-time-editor" style="display:flex; flex-direction:column; gap:6px; margin-bottom:10px;"></div>
-      <button class="btn-save" style="margin-bottom:16px;" id="btn-save-block-time">💾 時間設定を保存</button>
-
-      <!-- 時間割テーブル -->
-      <h3 class="section-title-sm">📚 授業名プリセット</h3>
-      <div class="form-label" style="margin-bottom:8px;">各時限の授業名を入力してください（省略可）</div>
-      <div style="overflow-x:auto;">
-        <table id="timetable-edit" style="border-collapse:collapse; font-size:12px; width:100%;">
-          <thead>
-            <tr>
-              <th class="timetable-th">時限</th>
-              <th class="timetable-th">月</th>
-              <th class="timetable-th">火</th>
-              <th class="timetable-th">水</th>
-              <th class="timetable-th">木</th>
-              <th class="timetable-th">金</th>
-            </tr>
-          </thead>
-          <tbody id="timetable-edit-body"></tbody>
-        </table>
+      <!-- ブロック時間カスタム設定（折りたたみ） -->
+      <button id="btn-toggle-blocktime" onclick="togglePresetSection('blocktime')" style="width:100%; text-align:left; padding:10px 14px; background:#f0f4ff; border:1.5px solid #c5d0f0; border-radius:8px; font-size:13px; font-weight:bold; color:#3a5aad; cursor:pointer; margin-bottom:4px; display:flex; justify-content:space-between; align-items:center;">
+        <span>⏱ ブロック時間のカスタム設定</span><span id="icon-blocktime">▼</span>
+      </button>
+      <div id="section-blocktime" style="display:none; padding:10px; background:#f8f9fb; border:1px solid #e0e8f0; border-radius:8px; margin-bottom:12px;">
+        <div class="form-label" style="margin-bottom:10px;">各ブロックの開始・終了時刻を変更できます</div>
+        <div id="block-time-editor" style="display:flex; flex-direction:column; gap:6px; margin-bottom:10px;"></div>
+        <button class="btn-save" style="margin-bottom:4px;" id="btn-save-block-time">💾 時間設定を保存</button>
       </div>
-      <button class="btn-save" style="margin-top:10px;" id="btn-save-timetable">💾 授業名を保存</button>
+
+      <!-- 時間割テーブル（折りたたみ） -->
+      <button id="btn-toggle-timetable" onclick="togglePresetSection('timetable')" style="width:100%; text-align:left; padding:10px 14px; background:#f0f4ff; border:1.5px solid #c5d0f0; border-radius:8px; font-size:13px; font-weight:bold; color:#3a5aad; cursor:pointer; margin-bottom:4px; display:flex; justify-content:space-between; align-items:center;">
+        <span>📚 授業名プリセット</span><span id="icon-timetable">▼</span>
+      </button>
+      <div id="section-timetable" style="display:none; padding:10px; background:#f8f9fb; border:1px solid #e0e8f0; border-radius:8px; margin-bottom:12px;">
+        <div class="form-label" style="margin-bottom:8px;">各時限の授業名を入力してください（省略可）</div>
+        <div style="overflow-x:auto;">
+          <table id="timetable-edit" style="border-collapse:collapse; font-size:12px; width:100%;">
+            <thead>
+              <tr>
+                <th class="timetable-th">時限</th>
+                <th class="timetable-th">月</th>
+                <th class="timetable-th">火</th>
+                <th class="timetable-th">水</th>
+                <th class="timetable-th">木</th>
+                <th class="timetable-th">金</th>
+              </tr>
+            </thead>
+            <tbody id="timetable-edit-body"></tbody>
+          </table>
+        </div>
+        <button class="btn-save" style="margin-top:10px;" id="btn-save-timetable">💾 授業名を保存</button>
+      </div>
     </div>
 
     <button class="btn-close" style="margin-top:12px;">閉じる</button>
@@ -725,11 +717,6 @@ function getColorStyle(colorKey) {
     return customColors[idx] ? customColors[idx].color : "";
   }
   return "";
-}
-function deselectColor() {
-  currentColor = "";
-  document.querySelectorAll(".color-btn").forEach(b => { b.style.outline=""; b.style.fontWeight=""; });
-  document.getElementById("current-color-label").innerText = "";
 }
 function escHtml(str) {
   return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
@@ -1954,72 +1941,29 @@ function openModal() {
     b.onclick=()=>{weekStartDay=i;localStorage.setItem("weekStartDay",i);closeModal();currentWeek=0;loadWeekNew().then(()=>renderNewGrid());};
     c.appendChild(b);
   });
-  renderCustomColorButtons();
-  // 現在選択中の色を表示
-  const lbl=document.getElementById("current-color-label");
-  if (currentColor==="clear") lbl.innerText="✏️ 色を消すモード中";
-  else if (currentColor.startsWith("custom-")) { const idx=parseInt(currentColor.split("-")[1]); lbl.innerText=`✏️ 塗り色：${customColors[idx]?.name||""} 選択中`; }
-  else lbl.innerText="";
 }
 function closeModal(){ document.getElementById("modal-overlay").classList.add("hidden"); }
 
 function openPresetModal() {
   document.getElementById("preset-modal-overlay").classList.remove("hidden");
+  // 折りたたみを初期状態（閉じた状態）にリセット
+  ['blocktime','timetable'].forEach(key => {
+    const sec = document.getElementById('section-' + key);
+    const icon = document.getElementById('icon-' + key);
+    if (sec)  sec.style.display = 'none';
+    if (icon) icon.textContent = '▼';
+  });
   renderTimetableEditor();
 }
 function closePresetModal() { document.getElementById("preset-modal-overlay").classList.add("hidden"); }
 
-// ════════════════════════════════════════
-// カスタム色ボタン
-// ════════════════════════════════════════
-function renderCustomColorButtons() {
-  const c=document.getElementById("custom-colors"); c.innerHTML="";
-  customColors.forEach((col,i)=>{
-    const wrap=document.createElement("span");
-    wrap.style.cssText="display:inline-flex; align-items:stretch; margin-right:4px; border-radius:6px; overflow:hidden; border:1px solid rgba(0,0,0,0.15);";
-    const b=document.createElement("button");
-    b.className="color-btn"; b.id="btn-custom-"+i;
-    b.style.cssText="background:"+col.color+"; color:"+getTextColor(col.color)+"; border:none; border-radius:0; margin:0;";
-    b.innerText=col.name;
-    b.onclick=()=>{ setColor("custom-"+i); closeModal(); };
-    const del=document.createElement("button");
-    del.innerText="×"; del.title="削除";
-    del.style.cssText="background:"+col.color+"; color:"+getTextColor(col.color)+"; border:none; border-left:1px solid rgba(0,0,0,0.2); padding:0 5px; cursor:pointer; font-size:11px; font-weight:bold; border-radius:0; opacity:0.75;";
-    del.onmouseenter=()=>del.style.opacity="1";
-    del.onmouseleave=()=>del.style.opacity="0.75";
-    del.onclick=(e)=>{
-      e.stopPropagation();
-      if (!confirm("「"+col.name+"」を削除しますか？")) return;
-      if (currentColor==="custom-"+i) deselectColor();
-      customColors.splice(i,1);
-      localStorage.setItem("customColors",JSON.stringify(customColors));
-      renderCustomColorButtons();
-    };
-    wrap.appendChild(b); wrap.appendChild(del); c.appendChild(wrap);
-  });
-}
-function addCustomColor() {
-  const name = document.getElementById("new-color-name").value.trim();
-  const col  = document.getElementById("new-color-picker").value;
-  if (!name) { alert("色の名前を入力してください"); return; }
-  customColors.push({name, color: col});
-  localStorage.setItem("customColors", JSON.stringify(customColors));
-  document.getElementById("new-color-name").value = "";
-  document.getElementById("new-color-picker").value = "#ffd6a5";
-  renderCustomColorButtons();
-}
-function setColor(color) {
-  currentColor=color;
-  document.querySelectorAll(".color-btn").forEach(b=>{b.style.outline="";b.style.fontWeight="";});
-  let ab=null;
-  if (color==="clear") ab=document.getElementById("btn-clear");
-  else if (color.startsWith("custom-")) ab=document.getElementById("btn-custom-"+color.split("-")[1]);
-  if (ab){ab.style.outline="3px solid #333";ab.style.fontWeight="bold";}
-  const lbl=document.getElementById("current-color-label");
-  if (color==="clear") lbl.innerText="✏️ 色を消す";
-  else if (color.startsWith("custom-")) { const idx=parseInt(color.split("-")[1]); lbl.innerText="✏️ "+customColors[idx].name; }
-  else lbl.innerText="";
-  document.getElementById("monthly-calendar").style.cursor = color ? "crosshair" : "";
+function togglePresetSection(key) {
+  const sec  = document.getElementById('section-' + key);
+  const icon = document.getElementById('icon-' + key);
+  if (!sec) return;
+  const opening = sec.style.display === 'none';
+  sec.style.display  = opening ? 'block' : 'none';
+  icon.textContent   = opening ? '▲' : '▼';
 }
 
 // ════════════════════════════════════════
@@ -2728,7 +2672,6 @@ function setupAuth() {
 
 async function init() {
   setupAuth();
-  renderCustomColorButtons();
   window.addEventListener("resize", adjustHeaderTop);
   setTimeout(adjustHeaderTop,100);
 }
@@ -3822,9 +3765,6 @@ document.addEventListener('click', function(e) {
 
   // ── 設定モーダル ──
   if (t.closest('#modal-overlay') && t.classList.contains('btn-close'))  { closeModal(); return; }
-  if (t.closest('#panel-basic') && t.closest('.mb-12') && t.classList.contains('btn-save')) { addCustomColor(); return; }
-  if (t.matches('#btn-clear'))           { setColor('clear'); return; }
-  if (t.matches('#btn-deselect'))        { deselectColor(); return; }
 
   // ── プリセットモーダル ──
   if (t.closest('#preset-modal-overlay') && t.classList.contains('btn-close')) { closePresetModal(); return; }
