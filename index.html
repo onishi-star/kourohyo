@@ -560,11 +560,20 @@ let _idb = null;
 function openIDB() {
   if (_idb) return Promise.resolve(_idb);
   return new Promise((res, rej) => {
-    const r = indexedDB.open("scheduleDB", 3);
+    const r = indexedDB.open("scheduleDB", 4);
     r.onupgradeneeded = e => {
       const db = e.target.result;
       // 既存
-      if (!db.objectStoreNames.contains("cells"))     db.createObjectStore("cells",     { keyPath:"id" });
+      if (!db.objectStoreNames.contains("cells")) {
+        const cellsStore = db.createObjectStore("cells", { keyPath:"id" });
+        cellsStore.createIndex("byDocId", "docId", { unique: false });
+      } else {
+        // v4: 既存のcellsストアにbyDocIdインデックスを追加
+        const cellsStore = e.target.transaction.objectStore("cells");
+        if (!cellsStore.indexNames.contains("byDocId")) {
+          cellsStore.createIndex("byDocId", "docId", { unique: false });
+        }
+      }
       if (!db.objectStoreNames.contains("pending"))   db.createObjectStore("pending",   { keyPath:"id" });
       if (!db.objectStoreNames.contains("materials")) db.createObjectStore("materials", { keyPath:"id" });
       // 新規追加（v3）
@@ -3060,13 +3069,37 @@ function isNewKey(key) {
   return parts.length === 5 && parseInt(parts[3]) >= 240;
 }
 
-// IndexedDBから新キーのみ読み込み
+// IndexedDBから新キーのみ読み込み（byDocIdインデックスで今週分のみ取得）
 async function loadFromIDBNew() {
-  const all = await idbGetAll('cells');
-  const data = {};
-  all.filter(e => e.docId === currentWeekDocId && isNewKey(e.key))
-     .forEach(e => { data[e.key] = { text: e.text, color: e.color, cell: e.cell || null, startMin: e.startMin, endMin: e.endMin }; });
-  return data;
+  const db = await openIDB();
+  return new Promise((res, rej) => {
+    const tx = db.transaction('cells', 'readonly');
+    const store = tx.objectStore('cells');
+    // byDocIdインデックスが使えるなら高速パス、なければ全件フォールバック
+    if (store.indexNames.contains('byDocId')) {
+      const idx = store.index('byDocId');
+      const r = idx.getAll(currentWeekDocId);
+      r.onsuccess = e => {
+        const data = {};
+        e.target.result
+          .filter(entry => isNewKey(entry.key))
+          .forEach(entry => { data[entry.key] = { text: entry.text, color: entry.color, cell: entry.cell || null, startMin: entry.startMin, endMin: entry.endMin }; });
+        res(data);
+      };
+      r.onerror = e => rej(e.target.error);
+    } else {
+      // インデックスがまだない場合のフォールバック（初回アップグレード前）
+      const r = store.getAll();
+      r.onsuccess = e => {
+        const data = {};
+        e.target.result
+          .filter(entry => entry.docId === currentWeekDocId && isNewKey(entry.key))
+          .forEach(entry => { data[entry.key] = { text: entry.text, color: entry.color, cell: entry.cell || null, startMin: entry.startMin, endMin: entry.endMin }; });
+        res(data);
+      };
+      r.onerror = e => rej(e.target.error);
+    }
+  });
 }
 
 // ════════════════════════════════════════
