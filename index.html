@@ -201,6 +201,7 @@
       <span style="font-size:12px; color:#555; font-weight:bold;">⏰ 時刻：</span>
       <select id="ng-new-time-from" class="select-time"></select>
       <span style="font-size:12px; color:#888;">〜</span>
+      <select id="ng-new-end-date" class="select-time" style="font-size:11px; padding:3px 4px;"></select>
       <select id="ng-new-time-to" class="select-time"></select>
     </div>
     <div class="mode-tabs">
@@ -506,6 +507,19 @@
 <!-- 新旧グリッド切り替えボタン（ウィークリービュー内のみ表示） -->
 
 
+<!-- ローディングオーバーレイ -->
+<div id="loading-overlay" style="display:none; position:fixed; inset:0; z-index:999; background:rgba(255,255,255,0.75); align-items:center; justify-content:center; flex-direction:column; gap:12px;">
+  <div style="width:36px; height:36px; border:4px solid #d0d8f0; border-top-color:#4a90e2; border-radius:50%; animation:spin 0.7s linear infinite;"></div>
+  <div style="font-size:14px; color:#4a90e2; font-weight:bold;">読み込み中...</div>
+</div>
+<style>
+@keyframes spin { to { transform: rotate(360deg); } }
+/* 日またぎブロック：カラム間の境界線を強調 */
+.ng-block-multiday {
+  border-left: 3px solid rgba(255,255,255,0.6) !important;
+}
+</style>
+
 <!-- 新グリッド（Phase 2 - 10分スロット） -->
 <div id="weekly-view-new" style="position:relative; z-index:1;"></div>
 
@@ -732,12 +746,14 @@ function switchView(view) {
   document.getElementById("btn-weekly").style.fontWeight = view==="weekly"  ? "bold" : "";
   document.getElementById("btn-monthly").style.outline   = view==="monthly" ? "3px solid #333" : "";
   document.getElementById("btn-monthly").style.fontWeight= view==="monthly" ? "bold" : "";
-  if (view==="monthly") loadMonthly();
+  if (view==="monthly") { showLoading(); loadMonthly().finally(() => hideLoading()); }
+  if (view==="weekly")  { showLoading(); loadWeekNew().then(() => { renderNewGrid(); hideLoading(); }).catch(() => hideLoading()); }
   setTimeout(adjustHeaderTop, 50);
 }
 function changeMonth(offset) {
   currentMonthDate.setMonth(currentMonthDate.getMonth()+offset);
-  loadMonthly();
+  showLoading();
+  loadMonthly().finally(() => hideLoading());
 }
 
 // ════════════════════════════════════════
@@ -2172,9 +2188,19 @@ function closeMatModal() {
 // ════════════════════════════════════════
 // 週ナビゲーション
 // ════════════════════════════════════════
+function showLoading() {
+  const el = document.getElementById('loading-overlay');
+  if (el) { el.style.display = 'flex'; }
+}
+function hideLoading() {
+  const el = document.getElementById('loading-overlay');
+  if (el) { el.style.display = 'none'; }
+}
+
 function changeWeek(offset) {
   currentWeek += offset;
-  loadWeekNew().then(() => renderNewGrid());
+  showLoading();
+  loadWeekNew().then(() => { renderNewGrid(); hideLoading(); }).catch(() => hideLoading());
 }
 function getWeekMondayBase() {
   const today=new Date(), dow=today.getDay();
@@ -2847,34 +2873,65 @@ function renderNewGrid() {
 
   // ── ③ 毎回：ブロックのみ差し替え（requestAnimationFrameで分割） ──
   requestAnimationFrame(() => {
+    // 各カラムをクリア
     for (let j = 0; j < 7; j++) {
-      const blockContainer = document.getElementById('ng-blocks-' + j);
-      blockContainer.innerHTML = '';
-      blockContainer.style.pointerEvents = 'auto';
+      const bc = document.getElementById('ng-blocks-' + j);
+      bc.innerHTML = '';
+      bc.style.pointerEvents = 'auto';
+    }
 
-      const d = new Date(start); d.setDate(start.getDate() + j);
-      const dateStr = getDateKey(d);
+    const DAY_END_MIN = NG_END_HOUR * 60; // グリッド終端（分）
 
-      Object.entries(currentWeekDataNew).forEach(([key, val]) => {
-        if (!key.startsWith(dateStr + '-')) return;
-        const parts = key.split('-');
-        const startMin = parseInt(parts[3]);
-        const endMin   = parseInt(parts[4]);
-        if (isNaN(startMin) || isNaN(endMin)) return;
-        const dur    = endMin - startMin;
-        const slotH  = dur <= 30 ? SLOT_H_SHORT : SLOT_H_LONG;
-        const top    = (startMin - NG_START_HOUR * 60) / 10 * SLOT_H_SHORT;
-        const height = Math.round((dur / 10) * slotH);
+    Object.entries(currentWeekDataNew).forEach(([key, val]) => {
+      const parts = key.split('-');
+      if (parts.length < 5) return;
+      const keyDateStr = `${parts[0]}-${parts[1]}-${parts[2]}`;
+      const startMin   = parseInt(parts[3]);
+      const endMin     = parseInt(parts[4]);
+      if (isNaN(startMin) || isNaN(endMin)) return;
 
-        const cellRecord = val.cell || null;
-        const blockType  = cellRecord ? (cellRecord.blockType || (cellRecord.mode === 'study' ? 'study' : 'event')) : 'event';
-        const title      = cellRecord ? (cellRecord.title || cellRecord.materialName || '予定') : (val.text || '予定');
-        const bgColor    = cellRecord ? (cellRecord.color || cellRecord.materialColor || '#a0c4ff') : '#a0c4ff';
+      // 開始カラムを特定
+      let startCol = -1;
+      for (let j = 0; j < 7; j++) {
+        const dj = new Date(start); dj.setDate(start.getDate() + j);
+        if (getDateKey(dj) === keyDateStr) { startCol = j; break; }
+      }
+      if (startCol === -1) return; // 今週に含まれない
+
+      const cellRecord = val.cell || null;
+      const blockType  = cellRecord ? (cellRecord.blockType || (cellRecord.mode === 'study' ? 'study' : 'event')) : 'event';
+      const title      = cellRecord ? (cellRecord.title || cellRecord.materialName || '予定') : (val.text || '予定');
+      const bgColor    = cellRecord ? (cellRecord.color || cellRecord.materialColor || '#a0c4ff') : '#a0c4ff';
+      const isMultiDay = !!(cellRecord?.multiDay && cellRecord?.endColIndex > startCol);
+      const endCol     = isMultiDay ? Math.min(cellRecord.endColIndex, 6) : startCol;
+
+      // カラムごとにブロック断片を生成
+      for (let j = startCol; j <= endCol; j++) {
+        const blockContainer = document.getElementById('ng-blocks-' + j);
+        if (!blockContainer) continue;
+
+        const isFirst = (j === startCol);
+        const isLast  = (j === endCol);
+
+        // このカラム内でのtop/height計算
+        const colStartMin = isFirst ? startMin : NG_START_HOUR * 60;
+        const colEndMin   = isLast  ? endMin   : DAY_END_MIN;
+        const dur         = colEndMin - colStartMin;
+        const slotH       = (!isMultiDay && dur <= 30) ? SLOT_H_SHORT : SLOT_H_LONG;
+        const top         = (colStartMin - NG_START_HOUR * 60) / 10 * SLOT_H_SHORT;
+        const height      = isMultiDay
+          ? Math.round((dur / 10) * SLOT_H_SHORT) // 日またぎは統一スロット高
+          : Math.round((dur / 10) * slotH);
+
+        // 角丸：開始カラム上端・終了カラム下端のみ丸める
+        const borderRadius = isMultiDay
+          ? `${isFirst ? '4px 4px' : '0 0'} ${isLast ? '4px 4px' : '0 0'}`
+          : '4px';
 
         const blockEl = document.createElement('div');
-        blockEl.className = `ng-block ng-block-${blockType}`;
-        blockEl.style.cssText = `top:${top}px; height:${height}px; position:absolute; left:1px; right:1px; overflow:hidden; border-radius:4px; cursor:pointer; box-sizing:border-box;`;
-        blockEl.setAttribute('data-duration', dur <= 30 ? 'short' : 'long');
+        blockEl.className = `ng-block ng-block-${blockType}${isMultiDay ? ' ng-block-multiday' : ''}`;
+        blockEl.style.cssText = `top:${top}px; height:${height}px; position:absolute; left:1px; right:1px; overflow:hidden; border-radius:${borderRadius}; cursor:pointer; box-sizing:border-box;`;
+        blockEl.setAttribute('data-duration', (!isMultiDay && dur <= 30) ? 'short' : 'long');
         blockEl.setAttribute('data-start-min', startMin);
         blockEl.setAttribute('data-end-min', endMin);
         if (cellRecord?.color || cellRecord?.materialColor) {
@@ -2882,12 +2939,26 @@ function renderNewGrid() {
           blockEl.style.color = getTextColor(bgColor);
           blockEl.style.border = 'none';
         }
-        blockEl.id = `block-${key}`;
-        blockEl.innerHTML = makeBlockInnerHTML(title, startMin, endMin, cellRecord, `block-${key}`);
-        blockEl.onclick = (e) => { e.stopPropagation(); openBlockAction(key, j, startMin, endMin); };
+        // 日またぎ：継続カラムは薄い斜線ストライプで区別
+        if (isMultiDay && !isFirst) {
+          blockEl.style.opacity = '0.82';
+          blockEl.style.backgroundImage = `repeating-linear-gradient(135deg, transparent, transparent 6px, rgba(255,255,255,0.18) 6px, rgba(255,255,255,0.18) 12px)`;
+        }
+        blockEl.id = `block-${key}-col${j}`;
+
+        // 表示内容：先頭カラムのみフルHTML、継続カラムは継続バッジのみ
+        if (isFirst) {
+          const badge = isMultiDay ? `<span style="font-size:9px; background:rgba(255,255,255,0.35); border-radius:3px; padding:0 3px; margin-left:3px;">→${cellRecord.endColIndex - startCol}日</span>` : '';
+          blockEl.innerHTML = makeBlockInnerHTML(title + badge, startMin, endMin, cellRecord, `block-${key}`);
+        } else {
+          const contLabel = isLast ? `↙ ${title}` : `↕ ${title}`;
+          blockEl.innerHTML = `<div style="font-size:10px; padding:2px 4px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${contLabel}</div>`;
+        }
+
+        blockEl.onclick = (e) => { e.stopPropagation(); openBlockAction(key, startCol, startMin, endMin); };
         blockContainer.appendChild(blockEl);
-      });
-    }
+      }
+    });
 
     // バナー更新
     const banner = document.getElementById('ng-banner');
@@ -3194,6 +3265,20 @@ function openCellModalNew(key, colIndex, startMin, endMin, isNew) {
       if (m === endMin) o2.selected = true;
       toSel.appendChild(o2);
     }
+
+    // 終了日セレクトを構築（当日〜+6日）
+    const endDateSel = document.getElementById('ng-new-end-date');
+    endDateSel.innerHTML = '';
+    const weekStart = getStartOfWeek();
+    for (let di = 0; di < 7; di++) {
+      const dd = new Date(weekStart); dd.setDate(weekStart.getDate() + di);
+      const opt = document.createElement('option');
+      opt.value = di;
+      opt.textContent = `${dd.getMonth()+1}/${dd.getDate()}(${allDayNames[dd.getDay()]})`;
+      if (di === colIndex) opt.selected = true;
+      endDateSel.appendChild(opt);
+    }
+
     // fromを変えたら toを+60分に自動更新（一度だけ登録）
     fromSel.onchange = () => {
       const ns = parseInt(fromSel.value);
@@ -3229,22 +3314,35 @@ async function saveCellModalNew(key, colIndex, startMin, endMin) {
   // 新規作成モード時は時刻セレクトから実際の時刻を取得
   const saveBtn = document.getElementById('cell-save-btn');
   const isNew   = saveBtn && saveBtn.getAttribute('data-ng-isnew') === '1';
+  let endColIndex = colIndex; // 終了日のカラムインデックス
   if (isNew) {
-    const fromSel = document.getElementById('ng-new-time-from');
-    const toSel   = document.getElementById('ng-new-time-to');
+    const fromSel    = document.getElementById('ng-new-time-from');
+    const toSel      = document.getElementById('ng-new-time-to');
+    const endDateSel = document.getElementById('ng-new-end-date');
     if (fromSel && toSel) {
-      const newStart = parseInt(fromSel.value);
-      const newEnd   = parseInt(toSel.value);
-      if (!isNaN(newStart) && !isNaN(newEnd) && newEnd > newStart) {
-        startMin = newStart;
-        endMin   = newEnd;
-        // キーを新しい時刻で再生成
+      const newStart   = parseInt(fromSel.value);
+      const newEnd     = parseInt(toSel.value);
+      const newEndCol  = endDateSel ? parseInt(endDateSel.value) : colIndex;
+      const isMultiDay = newEndCol > colIndex;
+      // 日またぎ：終了時刻チェックを緩和（同日のみ newEnd > newStart を強制）
+      const timeOk = isMultiDay ? (!isNaN(newStart) && !isNaN(newEnd)) : (!isNaN(newStart) && !isNaN(newEnd) && newEnd > newStart);
+      if (timeOk) {
+        startMin   = newStart;
+        endMin     = newEnd;
+        endColIndex = newEndCol;
+        // キーを新しい開始時刻・開始日で再生成
         const s2 = getStartOfWeek();
         const d2 = new Date(s2); d2.setDate(s2.getDate() + colIndex);
         key = `${getDateKey(d2)}-${startMin}-${endMin}`;
       }
     }
   }
+
+  // 終了日のdateKeyを算出
+  const weekStart = getStartOfWeek();
+  const endDate   = new Date(weekStart); endDate.setDate(weekStart.getDate() + endColIndex);
+  const endDateKey = getDateKey(endDate);
+  const isMultiDay = endColIndex > colIndex;
 
   let cellRecord = null;
   if (cellModalMode === 'study') {
@@ -3256,7 +3354,8 @@ async function saveCellModalNew(key, colIndex, startMin, endMin) {
       materialColor: mat ? mat.color : null,
       pageFrom: parseInt(document.getElementById('mat-page-from').value) || null,
       pageTo: parseInt(document.getElementById('mat-page-to').value) || null,
-      startMin, endMin
+      startMin, endMin,
+      ...(isMultiDay ? { multiDay: true, endDateKey, endColIndex } : {})
     };
   } else {
     cellRecord = {
@@ -3264,10 +3363,39 @@ async function saveCellModalNew(key, colIndex, startMin, endMin) {
       title: document.getElementById('event-title').value.trim() || '予定',
       color: eventSelColor,
       memo: document.getElementById('event-memo').value,
-      startMin, endMin
+      startMin, endMin,
+      ...(isMultiDay ? { multiDay: true, endDateKey, endColIndex } : {})
     };
   }
   await saveCellDataNew(colIndex, startMin, endMin, cellRecord);
+  closeMatModal();
+  renderNewGrid();
+}
+
+// セル削除：cell-save-btnのdata属性からキーを取得してIDB・Firestore・メモリから削除
+async function clearCellRecord() {
+  const saveBtn = document.getElementById('cell-save-btn');
+  if (!saveBtn) { closeMatModal(); return; }
+  const key      = saveBtn.getAttribute('data-ng-key');
+  const colIndex = parseInt(saveBtn.getAttribute('data-ng-col'));
+  if (!key || isNaN(colIndex)) { closeMatModal(); return; }
+
+  // メモリから削除
+  delete currentWeekDataNew[key];
+
+  // IDBから削除
+  const idbId = currentWeekDocId + '__' + key;
+  try { await idbDelete('cells', idbId); } catch(e) { console.warn('[clearCellRecord] idbDelete:', e); }
+
+  // Firestoreから削除（フィールド削除）
+  if (navigator.onLine && currentWeekDocId) {
+    try {
+      await db.collection('schedules2').doc(currentWeekDocId).update({
+        [key]: firebase.firestore.FieldValue.delete()
+      });
+    } catch(e) { console.warn('[clearCellRecord] Firestore delete:', e); }
+  }
+
   closeMatModal();
   renderNewGrid();
 }
