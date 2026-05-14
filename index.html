@@ -340,8 +340,13 @@
       <div id="exam-list" style="max-height:240px; overflow-y:auto; margin-bottom:12px;"></div>
       <div style="border:1.5px dashed #ce93d8; border-radius:10px; padding:12px; background:#fdf5ff;">
         <div style="font-size:12px; font-weight:bold; color:#6a1b9a; margin-bottom:8px;">＋ 考査・模試を追加</div>
-        <div class="flex gap-8 flex-wrap" style="align-items:center;">
+        <div class="flex gap-8 flex-wrap" style="align-items:center; margin-bottom:8px;">
           <input type="text" id="exam-new-name" placeholder="例：1学期中間考査" class="input" style="flex:1; min-width:140px;">
+        </div>
+        <div class="flex gap-8 flex-wrap" style="align-items:center;">
+          <span style="font-size:12px; color:#6a1b9a; white-space:nowrap;">📅 期間</span>
+          <input type="date" id="exam-new-date-from" class="input-sm" style="padding:6px 8px;">
+          <span style="font-size:12px; color:#888;">〜</span>
           <input type="date" id="exam-new-date" class="input-sm" style="padding:6px 8px;">
           <button class="btn-add-purple">追加</button>
         </div>
@@ -1755,9 +1760,12 @@ function renderExamList() {
       const subs = exam.submissions||[];
       const done = subs.filter(s=>s.done).length;
       const subInfo = subs.length ? `<span class="form-label" style="color:#999;display:inline;"> ${done}/${subs.length}提出済</span>` : "";
+      const dateLabel = exam.dateFrom && exam.date
+        ? `${exam.dateFrom} 〜 ${exam.date}`
+        : (exam.dateFrom ? `${exam.dateFrom} 〜` : (exam.date || ""));
       div.innerHTML = `
         <span class="exam-item-name">${exam.name}${subInfo}</span>
-        <span class="exam-item-date">${exam.date||""}</span>
+        <span class="exam-item-date">${dateLabel}</span>
         ${badge}
         <button class="btn-delete-sm js-delete-exam" data-index="${i}">削除</button>
       `;
@@ -1770,12 +1778,15 @@ function renderExamList() {
 }
 
 async function addExam() {
-  const name = document.getElementById("exam-new-name").value.trim();
-  const date = document.getElementById("exam-new-date").value;
+  const name     = document.getElementById("exam-new-name").value.trim();
+  const dateFrom = document.getElementById("exam-new-date-from").value;
+  const date     = document.getElementById("exam-new-date").value;
   if (!name) { alert("考査名を入力してください"); return; }
-  exams.push({id:genExamId(), name, date, submissions:[]});
+  if (dateFrom && date && dateFrom > date) { alert("開始日は終了日より前の日付を入力してください"); return; }
+  exams.push({id:genExamId(), name, dateFrom, date, submissions:[]});
   await saveExams();
   document.getElementById("exam-new-name").value="";
+  document.getElementById("exam-new-date-from").value="";
   document.getElementById("exam-new-date").value="";
   renderExamList();
 }
