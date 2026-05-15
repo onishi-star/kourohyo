@@ -471,7 +471,7 @@
 </div>
 
 <!-- ══ TOP BAR ══ -->
-<div id="top-bar">
+<div id="top-bar" style="padding-right:54px;">
   <div id="left-controls">
     <h1>週間スケジュール</h1>
     <div class="ctrl-row">
@@ -734,7 +734,8 @@ function switchView(view) {
   currentView = view;
   // 切り替えバーはウィークリーのときだけ表示
 
-
+  const topBarH = document.getElementById("top-bar").offsetHeight;
+  document.getElementById("monthly-view").style.paddingTop = topBarH + "px";
   document.getElementById("monthly-view").classList.toggle("hidden", view !== "monthly");
   const newGrid = document.getElementById("weekly-view-new");
   if (newGrid) newGrid.style.display = view === "weekly" ? "block" : "none";
@@ -3943,7 +3944,7 @@ async function addMaterialInline() {
 </script>
 
 <!-- ══ Phase 5: ポモドーロ予約モーダル ══ -->
-<div id="pomo5-reserve-overlay">
+<div id="pomo5-reserve-overlay" style="display:none;">
   <div class="pomo5-box">
     <h3>🍅 ポモドーロ予約</h3>
     <label class="form-label" style="color:#888;">勉強内容（必須）</label>
@@ -3956,7 +3957,7 @@ async function addMaterialInline() {
 </div>
 
 <!-- ══ Phase 5: 完了確認モーダル ══ -->
-<div id="pomo5-done-overlay">
+<div id="pomo5-done-overlay" style="display:none;">
   <div class="pomo5-box">
     <h3>✅ 完了済み <span id="pomo5-done-manual-mark" class="hidden" style="font-size:13px;">✏️後入力</span></h3>
     <div style="font-size:13px;margin-bottom:6px;">📖 <b id="pomo5-done-content"></b></div>
@@ -3969,7 +3970,7 @@ async function addMaterialInline() {
 </div>
 
 <!-- ══ Phase 5: 後入力モーダル ══ -->
-<div id="pomo5-manual-overlay">
+<div id="pomo5-manual-overlay" style="display:none;">
   <div class="pomo5-box">
     <h3>✏️ 後から記録する</h3>
     <label class="form-label" style="color:#888;">勉強内容（必須）</label>
