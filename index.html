@@ -471,7 +471,7 @@
 </div>
 
 <!-- ══ TOP BAR ══ -->
-<div id="top-bar" style="padding-right:54px;">
+<div id="top-bar">
   <div id="left-controls">
     <h1>週間スケジュール</h1>
     <div class="ctrl-row">
@@ -520,6 +520,10 @@
 /* 日またぎブロック：カラム間の境界線を強調 */
 .ng-block-multiday {
   border-left: 3px solid rgba(255,255,255,0.6) !important;
+}
+/* nav.jsの_nav_side（右端46px）と重ならないようにtop-barの右にスペース確保 */
+#top-bar {
+  padding-right: calc(10px + 46px + env(safe-area-inset-right, 0px)) !important;
 }
 </style>
 
@@ -704,6 +708,7 @@ let eventSelColor   = "#ffadad";
 function adjustHeaderTop() {
   const h = document.getElementById("top-bar").offsetHeight;
   document.querySelectorAll(".header").forEach(el => el.style.top = h + "px");
+  document.getElementById("monthly-view").style.paddingTop = h + "px";
 }
 function getTextColor(hex) {
   if (!hex || hex.length < 4) return "#000";
@@ -734,8 +739,6 @@ function switchView(view) {
   currentView = view;
   // 切り替えバーはウィークリーのときだけ表示
 
-  const topBarH = document.getElementById("top-bar").offsetHeight;
-  document.getElementById("monthly-view").style.paddingTop = topBarH + "px";
   document.getElementById("monthly-view").classList.toggle("hidden", view !== "monthly");
   const newGrid = document.getElementById("weekly-view-new");
   if (newGrid) newGrid.style.display = view === "weekly" ? "block" : "none";
