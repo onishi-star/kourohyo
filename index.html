@@ -223,29 +223,6 @@
         <label class="form-label">メモ</label>
         <textarea id="event-memo" rows="2" class="input-full" style="border-radius:8px; resize:none; font-family:sans-serif;" placeholder="メモを入力..."></textarea>
       </div>
-
-      <!-- ログ入力エリア（行事・予定モード） -->
-      <div id="event-log-section" style="margin-top:10px; padding:10px; background:#f8f9fb; border:1px solid #e0e8f0; border-radius:10px;">
-        <div style="font-size:12px; font-weight:bold; color:#3a5aad; margin-bottom:8px;">📋 この予定のログを残す</div>
-        <div style="display:flex; gap:6px; align-items:center; margin-bottom:6px; flex-wrap:wrap;">
-          <label style="font-size:12px; color:#555; white-space:nowrap;">ステータス：</label>
-          <select id="event-log-status" style="font-size:12px; padding:4px 8px; border:1px solid #c5d0f0; border-radius:6px; background:#fff;">
-            <option value="none">ログなし</option>
-            <option value="notyet">⬜ 未着手</option>
-            <option value="doing">🔵 進行中</option>
-            <option value="done">✅ 完了</option>
-          </select>
-        </div>
-        <div id="event-log-fields" style="display:none;">
-          <textarea id="event-log-memo" rows="2" style="width:100%; box-sizing:border-box; border:1px solid #c5d0f0; border-radius:6px; padding:5px 8px; font-size:12px; resize:none; font-family:sans-serif; margin-bottom:6px;" placeholder="状況メモ（任意）..."></textarea>
-          <div style="display:flex; gap:6px; align-items:center; flex-wrap:wrap;">
-            <label style="font-size:12px; color:#555; white-space:nowrap;">タグ：</label>
-            <input type="text" id="event-log-tag" style="flex:1; min-width:80px; font-size:12px; padding:4px 8px; border:1px solid #c5d0f0; border-radius:6px;" placeholder="例：台本 小道具（スペース区切り）">
-            <label style="font-size:12px; color:#555; white-space:nowrap;">締切：</label>
-            <input type="date" id="event-log-deadline" style="font-size:12px; padding:4px 6px; border:1px solid #c5d0f0; border-radius:6px;">
-          </div>
-        </div>
-      </div>
     </div>
     <div class="row-end-wrap">
       <button class="btn-delete">消す</button>
@@ -472,7 +449,6 @@
       <button id="btn-print" style="font-size:12px;">🖨 印刷</button>
       <button class="btn-topbar-record">✏️ 自由記録</button>
       <button class="btn-topbar-exam">📝 考査管理</button>
-      <button id="btn-event-log" style="font-size:12px; background:#f0f4ff; color:#3a5aad; border:1.5px solid #c5d0f0; border-radius:6px; padding:4px 10px; cursor:pointer; font-weight:bold;">📋 ログ</button>
       <span id="offline-indicator" class="status-offline hidden">📵 オフライン</span>
       <span id="sync-indicator"   class="status-sync hidden">✅ 同期完了</span>
     </div>
@@ -651,20 +627,18 @@ let _idb = null;
 function openIDB() {
   if (_idb) return Promise.resolve(_idb);
   return new Promise((res, rej) => {
-    const r = indexedDB.open("scheduleDB", 5);
+    const r = indexedDB.open("scheduleDB", 4);
     r.onupgradeneeded = e => {
       const db = e.target.result;
       // 既存
-      if (!db.objectStoreNames.contains("cells"))      db.createObjectStore("cells",      { keyPath:"id" });
-      if (!db.objectStoreNames.contains("pending"))    db.createObjectStore("pending",    { keyPath:"id" });
-      if (!db.objectStoreNames.contains("materials"))  db.createObjectStore("materials",  { keyPath:"id" });
+      if (!db.objectStoreNames.contains("cells"))     db.createObjectStore("cells",     { keyPath:"id" });
+      if (!db.objectStoreNames.contains("pending"))   db.createObjectStore("pending",   { keyPath:"id" });
+      if (!db.objectStoreNames.contains("materials")) db.createObjectStore("materials", { keyPath:"id" });
       // 新規追加（v3）
-      if (!db.objectStoreNames.contains("monthly"))    db.createObjectStore("monthly",    { keyPath:"id" });
-      if (!db.objectStoreNames.contains("config"))     db.createObjectStore("config",     { keyPath:"id" });
-      if (!db.objectStoreNames.contains("progress"))   db.createObjectStore("progress",   { keyPath:"id" });
-      if (!db.objectStoreNames.contains("freeRec"))    db.createObjectStore("freeRec",    { keyPath:"id" });
-      // 新規追加（v5）: 予定ログ
-      if (!db.objectStoreNames.contains("eventLogs")) db.createObjectStore("eventLogs",  { keyPath:"id" });
+      if (!db.objectStoreNames.contains("monthly"))   db.createObjectStore("monthly",   { keyPath:"id" });
+      if (!db.objectStoreNames.contains("config"))    db.createObjectStore("config",    { keyPath:"id" });
+      if (!db.objectStoreNames.contains("progress"))  db.createObjectStore("progress",  { keyPath:"id" });
+      if (!db.objectStoreNames.contains("freeRec"))   db.createObjectStore("freeRec",   { keyPath:"id" });
     };
     r.onsuccess = e => { _idb = e.target.result; res(_idb); };
     r.onerror   = e => rej(e.target.error);
@@ -1307,6 +1281,13 @@ let progCurrentChapter = 0;
 // }
 let progData = null;
 
+// "YYYY-MM-DD" 文字列をローカル時間として正しく Date に変換するヘルパー
+function parseLocalDate(str) {
+  if (!str) return null;
+  const [y, m, d] = str.split("-").map(Number);
+  return new Date(y, m - 1, d);
+}
+
 async function openProgressModal(mat) {
   progMatId = mat.id;
   document.getElementById("prog-mat-name").textContent = "📊 " + mat.name;
@@ -1352,7 +1333,7 @@ function updateDeadlineBadge() {
   const val = document.getElementById("prog-deadline").value;
   const badge = document.getElementById("prog-deadline-badge");
   if (!val) { badge.classList.add("hidden"); return; }
-  const diff = Math.ceil((new Date(val) - new Date(new Date().toDateString())) / 86400000);
+  const diff = Math.ceil((parseLocalDate(val) - new Date(new Date().toDateString())) / 86400000);
   badge.classList.remove("hidden");
   if (diff < 0)       { badge.className="deadline-warning over"; badge.textContent=`⚠️ ${-diff}日超過`; }
   else if (diff <= 3) { badge.className="deadline-warning near"; badge.textContent=`⚡ あと${diff}日`; }
@@ -1641,26 +1622,20 @@ async function refreshDeadlinePanel() {
     const idbId = uid + "_" + mat.id;
     const data = await idbGet("progress", idbId);
     if (!data || !data.deadline) continue;
-    const diff = Math.ceil((new Date(data.deadline) - today) / 86400000);
+    const diff = Math.ceil((parseLocalDate(data.deadline) - today) / 86400000);
     items.push({ name: mat.name, deadline: data.deadline, diff, color: mat.color });
   }
 　// 考査・模試の締切も追加
   for (const exam of exams) {
     if (!exam.date) continue;
-    const diff = Math.ceil((new Date(exam.date) - today) / 86400000);
-    items.push({ name: "📝 " + exam.name, diff, color: "#9c27b0" });
+    const diff = Math.ceil((parseLocalDate(exam.date) - today) / 86400000);
+    items.push({ name: "📝 " + exam.name, deadline: exam.date, diff, color: "#9c27b0" });
     // 提出物の締切も追加
     for (const sub of (exam.submissions||[])) {
       if (!sub.deadline || sub.done) continue;
-      const d = Math.ceil((new Date(sub.deadline) - today) / 86400000);
-      items.push({ name: `[${sub.subject||"提出"}] ${sub.name}`, diff: d, color: "#7b1fa2" });
+      const d = Math.ceil((parseLocalDate(sub.deadline) - today) / 86400000);
+      items.push({ name: `[${sub.subject||"提出"}] ${sub.name}`, deadline: sub.deadline, diff: d, color: "#7b1fa2" });
     }
-  }
-  // 予定ログの締切も追加
-  for (const log of (window._eventLogDeadlines || [])) {
-    if (!log.deadline || log.status === 'done') continue;
-    const diff = Math.ceil((new Date(log.deadline) - today) / 86400000);
-    items.push({ name: "📋 " + log.eventKey, diff, color: log.eventColor || "#3a5aad" });
   }
   items.sort((a, b) => a.diff - b.diff);
   if (!items.length) { empty.classList.remove("hidden"); return; }
@@ -1671,7 +1646,10 @@ async function refreshDeadlinePanel() {
     const dot = document.createElement("div");
     dot.style.cssText = `width:8px;height:8px;border-radius:50%;background:${item.color};flex-shrink:0;`;
     const name = document.createElement("div");
-    name.className = "dl-name"; name.textContent = item.name;
+    name.className = "dl-name";
+    name.textContent = item.deadline
+      ? `${item.name}　${item.deadline}`
+      : item.name;
     const badge = document.createElement("div");
     badge.className = "dl-badge";
     if (item.diff < 0)      { badge.style.cssText="background:#ffebee;color:#c62828;"; badge.textContent=`⚠️ ${-item.diff}日超過`; }
@@ -1751,7 +1729,7 @@ function renderExamList() {
       const i = exam._i;
       const div = document.createElement("div");
       div.className = "exam-item" + (i===selectedExamIdx?" selected":"");
-      const diff = exam.date ? Math.ceil((new Date(exam.date)-today)/86400000) : null;
+      const diff = exam.date ? Math.ceil((parseLocalDate(exam.date)-today)/86400000) : null;
       let badge = "";
       if (diff!==null) {
         if (diff<0)       badge=`<span class="deadline-warning over">⚠️ ${-diff}日前</span>`;
@@ -1823,7 +1801,7 @@ function renderSubmissionList() {
     };
     let dlBadge = "";
     if (sub.deadline) {
-      const diff = Math.ceil((new Date(sub.deadline)-today)/86400000);
+      const diff = Math.ceil((parseLocalDate(sub.deadline)-today)/86400000);
       if (diff<0)       dlBadge=`<span class="deadline-warning over" style="font-size:10px;">⚠️${-diff}日超過</span>`;
       else if (diff<=3) dlBadge=`<span class="deadline-warning near" style="font-size:10px;">⚡${diff}日</span>`;
       else              dlBadge=`<span class="deadline-warning ok" style="font-size:10px;">${diff}日</span>`;
@@ -2269,260 +2247,7 @@ function renderDailyChart(daily, start) {
 }
   
 // ════════════════════════════════════════
-// 予定ログ機能
-// データ構造: {
-//   id: "log_<timestamp>_<rand>",
-//   eventKey: "演劇部",          ← 予定タイトルをキーに使用
-//   eventColor: "#f3e5f5",
-//   date: "YYYY-MM-DD",
-//   status: "notyet"|"doing"|"done",
-//   memo: "...",
-//   tags: ["台本","小道具"],
-//   deadline: "YYYY-MM-DD"|"",
-//   createdAt: ISO string
-// }
-// ════════════════════════════════════════
-
-let _eventLogPanelOpen  = false;
-let _eventLogFilter     = null; // null=全件, string=予定名で絞り込み
-
-// ── ログ保存（セルモーダルの保存時に呼ぶ） ──
-async function saveEventLogFromModal(eventTitle, eventColor, dateStr) {
-  const status = document.getElementById('event-log-status')?.value || 'none';
-  if (status === 'none') return; // ログなしなら何もしない
-
-  const memo     = document.getElementById('event-log-memo')?.value.trim() || '';
-  const tagRaw   = document.getElementById('event-log-tag')?.value.trim() || '';
-  const deadline = document.getElementById('event-log-deadline')?.value || '';
-  const tags     = tagRaw ? tagRaw.split(/\s+/).filter(Boolean) : [];
-
-  const id = 'log_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6);
-  const record = {
-    id,
-    eventKey:   eventTitle,
-    eventColor: eventColor || '#e8eef8',
-    date:       dateStr,
-    status,
-    memo,
-    tags,
-    deadline,
-    createdAt:  new Date().toISOString()
-  };
-
-  await idbSet('eventLogs', record);
-  syncToFirestore('eventLogs', id, record);
-  refreshEventLogDeadlines();
-}
-
-// ── セルモーダルを開いたとき、既存ログの最新ステータスをUIに反映 ──
-async function loadEventLogForModal(eventTitle) {
-  const all = await idbGetAll('eventLogs');
-  const logs = all.filter(l => l.eventKey === eventTitle).sort((a, b) => b.date.localeCompare(a.date));
-  const latest = logs[0] || null;
-
-  const statusSel  = document.getElementById('event-log-status');
-  const memoEl     = document.getElementById('event-log-memo');
-  const tagEl      = document.getElementById('event-log-tag');
-  const deadlineEl = document.getElementById('event-log-deadline');
-  if (!statusSel) return;
-
-  if (latest) {
-    statusSel.value  = latest.status || 'none';
-    if (memoEl)     memoEl.value     = '';  // 新規ログは空欄（前回の引き継ぎなし）
-    if (tagEl)      tagEl.value      = (latest.tags || []).join(' ');
-    if (deadlineEl) deadlineEl.value = latest.deadline || '';
-  } else {
-    statusSel.value  = 'none';
-    if (memoEl)     memoEl.value     = '';
-    if (tagEl)      tagEl.value      = '';
-    if (deadlineEl) deadlineEl.value = '';
-  }
-  toggleEventLogFields();
-}
-
-function toggleEventLogFields() {
-  const status = document.getElementById('event-log-status')?.value || 'none';
-  const fields = document.getElementById('event-log-fields');
-  if (fields) fields.style.display = (status !== 'none') ? 'block' : 'none';
-}
-
-// ── ログパネルを開く ──
-async function openEventLogPanel() {
-  _eventLogPanelOpen = true;
-  _eventLogFilter    = null;
-  const panel   = document.getElementById('event-log-panel');
-  const backdrop = document.getElementById('event-log-backdrop');
-  panel.style.display   = 'flex';
-  backdrop.style.display = 'block';
-  await renderEventLogPanel();
-}
-
-function closeEventLogPanel() {
-  _eventLogPanelOpen = false;
-  document.getElementById('event-log-panel').style.display   = 'none';
-  document.getElementById('event-log-backdrop').style.display = 'none';
-}
-
-// ── パネルを描画 ──
-async function renderEventLogPanel() {
-  const all  = await idbGetAll('eventLogs');
-
-  // フィルタータブ（予定名の一覧）
-  const keySet = {};
-  all.forEach(l => { if (!keySet[l.eventKey]) keySet[l.eventKey] = l.eventColor; });
-  const filterWrap = document.getElementById('event-log-filter-wrap');
-  if (filterWrap) {
-    filterWrap.innerHTML = '';
-    // 「すべて」ボタン
-    const allBtn = document.createElement('button');
-    allBtn.textContent = 'すべて';
-    allBtn.style.cssText = `font-size:11px; padding:3px 10px; border-radius:12px; cursor:pointer; border:1.5px solid ${_eventLogFilter===null?'#3a5aad':'#ccc'}; background:${_eventLogFilter===null?'#3a5aad':'#fff'}; color:${_eventLogFilter===null?'#fff':'#555'}; font-weight:bold;`;
-    allBtn.onclick = async () => { _eventLogFilter = null; await renderEventLogPanel(); };
-    filterWrap.appendChild(allBtn);
-    Object.entries(keySet).forEach(([name, color]) => {
-      const btn = document.createElement('button');
-      const isActive = _eventLogFilter === name;
-      btn.textContent = name;
-      btn.style.cssText = `font-size:11px; padding:3px 10px; border-radius:12px; cursor:pointer; border:1.5px solid ${isActive?color:'#ccc'}; background:${isActive?color:'#fff'}; color:${isActive?getTextColor(color):'#555'}; font-weight:bold;`;
-      btn.onclick = async () => { _eventLogFilter = name; await renderEventLogPanel(); };
-      filterWrap.appendChild(btn);
-    });
-  }
-
-  // 絞り込み後のログ
-  const filtered = _eventLogFilter
-    ? all.filter(l => l.eventKey === _eventLogFilter)
-    : all;
-  filtered.sort((a, b) => b.date.localeCompare(a.date));
-
-  // サマリー（絞り込み時のみ）
-  const summaryEl = document.getElementById('event-log-summary');
-  const summaryContent = document.getElementById('event-log-summary-content');
-  if (_eventLogFilter && filtered.length > 0) {
-    const latest = filtered[0];
-    summaryEl.style.display = 'block';
-    const statusLabel = { notyet:'⬜ 未着手', doing:'🔵 進行中', done:'✅ 完了' };
-    const dl = latest.deadline
-      ? (() => {
-          const diff = Math.ceil((new Date(latest.deadline) - new Date(new Date().toDateString())) / 86400000);
-          if (diff < 0)       return `<span style="color:#c62828;">⚠️ 締切${-diff}日超過</span>`;
-          else if (diff <= 3) return `<span style="color:#e65100;">⚡ 締切まで${diff}日</span>`;
-          else                return `<span style="color:#2e7d32;">✅ 締切まで${diff}日</span>`;
-        })()
-      : '';
-    const tagHTML = (latest.tags||[]).length
-      ? (latest.tags.map(t=>`<span style="background:#e8eef8;color:#3a5aad;border-radius:6px;padding:1px 6px;font-size:11px;">#${t}</span>`).join(' '))
-      : '';
-    summaryContent.innerHTML = `
-      <div>${statusLabel[latest.status] || latest.status} ${dl}</div>
-      ${tagHTML ? `<div style="margin-top:3px;">${tagHTML}</div>` : ''}
-      ${latest.memo ? `<div style="margin-top:4px;color:#555;font-size:11px;">${escHtml(latest.memo)}</div>` : ''}
-    `;
-  } else {
-    summaryEl.style.display = 'none';
-  }
-
-  // ログ一覧
-  const listEl  = document.getElementById('event-log-list');
-  const emptyEl = document.getElementById('event-log-empty');
-  listEl.innerHTML = '';
-  if (!filtered.length) {
-    emptyEl.style.display = 'block';
-    return;
-  }
-  emptyEl.style.display = 'none';
-
-  const statusLabel = { notyet:'⬜ 未着手', doing:'🔵 進行中', done:'✅ 完了' };
-  filtered.forEach(log => {
-    const div = document.createElement('div');
-    div.style.cssText = 'background:#f8f9fb; border:1px solid #e0e8f0; border-radius:8px; padding:8px 10px; font-size:12px; position:relative;';
-    const tagHTML = (log.tags||[]).length
-      ? `<div style="margin-top:3px;">${log.tags.map(t=>`<span style="background:#e8eef8;color:#3a5aad;border-radius:5px;padding:1px 5px;font-size:10px;">#${t}</span>`).join(' ')}</div>`
-      : '';
-    const dlHTML = log.deadline
-      ? `<span style="font-size:10px;color:#888;"> 📅${log.deadline}</span>`
-      : '';
-    const dot = `<span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${log.eventColor||'#c5d0f0'};margin-right:4px;vertical-align:middle;"></span>`;
-    div.innerHTML = `
-      <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:6px;">
-        <div style="font-weight:bold;color:#333;">${dot}${escHtml(log.eventKey)}</div>
-        <div style="color:#aaa;font-size:10px;white-space:nowrap;">${log.date}</div>
-      </div>
-      <div style="margin-top:3px;">${statusLabel[log.status]||log.status}${dlHTML}</div>
-      ${log.memo ? `<div style="margin-top:3px;color:#555;">${escHtml(log.memo)}</div>` : ''}
-      ${tagHTML}
-      <button data-log-id="${log.id}" style="position:absolute;top:6px;right:6px;font-size:10px;color:#ccc;background:none;border:none;cursor:pointer;line-height:1;" title="削除">✕</button>
-    `;
-    listEl.appendChild(div);
-  });
-}
-
-// ── ログ削除 ──
-async function deleteEventLog(id) {
-  await idbDelete('eventLogs', id);
-  if (navigator.onLine) {
-    db.collection('eventLogs').doc(id).delete().catch(() => {});
-  }
-  await renderEventLogPanel();
-  refreshEventLogDeadlines();
-}
-
-// ── 締切カウントダウンにログの締切も反映 ──
-async function refreshEventLogDeadlines() {
-  const all = await idbGetAll('eventLogs');
-  // eventKeyごとに最新のdeadlineだけを取り出す
-  const latest = {};
-  all.forEach(l => {
-    if (!l.deadline) return;
-    if (!latest[l.eventKey] || l.date > latest[l.eventKey].date) {
-      latest[l.eventKey] = l;
-    }
-  });
-  window._eventLogDeadlines = Object.values(latest);
-  // 締切パネルを再描画（既存のrefreshDeadlinePanelを拡張）
-  refreshDeadlinePanel();
-}
-
-// ── saveCellModalNew に割り込んでログを保存 ──
-// 元の関数をラップして、イベントモード保存後にログも保存する
-const _origSaveCellModalNew = saveCellModalNew;
-async function saveCellModalNew(key, colIndex, startMin, endMin) {
-  // セルモーダルのモードがeventのときだけログ保存
-  if (cellModalMode === 'event') {
-    const title    = document.getElementById('event-title')?.value.trim() || '予定';
-    const color    = eventSelColor;
-    const s        = getStartOfWeek();
-    const d        = new Date(s); d.setDate(s.getDate() + colIndex);
-    const dateStr  = getDateKey(d);
-    await saveEventLogFromModal(title, color, dateStr);
-  }
-  await _origSaveCellModalNew(key, colIndex, startMin, endMin);
-}
-
-// ── openCellModalNew の後に既存ログを読み込む（モーダルを開くときに呼ぶ） ──
-// event-log-status の change ハンドラー
-document.addEventListener('change', function(e) {
-  if (e.target.id === 'event-log-status') { toggleEventLogFields(); }
-});
-
-// イベントタイトル変更時に既存ログを読み込む
-document.addEventListener('input', function(e) {
-  if (e.target.id === 'event-title') {
-    const title = e.target.value.trim();
-    if (title) loadEventLogForModal(title);
-  }
-});
-
-// ログパネル内の削除ボタン委譲
-document.addEventListener('click', function(e) {
-  if (!e.target.dataset.logId) return;
-  const logId = e.target.dataset.logId;
-  if (logId && confirm('このログを削除しますか？')) {
-    deleteEventLog(logId);
-  }
-});
-
-
+// Phase 4: プリセット機能（新グリッド対応）
 // ════════════════════════════════════════
 
 // 時間割プリセット（localStorage保存）
@@ -2866,7 +2591,6 @@ function showApp() {
     }
   });
   loadExams().then(() => refreshDeadlinePanel());
-  refreshEventLogDeadlines();
 }
 function showLogin() {
   document.getElementById('auth-container').style.display = 'flex';
@@ -4097,9 +3821,6 @@ document.addEventListener('click', function(e) {
   if (t.matches('#btn-print'))           { window.print(); return; }
   if (t.matches('.btn-topbar-record'))   { openFreeRecordModal(); return; }
   if (t.matches('.btn-topbar-exam'))     { openExamModal(); return; }
-  if (t.matches('#btn-event-log'))       { openEventLogPanel(); return; }
-  if (t.matches('#event-log-panel-close'))  { closeEventLogPanel(); return; }
-  if (t.matches('#event-log-backdrop'))     { closeEventLogPanel(); return; }
 
   // ── 設定モーダル ──
   if (t.closest('#modal-overlay') && t.classList.contains('btn-close'))  { closeModal(); return; }
@@ -4359,35 +4080,6 @@ async function addMaterialInline() {
 </div>
 
 <div id="review-toast" class="hidden">📚 セルをタップして復習を予約してください　<button class="btn-toast-cancel">キャンセル</button></div>
-
-<!-- ══ 予定ログパネル ══ -->
-<div id="event-log-panel" style="display:none; position:fixed; top:0; right:0; width:320px; max-width:94vw; height:100vh; background:#fff; box-shadow:-4px 0 24px rgba(0,0,0,0.15); z-index:300; display:flex; flex-direction:column; overflow:hidden;">
-  <!-- ヘッダー -->
-  <div style="padding:14px 16px 10px; background:#f0f4ff; border-bottom:1.5px solid #c5d0f0; flex-shrink:0;">
-    <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:10px;">
-      <div style="font-size:15px; font-weight:bold; color:#3a5aad;">📋 予定ログ</div>
-      <button id="event-log-panel-close" style="background:none; border:none; font-size:18px; color:#888; cursor:pointer; line-height:1;">✕</button>
-    </div>
-    <!-- 予定フィルター -->
-    <div style="font-size:11px; color:#888; margin-bottom:5px;">予定で絞り込み</div>
-    <div id="event-log-filter-wrap" style="display:flex; flex-wrap:wrap; gap:5px;"></div>
-  </div>
-
-  <!-- 現在の状況サマリー -->
-  <div id="event-log-summary" style="padding:10px 14px; background:#f8fbff; border-bottom:1px solid #e8eef8; flex-shrink:0; display:none;">
-    <div style="font-size:11px; font-weight:bold; color:#555; margin-bottom:5px;">── 現在の状況 ──</div>
-    <div id="event-log-summary-content" style="font-size:12px; line-height:1.7;"></div>
-  </div>
-
-  <!-- ログ一覧 -->
-  <div style="flex:1; overflow-y:auto; padding:10px 14px;">
-    <div style="font-size:11px; font-weight:bold; color:#555; margin-bottom:8px;">── ログ一覧 ──</div>
-    <div id="event-log-list" style="display:flex; flex-direction:column; gap:8px;"></div>
-    <div id="event-log-empty" style="color:#bbb; font-size:12px; text-align:center; padding:20px 0; display:none;">ログがありません</div>
-  </div>
-</div>
-<!-- ログパネル背景幕 -->
-<div id="event-log-backdrop" style="display:none; position:fixed; inset:0; z-index:299;" ></div>
 
 <script src="nav.js"></script>
 <script src="guide.js"></script>
