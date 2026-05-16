@@ -135,6 +135,7 @@
     </button>
 
     <div class="row-end" style="margin-top:10px;">
+      <button class="btn-delete" id="day-modal-clear">消す</button>
       <button class="btn-save">保存</button>
       <button class="btn-close">閉じる</button>
     </div>
@@ -159,6 +160,7 @@
     </button>
     <div class="flex gap-8" style="justify-content:center; margin-top:4px;">
       <button style="font-size:12px; color:#4a90e2; background:none; border:1px dashed #4a90e2; border-radius:6px; padding:5px 14px; cursor:pointer;">✏️ 予約を編集</button>
+      <button id="pom-delete-btn" style="font-size:12px; color:#e53935; background:none; border:1px solid #ef9a9a; border-radius:6px; padding:5px 14px; cursor:pointer;">🗑 削除</button>
       <button style="font-size:12px; color:#aaa; background:none; border:1px solid #ddd; border-radius:6px; padding:5px 14px; cursor:pointer;">閉じる</button>
     </div>
   </div>
@@ -1007,6 +1009,21 @@ async function saveDayModal() {
   // Firestoreへはバックグラウンド同期
   syncToFirestore('monthly', currentMonthDocId, { [currentDayKey]: currentMonthData[currentDayKey] });
   syncMonthlyToWeekly(currentDayKey, memo);
+
+  closeDayModal();
+  loadMonthly();
+}
+
+async function clearDayModal() {
+  if (!confirm('この日の色・メモ・完了をすべて消しますか？')) return;
+  currentMonthData[currentDayKey] = { memo: '', color: '', checked: false };
+
+  const idbRecord = await idbGet('monthly', currentMonthDocId) || {};
+  delete idbRecord.id;
+  Object.assign(idbRecord, { [currentDayKey]: currentMonthData[currentDayKey] });
+  await idbSet('monthly', { id: currentMonthDocId, ...idbRecord });
+
+  syncToFirestore('monthly', currentMonthDocId, { [currentDayKey]: currentMonthData[currentDayKey] });
 
   closeDayModal();
   loadMonthly();
@@ -2832,6 +2849,10 @@ function renderNewGrid() {
           blockEl.style.backgroundImage = `repeating-linear-gradient(135deg, transparent, transparent 6px, rgba(255,255,255,0.18) 6px, rgba(255,255,255,0.18) 12px)`;
         }
         blockEl.id = `block-${key}-col${j}`;
+        blockEl.setAttribute('data-ng-key',   key);
+        blockEl.setAttribute('data-ng-col',   startCol);
+        blockEl.setAttribute('data-ng-start', startMin);
+        blockEl.setAttribute('data-ng-end',   endMin);
 
         // 表示内容：先頭カラムのみフルHTML、継続カラムは継続バッジのみ
         if (isFirst) {
@@ -3341,13 +3362,18 @@ async function saveCellModalNew(key, colIndex, startMin, endMin) {
   renderNewGrid();
 }
 
-// セル削除：cell-save-btnのdata属性からキーを取得してIDB・Firestore・メモリから削除
-async function clearCellRecord() {
-  const saveBtn = document.getElementById('cell-save-btn');
-  if (!saveBtn) { closeMatModal(); return; }
-  const key      = saveBtn.getAttribute('data-ng-key');
-  const colIndex = parseInt(saveBtn.getAttribute('data-ng-col'));
-  if (!key || isNaN(colIndex)) { closeMatModal(); return; }
+// セル削除：引数があればそのキーを、なければcell-save-btnのdata属性を使う
+async function clearCellRecord(directKey, directCol) {
+  let key      = directKey;
+  let colIndex = directCol;
+
+  if (!key) {
+    const saveBtn = document.getElementById('cell-save-btn');
+    if (!saveBtn) { closeMatModal(); return; }
+    key      = saveBtn.getAttribute('data-ng-key');
+    colIndex = parseInt(saveBtn.getAttribute('data-ng-col'));
+  }
+  if (!key || colIndex === undefined || isNaN(colIndex)) { closeMatModal(); return; }
 
   // メモリから削除
   delete currentWeekDataNew[key];
@@ -3366,6 +3392,7 @@ async function clearCellRecord() {
   }
 
   closeMatModal();
+  closePomodoroModal();
   renderNewGrid();
 }
 
@@ -3803,6 +3830,7 @@ document.addEventListener('click', function(e) {
   // ── 日メモモーダル（マンスリー） ──
   if (t.closest('#day-modal-overlay') && t.classList.contains('btn-save'))  { saveDayModal(); return; }
   if (t.closest('#day-modal-overlay') && t.classList.contains('btn-close')) { closeDayModal(); return; }
+  if (t.matches('#day-modal-clear')) { clearDayModal(); return; }
   if (t.matches('#tab-memo')) { switchDayTab('memo'); return; }
   if (t.matches('#tab-file')) { switchDayTab('file'); return; }
   if (t.matches('#day-modal-goto-weekly')) { gotoWeeklyFromMonthly(); return; }
@@ -3890,6 +3918,12 @@ document.addEventListener('click', function(e) {
     return;
   }
   if (t.closest('#pomodoro-modal-overlay') && t.textContent.includes('予約を編集')) { openCellModalFromPom(); return; }
+  if (t.matches('#pom-delete-btn')) {
+    if (pomCellData && pomCellData._ngKey && confirm('このブロックを削除しますか？')) {
+      clearCellRecord(pomCellData._ngKey, pomCellCol);
+    }
+    return;
+  }
   if (t.closest('#pomodoro-modal-overlay') && t.textContent.includes('閉じる'))     { closePomodoroModal(); return; }
 
   // ── Phase5: ポモドーロ予約モーダル ──
@@ -3923,12 +3957,52 @@ document.addEventListener('click', function(e) {
 
 // ── ポモドーロボックス（右クリック／長押し） ──
 document.addEventListener('contextmenu', function(e) {
-  const box = e.target.closest('[data-pomo-context]');
-  if (!box) return;
-  e.preventDefault();
-  e.stopPropagation();
-  openPomoManualInput(box.dataset.blockId, parseInt(box.dataset.boxIndex));
+  // ポモドーロボックスの右クリック
+  const pomoBox = e.target.closest('[data-pomo-context]');
+  if (pomoBox) {
+    e.preventDefault();
+    e.stopPropagation();
+    openPomoManualInput(pomoBox.dataset.blockId, parseInt(pomoBox.dataset.boxIndex));
+    return;
+  }
+  // ウィークリーブロックの右クリック → 削除確認
+  const ngBlock = e.target.closest('.ng-block[data-ng-key]');
+  if (ngBlock) {
+    e.preventDefault();
+    e.stopPropagation();
+    const key      = ngBlock.getAttribute('data-ng-key');
+    const colIndex = parseInt(ngBlock.getAttribute('data-ng-col'));
+    if (key && !isNaN(colIndex) && confirm('このブロックを削除しますか？')) {
+      clearCellRecord(key, colIndex);
+    }
+    return;
+  }
 });
+
+// ── ウィークリーブロック長押し（タッチ）で削除 ──
+(function() {
+  let _longPressTimer = null;
+  let _longPressBlock = null;
+
+  document.addEventListener('touchstart', function(e) {
+    const ngBlock = e.target.closest('.ng-block[data-ng-key]');
+    if (!ngBlock || e.target.closest('[data-pomo-click]')) return;
+    _longPressBlock = ngBlock;
+    _longPressTimer = setTimeout(() => {
+      if (!_longPressBlock) return;
+      const key      = _longPressBlock.getAttribute('data-ng-key');
+      const colIndex = parseInt(_longPressBlock.getAttribute('data-ng-col'));
+      _longPressBlock = null;
+      if (key && !isNaN(colIndex) && confirm('このブロックを削除しますか？')) {
+        clearCellRecord(key, colIndex);
+      }
+    }, 600);
+  }, { passive: true });
+
+  document.addEventListener('touchmove',  () => { clearTimeout(_longPressTimer); _longPressBlock = null; }, { passive: true });
+  document.addEventListener('touchend',   () => { clearTimeout(_longPressTimer); _longPressBlock = null; }, { passive: true });
+  document.addEventListener('touchcancel',() => { clearTimeout(_longPressTimer); _longPressBlock = null; }, { passive: true });
+})();
 
 // ── 新材料フォームの表示切り替え（セル編集モーダル内）──
 // ※ toggleNewMatForm() は既存関数を使用（1900行付近に定義済み）
