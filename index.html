@@ -232,15 +232,6 @@
       </div>
     </div>
     <div id="panel-event" class="hidden">
-      <!-- 時間範囲 -->
-      <div class="form-block">
-        <label class="form-label-gap6">⏰ 時間</label>
-        <div class="flex-center gap-8">
-          <select id="event-time-from" class="select-time" data-cp-label="開始時刻"></select>
-          <span class="form-label">〜</span>
-          <select id="event-time-to" class="select-time" data-cp-label="終了時刻"></select>
-        </div>
-      </div>
       <div class="form-block">
         <label class="form-label">タイトル</label>
         <input type="text" id="event-title" placeholder="例：部活、外出、塾、模試..." class="input-full-lg">
@@ -249,21 +240,7 @@
         <label class="form-label-gap6">色</label>
         <div id="event-color-swatches" class="flex flex-wrap gap-6"></div>
       </div>
-      <!-- セルの背景色・テキスト変更 -->
-      <div style="background:#f8f9fb; border-radius:8px; padding:10px;" class="form-block">
-        <label class="form-label-gap6">🎨 セルの見た目（任意）</label>
-        <div class="flex-center gap-8" style="margin-bottom:8px;">
-          <label class="form-label-inline">背景色：</label>
-          <input type="color" id="event-cell-color" value="#ffffff" style="width:36px;height:28px;border:none;cursor:pointer;border-radius:4px;">
-          <label class="form-label-inline-flex">
-            <input type="checkbox" id="event-cell-color-on"> 適用する
-          </label>
-        </div>
-        <div class="flex-center gap-8">
-          <label class="form-label-inline">メモ：</label>
-          <input type="text" id="event-cell-text" placeholder="セル内に表示するテキスト（任意）" class="input-sm" style="flex:1;">
-        </div>
-      </div>
+
       <div>
         <label class="form-label">メモ</label>
         <textarea id="event-memo" rows="2" class="input-full" style="border-radius:8px; resize:none; font-family:sans-serif;" placeholder="メモを入力..."></textarea>
@@ -2143,29 +2120,6 @@ const EVENT_COLORS = ["#ffadad","#ffb347","#ffe066","#caffbf","#a0c4ff","#c77dff
 
 
 
-function initEventTimeSelects(hour, saved) {
-  const fromSel = document.getElementById("event-time-from");
-  const toSel   = document.getElementById("event-time-to");
-  fromSel.innerHTML = "";
-  toSel.innerHTML   = "";
-  // saved.timeFrom/timeTo は旧形式では「時」単位、新形式では「分」単位の場合があるため正規化
-  const savedFrom = saved?.timeFrom != null
-    ? (saved.timeFrom > 100 ? saved.timeFrom : saved.timeFrom * 60)
-    : hour * 60;
-  const savedTo   = saved?.timeTo   != null
-    ? (saved.timeTo   > 100 ? saved.timeTo   : saved.timeTo   * 60)
-    : (hour + 1) * 60;
-  for (let m = NG_START_HOUR * 60; m <= NG_END_HOUR * 60; m += 1) {
-    const o1 = document.createElement("option");
-    o1.value = m; o1.textContent = ngFormatTime(m);
-    if (m === savedFrom) o1.selected = true;
-    fromSel.appendChild(o1);
-    const o2 = document.createElement("option");
-    o2.value = m; o2.textContent = ngFormatTime(m);
-    if (m === savedTo) o2.selected = true;
-    toSel.appendChild(o2);
-  }
-}
 
 function switchCellMode(mode,savedData) {
   cellModalMode=mode;
@@ -2186,11 +2140,6 @@ function switchCellMode(mode,savedData) {
     document.getElementById("event-title").value=savedData&&savedData.mode==="event"?(savedData.title||""):"";
     document.getElementById("event-memo").value=savedData&&savedData.mode==="event"?(savedData.memo||""):"";
     eventSelColor=savedData&&savedData.mode==="event"?(savedData.color||"#ffadad"):"#ffadad";
-    // セルの見た目
-    const hasCellColor = savedData?.mode==="event" && savedData.cellColor;
-    document.getElementById("event-cell-color").value = savedData?.cellColor || "#ffffff";
-    document.getElementById("event-cell-color-on").checked = !!hasCellColor;
-    document.getElementById("event-cell-text").value = savedData?.cellText || "";
     renderEventColorSwatches();
   }
 }
@@ -3390,7 +3339,6 @@ function openCellModalNew(key, colIndex, startMin, endMin, isNew) {
 
   const saved = (currentWeekDataNew[key] || {}).cell || null;
   const mode  = saved ? (saved.mode || 'event') : 'event';
-  initEventTimeSelects(Math.floor(startMin / 60), saved);
   switchCellMode(mode, saved);
 
   const saveBtn = document.getElementById('cell-save-btn');
