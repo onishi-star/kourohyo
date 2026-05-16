@@ -139,9 +139,9 @@
       <!-- 時刻 -->
       <div style="display:flex; align-items:center; gap:6px; margin-bottom:8px; flex-wrap:wrap;">
         <span style="font-size:12px; color:#666;">⏰</span>
-        <select id="dm-time-from" class="select-time"></select>
+        <select id="dm-time-from" class="select-time" data-cp-label="開始時刻"></select>
         <span style="font-size:12px; color:#666;">〜</span>
-        <select id="dm-time-to" class="select-time"></select>
+        <select id="dm-time-to" class="select-time" data-cp-label="終了時刻"></select>
       </div>
       <!-- タイトル -->
       <div style="display:flex; gap:6px; align-items:center; margin-bottom:8px;">
@@ -198,10 +198,10 @@
     <!-- 新規予約時の時刻セレクトがここに動的挿入される -->
     <div id="cell-modal-time-selects" style="display:none; align-items:center; gap:6px; margin-bottom:10px; flex-wrap:wrap;">
       <span style="font-size:12px; color:#555; font-weight:bold;">⏰ 時刻：</span>
-      <select id="ng-new-time-from" class="select-time"></select>
+      <select id="ng-new-time-from" class="select-time" data-cp-label="開始時刻"></select>
       <span style="font-size:12px; color:#888;">〜</span>
-      <select id="ng-new-end-date" class="select-time" style="font-size:11px; padding:3px 4px;"></select>
-      <select id="ng-new-time-to" class="select-time"></select>
+      <select id="ng-new-end-date" class="select-date" style="font-size:11px; padding:3px 4px;"></select>
+      <select id="ng-new-time-to" class="select-time" data-cp-label="終了時刻"></select>
     </div>
     <div class="mode-tabs">
       <button class="mode-tab active-study" id="mode-tab-study">📚 勉強予約</button>
@@ -236,9 +236,9 @@
       <div class="form-block">
         <label class="form-label-gap6">⏰ 時間</label>
         <div class="flex-center gap-8">
-          <select id="event-time-from" class="select-time"></select>
+          <select id="event-time-from" class="select-time" data-cp-label="開始時刻"></select>
           <span class="form-label">〜</span>
-          <select id="event-time-to" class="select-time"></select>
+          <select id="event-time-to" class="select-time" data-cp-label="終了時刻"></select>
         </div>
       </div>
       <div class="form-block">
@@ -525,6 +525,111 @@
 #top-bar {
   padding-right: calc(10px + 46px + env(safe-area-inset-right, 0px)) !important;
 }
+
+/* ══ クロックピッカー ══ */
+.cp-trigger {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 10px;
+  border: 1.5px solid #c5d0f0;
+  border-radius: 8px;
+  background: #f5f8ff;
+  font-size: 13px;
+  font-weight: bold;
+  color: #3a5aad;
+  cursor: pointer;
+  user-select: none;
+  min-width: 64px;
+  justify-content: center;
+  transition: background 0.15s;
+}
+.cp-trigger:hover { background: #e0eaff; }
+.cp-trigger .cp-icon { font-size: 14px; }
+
+/* オーバーレイ */
+#cp-overlay {
+  position: fixed; inset: 0;
+  z-index: 9999;
+  display: none;
+  align-items: center;
+  justify-content: center;
+}
+#cp-overlay.cp-open { display: flex; }
+#cp-backdrop {
+  position: absolute; inset: 0;
+  background: rgba(0,0,0,0.35);
+}
+#cp-popup {
+  position: relative; z-index: 1;
+  background: #fff;
+  border-radius: 18px;
+  padding: 18px 20px 16px;
+  box-shadow: 0 8px 40px rgba(0,0,0,0.22);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  min-width: 260px;
+}
+#cp-title {
+  font-size: 13px; font-weight: bold; color: #555;
+  align-self: flex-start; margin-bottom: -4px;
+}
+/* モード切替タブ */
+#cp-mode-row {
+  display: flex; gap: 6px; margin-bottom: 2px;
+}
+.cp-mode-btn {
+  flex: 1;
+  padding: 5px 0;
+  border: 1.5px solid #c5d0f0;
+  border-radius: 8px;
+  background: #f5f8ff;
+  font-size: 12px; font-weight: bold; color: #3a5aad;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+}
+.cp-mode-btn.active {
+  background: #3a5aad; color: #fff; border-color: #3a5aad;
+}
+/* 時計盤 */
+#cp-clock-wrap {
+  position: relative;
+  width: 200px; height: 200px;
+}
+#cp-svg { width: 200px; height: 200px; display: block; touch-action: none; }
+/* デジタル表示 */
+#cp-digital {
+  font-size: 28px; font-weight: bold; color: #2a4a9a;
+  letter-spacing: 1px;
+  background: #f0f5ff; border-radius: 10px;
+  padding: 4px 18px;
+}
+#cp-digital span { cursor: pointer; border-radius: 6px; padding: 0 2px; }
+#cp-digital span:hover { background: #d0e0ff; }
+/* 時・分の数値直接入力 */
+#cp-num-row {
+  display: flex; align-items: center; gap: 6px;
+}
+.cp-num-input {
+  width: 48px; text-align: center;
+  border: 1.5px solid #c5d0f0; border-radius: 8px;
+  font-size: 20px; font-weight: bold; color: #2a4a9a;
+  padding: 4px 0; background: #f5f8ff;
+}
+.cp-num-sep { font-size: 22px; font-weight: bold; color: #888; }
+/* ボタン行 */
+#cp-btn-row {
+  display: flex; gap: 8px; width: 100%;
+}
+#cp-btn-row button {
+  flex: 1; padding: 8px 0;
+  border-radius: 8px; border: none;
+  font-size: 13px; font-weight: bold; cursor: pointer;
+}
+#cp-btn-cancel { background: #f0f0f0; color: #666; }
+#cp-btn-ok     { background: #3a5aad; color: #fff; }
 </style>
 
 <!-- 新グリッド（Phase 2 - 10分スロット） -->
@@ -946,7 +1051,7 @@ function initDayModalWeeklyForm(dayKey) {
   if (!fromSel || !toSel) return;
   fromSel.innerHTML = '';
   toSel.innerHTML   = '';
-  for (let m = NG_START_HOUR * 60; m <= NG_END_HOUR * 60; m += 5) {
+  for (let m = NG_START_HOUR * 60; m <= NG_END_HOUR * 60; m += 1) {
     const o1 = document.createElement('option'); o1.value = m; o1.textContent = ngFormatTime(m);
     if (m === 16 * 60) o1.selected = true; // デフォルト 16:00
     fromSel.appendChild(o1);
@@ -2043,21 +2148,23 @@ function initEventTimeSelects(hour, saved) {
   const toSel   = document.getElementById("event-time-to");
   fromSel.innerHTML = "";
   toSel.innerHTML   = "";
-  for (let h = 4; h < 24; h++) {
+  // saved.timeFrom/timeTo は旧形式では「時」単位、新形式では「分」単位の場合があるため正規化
+  const savedFrom = saved?.timeFrom != null
+    ? (saved.timeFrom > 100 ? saved.timeFrom : saved.timeFrom * 60)
+    : hour * 60;
+  const savedTo   = saved?.timeTo   != null
+    ? (saved.timeTo   > 100 ? saved.timeTo   : saved.timeTo   * 60)
+    : (hour + 1) * 60;
+  for (let m = NG_START_HOUR * 60; m <= NG_END_HOUR * 60; m += 1) {
     const o1 = document.createElement("option");
-    o1.value = h; o1.textContent = `${h}:00`;
-    if (h === (saved?.timeFrom ?? hour)) o1.selected = true;
+    o1.value = m; o1.textContent = ngFormatTime(m);
+    if (m === savedFrom) o1.selected = true;
     fromSel.appendChild(o1);
     const o2 = document.createElement("option");
-    o2.value = h + 1; o2.textContent = `${h+1}:00`;
-    if ((h + 1) === (saved?.timeTo ?? hour + 1)) o2.selected = true;
+    o2.value = m; o2.textContent = ngFormatTime(m);
+    if (m === savedTo) o2.selected = true;
     toSel.appendChild(o2);
   }
-  // 終了は24:00まで
-  const o24 = document.createElement("option");
-  o24.value = 24; o24.textContent = "24:00";
-  if ((saved?.timeTo ?? hour + 1) === 24) o24.selected = true;
-  toSel.appendChild(o24);
 }
 
 function switchCellMode(mode,savedData) {
@@ -3214,10 +3321,10 @@ function openCellModalNew(key, colIndex, startMin, endMin, isNew) {
     timeEl.style.display     = 'none';
     timeSelRow.style.display = 'flex';
 
-    // セレクトの選択肢を再構築（5分刻み）
+    // セレクトの選択肢を再構築（1分刻み）
     fromSel.innerHTML = '';
     toSel.innerHTML   = '';
-    for (let m = NG_START_HOUR * 60; m <= NG_END_HOUR * 60; m += 5) {
+    for (let m = NG_START_HOUR * 60; m <= NG_END_HOUR * 60; m += 1) {
       const o1 = document.createElement('option');
       o1.value = m; o1.textContent = ngFormatTime(m);
       if (m === startMin) o1.selected = true;
@@ -3993,5 +4100,403 @@ async function addMaterialInline() {
 
 <script src="nav.js"></script>
 <script src="guide.js"></script>
+
+<!-- ══ クロックピッカーポップアップ ══ -->
+<div id="cp-overlay">
+  <div id="cp-backdrop"></div>
+  <div id="cp-popup">
+    <div id="cp-title">時刻を選択</div>
+    <div id="cp-mode-row">
+      <button class="cp-mode-btn active" id="cp-mode-hour">時</button>
+      <button class="cp-mode-btn" id="cp-mode-min">分</button>
+    </div>
+    <div id="cp-digital">--:--</div>
+    <div id="cp-clock-wrap">
+      <svg id="cp-svg" viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg"></svg>
+    </div>
+    <div id="cp-btn-row">
+      <button id="cp-btn-cancel">キャンセル</button>
+      <button id="cp-btn-ok">決定</button>
+    </div>
+  </div>
+</div>
+
+<script>
+
+// ════════════════════════════════════════
+// クロックピッカー
+// 対象: .select-time クラスのすべての <select>
+// ════════════════════════════════════════
+(function() {
+  const CP_START = 4;   // 4:00
+  const CP_END   = 24;  // 24:00
+
+  let _sel       = null;  // 現在操作中の <select>
+  let _cbAfter   = null;  // 決定後に呼ぶコールバック
+  let _mode      = 'hour'; // 'hour' | 'min'
+  let _hour      = 9;
+  let _min       = 0;
+
+  // ── SVG要素を毎回取得（DOM生成後に参照） ──
+  function getSvg()    { return document.getElementById('cp-svg'); }
+  function getOverlay(){ return document.getElementById('cp-overlay'); }
+
+  // ── 時計盤を描画 ──
+  function drawClock() {
+    const svg = getSvg();
+    if (!svg) return;
+    svg.innerHTML = '';
+    const cx = 100, cy = 100, R = 88, rOuter = 88, rInner = 58;
+
+    // 外円
+    const bg = document.createElementNS('http://www.w3.org/2000/svg','circle');
+    bg.setAttribute('cx',cx); bg.setAttribute('cy',cy); bg.setAttribute('r',R);
+    bg.setAttribute('fill','#f0f5ff'); bg.setAttribute('stroke','#c5d0f0'); bg.setAttribute('stroke-width','2');
+    svg.appendChild(bg);
+
+    if (_mode === 'hour') {
+      // 4〜24時を円形配置（内外2列）
+      // 外輪: 13〜24 (12個)  内輪: 4〜12 (9個) → 実際は 外12〜23, 内4〜11, 24は0時位置
+      // シンプルに: 外輪 = 12,13,...23  内輪 = 0(=24),1,...11 相当
+      // 実装: 外輪に12〜23(=AM/PM外), 内輪に4〜11+24
+      // UI的に使いやすいよう: 外輪12個=13〜24, 内輪=4〜12
+
+      // 外輪 (13〜24)
+      for (let i = 0; i < 12; i++) {
+        const h = 13 + i;
+        const angle = (i / 12) * 2 * Math.PI - Math.PI / 2;
+        const x = cx + rOuter * Math.cos(angle);
+        const y = cy + rOuter * Math.sin(angle);
+        const isSelected = (h === _hour);
+        drawHourMark(svg, x, y, h === 24 ? '24' : String(h), isSelected);
+      }
+      // 内輪 (4〜12)
+      for (let i = 0; i < 9; i++) {
+        const h = 4 + i;
+        const angle = (i / 9) * 2 * Math.PI - Math.PI / 2;
+        const x = cx + rInner * Math.cos(angle);
+        const y = cy + rInner * Math.sin(angle);
+        const isSelected = (h === _hour);
+        drawHourMark(svg, x, y, String(h), isSelected);
+      }
+      // 時針（内輪4〜12:9分割、外輪13〜24:12分割）
+      let hAngle, rHand;
+      if (_hour >= 13) {
+        const idx = _hour - 13; // 0〜11
+        hAngle = (idx / 12) * 2 * Math.PI - Math.PI / 2;
+        rHand  = rOuter - 14;
+      } else {
+        const idx = _hour - 4; // 0〜8
+        hAngle = (idx / 9) * 2 * Math.PI - Math.PI / 2;
+        rHand  = rInner - 14;
+      }
+      drawHand(svg, cx, cy, hAngle, rHand, '#3a5aad');
+
+    } else {
+      // 分: 0〜59 (5分刻みのラベル、1分単位で動径)
+      for (let i = 0; i < 12; i++) {
+        const m = i * 5;
+        const angle = (i / 12) * 2 * Math.PI - Math.PI / 2;
+        const x = cx + rOuter * Math.cos(angle);
+        const y = cy + rOuter * Math.sin(angle);
+        const isSelected = (_min >= m && _min < m + 5) || (m === 55 && _min === 59) || (m === _min);
+        drawHourMark(svg, x, y, String(m).padStart(2,'0'), _min === m);
+      }
+      // 分針
+      const mAngle = (_min / 60) * 2 * Math.PI - Math.PI / 2;
+      drawHand(svg, cx, cy, mAngle, rOuter - 14, '#e05a2b');
+    }
+
+    // 中心
+    const dot = document.createElementNS('http://www.w3.org/2000/svg','circle');
+    dot.setAttribute('cx',cx); dot.setAttribute('cy',cy); dot.setAttribute('r','5');
+    dot.setAttribute('fill','#3a5aad');
+    svg.appendChild(dot);
+  }
+
+  function drawHourMark(svg, x, y, label, isSelected) {
+    const r = 14;
+    if (isSelected) {
+      const sel = document.createElementNS('http://www.w3.org/2000/svg','circle');
+      sel.setAttribute('cx', x); sel.setAttribute('cy', y); sel.setAttribute('r', r);
+      sel.setAttribute('fill','#3a5aad');
+      svg.appendChild(sel);
+    }
+    const t = document.createElementNS('http://www.w3.org/2000/svg','text');
+    t.setAttribute('x', x); t.setAttribute('y', y);
+    t.setAttribute('text-anchor','middle'); t.setAttribute('dominant-baseline','central');
+    t.setAttribute('font-size','11'); t.setAttribute('font-weight', isSelected ? 'bold' : 'normal');
+    t.setAttribute('fill', isSelected ? '#fff' : '#444');
+    t.textContent = label;
+    svg.appendChild(t);
+  }
+
+  function drawHand(svg, cx, cy, angle, len, color) {
+    const x2 = cx + len * Math.cos(angle);
+    const y2 = cy + len * Math.sin(angle);
+    const line = document.createElementNS('http://www.w3.org/2000/svg','line');
+    line.setAttribute('x1',cx); line.setAttribute('y1',cy);
+    line.setAttribute('x2',x2); line.setAttribute('y2',y2);
+    line.setAttribute('stroke',color); line.setAttribute('stroke-width','3');
+    line.setAttribute('stroke-linecap','round');
+    svg.appendChild(line);
+    // 先端の丸
+    const tip = document.createElementNS('http://www.w3.org/2000/svg','circle');
+    tip.setAttribute('cx',x2); tip.setAttribute('cy',y2); tip.setAttribute('r','6');
+    tip.setAttribute('fill',color);
+    svg.appendChild(tip);
+  }
+
+  function updateDigital() {
+    const el = document.getElementById('cp-digital');
+    if (!el) return;
+    const hStr = String(_hour).padStart(2,'0');
+    const mStr = String(_min).padStart(2,'0');
+    el.innerHTML =
+      `<span id="cp-dig-h" title="クリックして時を編集" style="color:${_mode==='hour'?'#2a4a9a':'#888'};cursor:pointer;">${hStr}</span>` +
+      `<span style="color:#aaa">:</span>` +
+      `<span id="cp-dig-m" title="クリックして分を編集" style="color:${_mode==='min'?'#e05a2b':'#888'};cursor:pointer;">${mStr}</span>`;
+    // クリックでモード切替 + インライン編集
+    const dh = document.getElementById('cp-dig-h');
+    const dm = document.getElementById('cp-dig-m');
+    if (dh) dh.addEventListener('click', () => { setMode('hour'); startInlineEdit('hour'); });
+    if (dm) dm.addEventListener('click', () => { setMode('min');  startInlineEdit('min');  });
+  }
+
+  // インライン数値編集（スピン入力を一時表示）
+  function startInlineEdit(which) {
+    const el = document.getElementById('cp-digital');
+    if (!el) return;
+    const isHour = which === 'hour';
+    const curVal = isHour ? _hour : _min;
+    const inp = document.createElement('input');
+    inp.type = 'number';
+    inp.value = curVal;
+    inp.min = isHour ? 4 : 0;
+    inp.max = isHour ? 24 : 59;
+    inp.style.cssText = 'width:52px;font-size:24px;font-weight:bold;text-align:center;border:2px solid ' +
+      (isHour ? '#3a5aad' : '#e05a2b') + ';border-radius:6px;padding:2px 0;background:#f5f8ff;color:' +
+      (isHour ? '#2a4a9a' : '#e05a2b') + ';outline:none;';
+    el.innerHTML = '';
+    el.appendChild(inp);
+    inp.focus(); inp.select();
+    function commit() {
+      let v = parseInt(inp.value);
+      if (isNaN(v)) v = curVal;
+      if (isHour) { v = Math.max(4, Math.min(24, v)); _hour = v; }
+      else        { v = Math.max(0, Math.min(59, v)); _min  = v; }
+      drawClock(); updateDigital();
+    }
+    inp.addEventListener('blur',  commit);
+    inp.addEventListener('keydown', e => {
+      if (e.key === 'Enter') { commit(); }
+      if (e.key === 'Escape') { updateDigital(); }
+    });
+  }
+
+  function setupNumInputs() {
+    // インライン編集方式に移行したため不要
+  }
+
+  function setMode(m) {
+    _mode = m;
+    document.getElementById('cp-mode-hour').classList.toggle('active', m === 'hour');
+    document.getElementById('cp-mode-min').classList.toggle('active', m === 'min');
+    updateDigital();
+    drawClock();
+  }
+
+  // ── SVGクリック/ドラッグで時刻を設定 ──
+  function handleSvgPointer(e) {
+    const svg = getSvg();
+    if (!svg) return;
+    const rect = svg.getBoundingClientRect();
+    const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+    const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+    const dx = clientX - (rect.left + rect.width / 2);
+    const dy = clientY - (rect.top  + rect.height / 2);
+    const angle = Math.atan2(dy, dx) + Math.PI / 2; // 12時=0
+    const norm  = ((angle % (2 * Math.PI)) + 2 * Math.PI) % (2 * Math.PI);
+    const dist  = Math.sqrt(dx * dx + dy * dy);
+    const scale = rect.width / 200;
+
+    if (_mode === 'hour') {
+      // 外輪/内輪の判定（スケール補正）
+      const outerR = 88 * scale, innerR = 58 * scale;
+      const useInner = dist < (outerR + innerR) / 2;
+      if (useInner) {
+        // 内輪: 4〜12 (9時間)
+        const idx = Math.round(norm / (2 * Math.PI / 9)) % 9;
+        _hour = CP_START + idx;
+      } else {
+        // 外輪: 13〜24 (12時間)
+        const idx = Math.round(norm / (2 * Math.PI / 12)) % 12;
+        _hour = 13 + idx;
+      }
+      _hour = Math.max(CP_START, Math.min(CP_END, _hour));
+    } else {
+      // 分: 0〜59
+      const idx = Math.round(norm / (2 * Math.PI) * 60) % 60;
+      _min = idx;
+    }
+    updateDigital();
+    drawClock();
+  }
+
+  // ── 数値入力の変更 ──
+  function setupNumInputs() {
+    const hi = document.getElementById('cp-hour-input');
+    const mi = document.getElementById('cp-min-input');
+    if (hi) hi.addEventListener('input', () => {
+      let v = parseInt(hi.value);
+      if (isNaN(v)) return;
+      v = Math.max(CP_START, Math.min(CP_END, v));
+      _hour = v; drawClock(); updateDigital();
+    });
+    if (mi) mi.addEventListener('input', () => {
+      let v = parseInt(mi.value);
+      if (isNaN(v)) return;
+      v = Math.max(0, Math.min(59, v));
+      _min = v; drawClock(); updateDigital();
+    });
+  }
+
+  // ── ポップアップを開く ──
+  // sel: <select> 要素, cbAfter: 決定後コールバック(任意)
+  function openClock(sel, cbAfter) {
+    _sel     = sel;
+    _cbAfter = cbAfter || null;
+    const curVal = parseInt(sel.value) || (CP_START * 60);
+    _hour = Math.floor(curVal / 60);
+    _min  = curVal % 60;
+    _hour = Math.max(CP_START, Math.min(CP_END, _hour));
+
+    // タイトル更新
+    const title = document.getElementById('cp-title');
+    if (title) {
+      const label = sel.dataset.cpLabel || '時刻を選択';
+      title.textContent = label;
+    }
+
+    setMode('hour');
+    drawClock();
+    updateDigital();
+    getOverlay().classList.add('cp-open');
+  }
+
+  // ── 決定 ──
+  function confirmClock() {
+    if (!_sel) { closeClock(); return; }
+    const val = _hour * 60 + _min;
+    // <select>の選択肢に val が存在すれば選択、なければ最近傍を選択
+    let best = null, bestDiff = Infinity;
+    for (const opt of _sel.options) {
+      const ov = parseInt(opt.value);
+      const diff = Math.abs(ov - val);
+      if (diff < bestDiff) { bestDiff = diff; best = opt; }
+    }
+    if (best) best.selected = true;
+    // changeイベントを発火（既存のonchangeハンドラを動かす）
+    _sel.dispatchEvent(new Event('change', { bubbles: true }));
+    closeClock();
+    if (_cbAfter) _cbAfter(val);
+  }
+
+  function closeClock() {
+    getOverlay().classList.remove('cp-open');
+    _sel = null; _cbAfter = null;
+  }
+
+  // ── グローバル公開 ──
+  window.cpOpen  = openClock;
+  window.cpClose = closeClock;
+
+  // ── DOM構築後に初期化 ──
+  function init() {
+    const overlay = getOverlay();
+    if (!overlay) return;
+
+    // バックドロップクリックで閉じる
+    document.getElementById('cp-backdrop').addEventListener('click', closeClock);
+
+    // モードボタン
+    document.getElementById('cp-mode-hour').addEventListener('click', () => setMode('hour'));
+    document.getElementById('cp-mode-min').addEventListener('click',  () => setMode('min'));
+
+    // SVGイベント
+    const svg = getSvg();
+    let dragging = false;
+    svg.addEventListener('mousedown',  e => { dragging = true; handleSvgPointer(e); });
+    svg.addEventListener('mousemove',  e => { if (dragging) handleSvgPointer(e); });
+    svg.addEventListener('mouseup',    () => {
+      if (!dragging) return;
+      dragging = false;
+      if (_mode === 'hour') setTimeout(() => setMode('min'), 120);
+    });
+    svg.addEventListener('touchstart', e => { e.preventDefault(); handleSvgPointer(e); }, { passive: false });
+    svg.addEventListener('touchmove',  e => { e.preventDefault(); handleSvgPointer(e); }, { passive: false });
+    svg.addEventListener('touchend',   e => { e.preventDefault(); if (_mode === 'hour') setTimeout(() => setMode('min'), 120); });
+    document.addEventListener('mouseup', () => { dragging = false; });
+
+    // ボタン
+    document.getElementById('cp-btn-cancel').addEventListener('click', closeClock);
+    document.getElementById('cp-btn-ok').addEventListener('click', confirmClock);
+
+    // 数値入力
+    setupNumInputs();
+
+    // ── .select-time を全てクロックピッカー化 ──
+    function replaceSel(sel) {
+      if (sel.dataset.cpDone) return;
+      sel.dataset.cpDone = '1';
+      // selectを非表示にしてトリガーボタンを隣に挿入
+      sel.style.display = 'none';
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'cp-trigger';
+      btn.dataset.cpLabel = sel.dataset.cpLabel || '時刻を選択';
+      // 初期テキストを設定
+      function syncBtn() {
+        const v = parseInt(sel.value);
+        if (!isNaN(v)) {
+          const h = Math.floor(v/60), m = v%60;
+          btn.innerHTML = `<span class="cp-icon">🕐</span> ${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}`;
+        } else {
+          btn.innerHTML = `<span class="cp-icon">🕐</span> --:--`;
+        }
+      }
+      syncBtn();
+      sel.addEventListener('change', syncBtn);
+      btn.addEventListener('click', (e) => {
+        e.preventDefault(); e.stopPropagation();
+        cpOpen(sel, () => syncBtn());
+      });
+      sel.parentNode.insertBefore(btn, sel.nextSibling);
+    }
+
+    // 既存のselectを変換
+    document.querySelectorAll('select.select-time').forEach(replaceSel);
+
+    // 動的に追加されるselectも監視
+    const observer = new MutationObserver(mutations => {
+      for (const m of mutations) {
+        for (const node of m.addedNodes) {
+          if (node.nodeType !== 1) continue;
+          if (node.matches && node.matches('select.select-time')) replaceSel(node);
+          node.querySelectorAll && node.querySelectorAll('select.select-time').forEach(replaceSel);
+        }
+      }
+    });
+    observer.observe(document.body, { childList: true, subtree: true });
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', init);
+  } else {
+    init();
+  }
+})();
+
+</script>
 </body>
 </html>
