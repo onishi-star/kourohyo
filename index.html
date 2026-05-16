@@ -2255,6 +2255,9 @@ function closeMatModal() {
   // 時刻ラベルを再表示
   const timeEl = document.getElementById('cell-modal-time');
   if (timeEl) timeEl.style.display = '';
+  // 終了日セレクトの表示をリセット（既存ブロック編集時に非表示にした場合）
+  const endDateSel = document.getElementById('ng-new-end-date');
+  if (endDateSel) endDateSel.style.display = '';
   // data-ng-isnew をリセット
   const saveBtn = document.getElementById('cell-save-btn');
   if (saveBtn) saveBtn.removeAttribute('data-ng-isnew');
@@ -3348,16 +3351,41 @@ function openCellModalNew(key, colIndex, startMin, endMin, isNew) {
       endDateSel.appendChild(opt);
     }
 
-    // fromを変えたら toを+60分に自動更新（一度だけ登録）
+    // fromを変えたら toを+60分に自動更新（changeイベントも発火してボタン表示を同期）
     fromSel.onchange = () => {
       const ns = parseInt(fromSel.value);
       toSel.value = Math.min(ns + 60, NG_END_HOUR * 60);
+      toSel.dispatchEvent(new Event('change', { bubbles: true }));
     };
   } else {
-    // 既存ブロック編集：ラベル表示、セレクト行を非表示
-    timeEl.style.display     = '';
-    timeSelRow.style.display = 'none';
-    timeEl.innerText = `${ngFormatTime(startMin)}〜${ngFormatTime(endMin)}`;
+    // 既存ブロック編集：ラベルを非表示にしてセレクト行で時刻変更できるようにする
+    timeEl.style.display     = 'none';
+    timeSelRow.style.display = 'flex';
+
+    // 終了日セレクトは非表示（日またぎ変更は既存ブロックでは対応しない）
+    const endDateSel = document.getElementById('ng-new-end-date');
+    if (endDateSel) endDateSel.style.display = 'none';
+
+    // セレクトの選択肢を再構築（1分刻み・現在値を選択状態に）
+    fromSel.innerHTML = '';
+    toSel.innerHTML   = '';
+    for (let m = NG_START_HOUR * 60; m <= NG_END_HOUR * 60; m += 1) {
+      const o1 = document.createElement('option');
+      o1.value = m; o1.textContent = ngFormatTime(m);
+      if (m === startMin) o1.selected = true;
+      fromSel.appendChild(o1);
+      const o2 = document.createElement('option');
+      o2.value = m; o2.textContent = ngFormatTime(m);
+      if (m === endMin) o2.selected = true;
+      toSel.appendChild(o2);
+    }
+
+    // fromを変えたら toを+60分に自動更新
+    fromSel.onchange = () => {
+      const ns = parseInt(fromSel.value);
+      toSel.value = Math.min(ns + 60, NG_END_HOUR * 60);
+      toSel.dispatchEvent(new Event('change', { bubbles: true }));
+    };
   }
 
   const saved = (currentWeekDataNew[key] || {}).cell || null;
@@ -3384,7 +3412,10 @@ async function saveCellModalNew(key, colIndex, startMin, endMin) {
   const saveBtn = document.getElementById('cell-save-btn');
   const isNew   = saveBtn && saveBtn.getAttribute('data-ng-isnew') === '1';
   let endColIndex = colIndex; // 終了日のカラムインデックス
+  const oldKey = key; // 旧キーを保持（時刻変更時に削除するため）
+
   if (isNew) {
+    // ── 新規ブロック：ng-new-time-from/to から時刻取得 ──
     const fromSel    = document.getElementById('ng-new-time-from');
     const toSel      = document.getElementById('ng-new-time-to');
     const endDateSel = document.getElementById('ng-new-end-date');
@@ -3393,16 +3424,41 @@ async function saveCellModalNew(key, colIndex, startMin, endMin) {
       const newEnd     = parseInt(toSel.value);
       const newEndCol  = endDateSel ? parseInt(endDateSel.value) : colIndex;
       const isMultiDay = newEndCol > colIndex;
-      // 日またぎ：終了時刻チェックを緩和（同日のみ newEnd > newStart を強制）
       const timeOk = isMultiDay ? (!isNaN(newStart) && !isNaN(newEnd)) : (!isNaN(newStart) && !isNaN(newEnd) && newEnd > newStart);
       if (timeOk) {
-        startMin   = newStart;
-        endMin     = newEnd;
+        startMin    = newStart;
+        endMin      = newEnd;
         endColIndex = newEndCol;
-        // キーを新しい開始時刻・開始日で再生成
         const s2 = getStartOfWeek();
         const d2 = new Date(s2); d2.setDate(s2.getDate() + colIndex);
         key = `${getDateKey(d2)}-${startMin}-${endMin}`;
+      }
+    }
+  } else {
+    // ── 既存ブロック編集：ng-new-time-from/to（統一セレクト）から時刻取得 ──
+    const fromSel = document.getElementById('ng-new-time-from');
+    const toSel   = document.getElementById('ng-new-time-to');
+    if (fromSel && toSel) {
+      const newStart = parseInt(fromSel.value);
+      const newEnd   = parseInt(toSel.value);
+      if (!isNaN(newStart) && !isNaN(newEnd) && newEnd > newStart) {
+        startMin = newStart;
+        endMin   = newEnd;
+        // キーを新しい時刻で再生成
+        const s2 = getStartOfWeek();
+        const d2 = new Date(s2); d2.setDate(s2.getDate() + colIndex);
+        key = `${getDateKey(d2)}-${startMin}-${endMin}`;
+        // 時刻が変わった場合は旧キーを削除
+        if (key !== oldKey) {
+          delete currentWeekDataNew[oldKey];
+          const idbOldId = currentWeekDocId + '__' + oldKey;
+          try { await idbDelete('cells', idbOldId); } catch(e) { console.warn('[saveCellModalNew] idbDelete old key:', e); }
+          if (navigator.onLine && currentWeekDocId) {
+            try {
+              await db.collection('schedules2').doc(currentWeekDocId).update({ [oldKey]: firebase.firestore.FieldValue.delete() });
+            } catch(e) { console.warn('[saveCellModalNew] Firestore delete old key:', e); }
+          }
+        }
       }
     }
   }
