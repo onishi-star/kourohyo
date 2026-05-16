@@ -119,24 +119,38 @@
 
 <!-- ══ 日メモモーダル（マンスリー用） ══ -->
 <div id="day-modal-overlay" class="overlay hidden" style="z-index:200;">
-  <div class="modal-box" style="min-width:300px; max-width:440px;">
-    <h2 id="day-modal-title" class="modal-title"></h2>
-    <div style="font-size:11px; color:#888; margin-bottom:4px;">📅 この日の色分け</div>
-    <div class="flex gap-6 flex-wrap" style="margin-bottom:10px;" id="day-modal-colors"></div>
-    <textarea id="day-modal-memo" class="input-full-lg" style="height:100px; resize:none; font-family:sans-serif;" placeholder="この日のメモを入力..."></textarea>
-    <div class="flex-center gap-8" style="margin-top:8px;">
+  <div class="modal-box card" style="min-width:300px; max-width:460px;">
+    <!-- ヘッダー -->
+    <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:10px;">
+      <h2 id="day-modal-title" class="modal-title" style="margin:0;"></h2>
+    </div>
+
+    <!-- 色分け -->
+    <div class="form-block">
+      <label class="form-label-gap6">🎨 この日のカラー</label>
+      <div id="day-modal-colors" class="flex flex-wrap gap-6"></div>
+    </div>
+
+    <!-- メモ -->
+    <div class="form-block">
+      <label class="form-label">📝 メモ</label>
+      <textarea id="day-modal-memo" class="input-full-lg" style="height:80px; resize:none; font-family:sans-serif;" placeholder="この日のメモを入力..."></textarea>
+    </div>
+
+    <!-- 完了チェック -->
+    <div class="flex-center gap-8" style="margin-bottom:10px;">
       <input type="checkbox" id="day-modal-check">
       <label for="day-modal-check" style="font-size:14px;">完了</label>
     </div>
 
     <!-- ウィークリーへの誘導ボタン -->
-    <button id="day-modal-goto-weekly" style="width:100%; margin-top:10px; padding:8px 0; background:#e8f0fe; color:#1565c0; border:1.5px solid #90caf9; border-radius:8px; font-size:13px; font-weight:bold; cursor:pointer;">
+    <button id="day-modal-goto-weekly" style="width:100%; margin-bottom:10px; padding:8px 0; background:#e8f0fe; color:#1565c0; border:1.5px solid #90caf9; border-radius:8px; font-size:13px; font-weight:bold; cursor:pointer;">
       📅 この日のウィークリーを表示
     </button>
 
     <!-- ウィークリーグリッドへ予約を追加するフォーム -->
-    <div id="day-modal-weekly-form" style="margin-top:10px; background:#f8f9fb; border-radius:10px; padding:10px; border:1px solid #e0e8f0;">
-      <div style="font-size:12px; font-weight:bold; color:#4a90e2; margin-bottom:8px;">➕ ウィークリーグリッドに予約を追加</div>
+    <div id="day-modal-weekly-form" style="background:#f8f9fb; border-radius:10px; padding:12px; border:1px solid #e0e8f0;">
+      <div style="font-size:12px; font-weight:bold; color:#4a90e2; margin-bottom:10px;">➕ ウィークリーグリッドに予約を追加</div>
       <!-- 時刻 -->
       <div style="display:flex; align-items:center; gap:6px; margin-bottom:8px; flex-wrap:wrap;">
         <span style="font-size:12px; color:#666;">⏰</span>
@@ -145,7 +159,7 @@
         <select id="dm-time-to" class="select-time" data-cp-label="終了時刻"></select>
       </div>
       <!-- タイトル -->
-      <div style="display:flex; gap:6px; align-items:center; margin-bottom:8px;">
+      <div style="display:flex; gap:6px; align-items:center; margin-bottom:10px;">
         <select id="dm-block-mode" style="padding:5px 8px; border:1px solid #d0d8e8; border-radius:6px; font-size:12px; color:#444; flex:none;">
           <option value="event">📅 行事</option>
           <option value="study">📚 勉強</option>
@@ -153,14 +167,14 @@
         <input type="text" id="dm-event-title" placeholder="タイトル（例：部活・塾）" style="flex:1; padding:5px 8px; border:1px solid #d0d8e8; border-radius:6px; font-size:12px;">
       </div>
       <!-- 色 -->
-      <div style="font-size:11px; color:#888; margin-bottom:3px;">🎨 ブロックの色</div>
-      <div style="display:flex; gap:5px; flex-wrap:wrap; margin-bottom:8px;" id="dm-color-swatches"></div>
+      <div class="form-label-gap6" style="margin-bottom:6px;">🎨 ブロックの色</div>
+      <div class="flex flex-wrap gap-6" style="margin-bottom:10px;" id="dm-color-swatches"></div>
       <button id="day-modal-add-block" style="width:100%; padding:8px 0; background:#4a90e2; color:#fff; border:none; border-radius:8px; font-size:13px; font-weight:bold; cursor:pointer;">
         ✅ グリッドに追加
       </button>
     </div>
 
-    <div class="row-end" style="margin-top:10px;">
+    <div class="row-end" style="margin-top:12px;">
       <button class="btn-save">保存</button>
       <button class="btn-close">閉じる</button>
     </div>
@@ -801,15 +815,34 @@ function getTextColor(hex) {
   const r=parseInt(h.substring(0,2),16), g=parseInt(h.substring(2,4),16), b=parseInt(h.substring(4,6),16);
   return (0.299*r+0.587*g+0.114*b)/255 > 0.5 ? "#000" : "#fff";
 }
+// ════════════════════════════════════════
+// 統一カラーパレット（マンスリー・ウィークリー共通）
+// ════════════════════════════════════════
+const NAMED_COLORS = [
+  { key: "study",   label: "勉強",   color: "#a0c4ff" },
+  { key: "club",    label: "部活",   color: "#ffadad" },
+  { key: "rest",    label: "休み",   color: "#caffbf" },
+  { key: "event1",  label: "行事",   color: "#ffe066" },
+  { key: "event2",  label: "外出",   color: "#ffb347" },
+  { key: "lesson",  label: "習い事", color: "#c77dff" },
+  { key: "test",    label: "考査",   color: "#f06292" },
+  { key: "other1",  label: "その他①", color: "#90caf9" },
+  { key: "other2",  label: "その他②", color: "#b0b0b0" },
+  { key: "other3",  label: "その他③", color: "#555555" },
+];
+
 function getColorStyle(colorKey) {
   if (!colorKey) return "";
-  if (colorKey === "study") return "#a0c4ff";
-  if (colorKey === "club")  return "#ffadad";
-  if (colorKey === "rest")  return "#caffbf";
-  if (colorKey.startsWith("custom-")) {
+  // 旧キー互換
+  if (colorKey === "custom-0" || colorKey === "custom-1" || colorKey === "custom-2") {
     const idx = parseInt(colorKey.split("-")[1]);
     return customColors[idx] ? customColors[idx].color : "";
   }
+  // 統一パレットから検索
+  const found = NAMED_COLORS.find(c => c.key === colorKey);
+  if (found) return found.color;
+  // 直接カラーコード（#xxxxxx）の場合もそのまま返す
+  if (colorKey.startsWith("#")) return colorKey;
   return "";
 }
 function escHtml(str) {
@@ -1006,12 +1039,32 @@ function openDayModal(dayKey,year,month,dayNum,monthData) {
   document.getElementById("day-modal-memo").value=saved.memo||"";
   document.getElementById("day-modal-check").checked=saved.checked||false;
   const cc=document.getElementById("day-modal-colors"); cc.innerHTML="";
-  [{key:"",label:"なし",bg:"#eee"},{key:"study",label:"勉強",bg:"#a0c4ff"},{key:"club",label:"部活",bg:"#ffadad"},{key:"rest",label:"休み",bg:"#caffbf"},...customColors.map((c,i)=>({key:`custom-${i}`,label:c.name,bg:c.color}))].forEach(opt=>{
-    const b=document.createElement("button");
-    b.innerText=opt.label;
-    b.style.cssText=`background:${opt.bg};color:${getTextColor(opt.bg)};border:${saved.color===opt.key?'3px solid #333':'1px solid #ccc'};border-radius:4px;padding:4px 8px;cursor:pointer;font-size:12px;`;
-    b.onclick=()=>{cc.querySelectorAll("button").forEach(x=>x.style.border="1px solid #ccc");b.style.border="3px solid #333";currentMonthData[currentDayKey]=currentMonthData[currentDayKey]||{};currentMonthData[currentDayKey].color=opt.key;};
-    cc.appendChild(b);
+  const currentColorKey = saved.color || "";
+  // なしボタン
+  const noneBtn = document.createElement("div");
+  noneBtn.className = "color-swatch-named monthly-color-swatch" + (currentColorKey === "" ? " selected" : "");
+  noneBtn.style.cssText = "background:#eee; color:#888;";
+  noneBtn.textContent = "なし";
+  noneBtn.onclick = () => {
+    cc.querySelectorAll(".monthly-color-swatch").forEach(x => x.classList.remove("selected"));
+    noneBtn.classList.add("selected");
+    currentMonthData[currentDayKey] = currentMonthData[currentDayKey] || {};
+    currentMonthData[currentDayKey].color = "";
+  };
+  cc.appendChild(noneBtn);
+  NAMED_COLORS.forEach(nc => {
+    const sw = document.createElement("div");
+    sw.className = "color-swatch-named monthly-color-swatch" + (currentColorKey === nc.key ? " selected" : "");
+    sw.style.background = nc.color;
+    sw.style.color = getTextColor(nc.color);
+    sw.textContent = nc.label;
+    sw.onclick = () => {
+      cc.querySelectorAll(".monthly-color-swatch").forEach(x => x.classList.remove("selected"));
+      sw.classList.add("selected");
+      currentMonthData[currentDayKey] = currentMonthData[currentDayKey] || {};
+      currentMonthData[currentDayKey].color = nc.key;
+    };
+    cc.appendChild(sw);
   });
   document.getElementById("day-modal-overlay").classList.remove("hidden");
   injectFileTabs();
@@ -1044,19 +1097,21 @@ function initDayModalWeeklyForm(dayKey) {
     toSel.value = e;
   });
 
-  // 色スウォッチ
-  _dmSelectedColor = '#a0c4ff';
+  // 色スウォッチ（統一パレット）
+  _dmSelectedColor = NAMED_COLORS[0].color; // デフォルト：勉強色
   const swEl = document.getElementById('dm-color-swatches');
   if (swEl) {
     swEl.innerHTML = '';
-    const cols = ['#a0c4ff','#ffadad','#caffbf','#ffe066','#f8bbd0','#c77dff','#ffb347','#90caf9','#aaa'];
-    cols.forEach(col => {
+    NAMED_COLORS.forEach(nc => {
       const sw = document.createElement('div');
-      sw.style.cssText = `width:22px;height:22px;border-radius:50%;background:${col};cursor:pointer;border:2px solid ${col===_dmSelectedColor?'#333':'transparent'};box-sizing:border-box;`;
+      sw.className = 'color-swatch-named dm-color-swatch' + (nc.color === _dmSelectedColor ? ' selected' : '');
+      sw.style.background = nc.color;
+      sw.style.color = getTextColor(nc.color);
+      sw.textContent = nc.label;
       sw.addEventListener('click', () => {
-        _dmSelectedColor = col;
-        swEl.querySelectorAll('div').forEach(s => s.style.border = '2px solid transparent');
-        sw.style.border = '2px solid #333';
+        _dmSelectedColor = nc.color;
+        swEl.querySelectorAll('.dm-color-swatch').forEach(s => s.classList.remove('selected'));
+        sw.classList.add('selected');
       });
       swEl.appendChild(sw);
     });
@@ -1255,12 +1310,19 @@ function switchDayTab(tab) {
   document.getElementById('tab-memo').className = 'day-modal-tab' + (isMemo ? ' active' : '');
   document.getElementById('tab-file').className = 'day-modal-tab' + (!isMemo ? ' active' : '');
   const box = document.querySelector('#day-modal-overlay .modal-box');
-  const memoEl2  = box.querySelector('textarea#day-modal-memo');
-  const checkRow = box.querySelector('div:has(#day-modal-check)');
-  const btnRow   = box.querySelector('.row-end');
-  const colorDiv = document.getElementById('day-modal-colors');
+  // form-block ラッパーを含む要素群を切り替え
+  const memoEl2   = box.querySelector('textarea#day-modal-memo');
+  const memoBlock = memoEl2 ? memoEl2.closest('.form-block') : null;
+  const colorDiv  = document.getElementById('day-modal-colors');
+  const colorBlock = colorDiv ? colorDiv.closest('.form-block') : null;
+  const checkRow  = box.querySelector('.flex-center');
+  const btnRow    = box.querySelector('.row-end');
+  const gotoBtn   = document.getElementById('day-modal-goto-weekly');
+  const weeklyForm = document.getElementById('day-modal-weekly-form');
   const filePanel = document.getElementById('day-file-panel');
-  [memoEl2, checkRow, btnRow, colorDiv].forEach(el => { if (el) el.classList.toggle('hidden', !isMemo); });
+  [memoBlock || memoEl2, colorBlock || colorDiv, checkRow, btnRow, gotoBtn, weeklyForm].forEach(el => {
+    if (el) el.classList.toggle('hidden', !isMemo);
+  });
   if (filePanel) filePanel.classList.toggle('hidden', isMemo);
 }
 
@@ -2135,7 +2197,7 @@ async function addMaterialFromManage() {
 // ════════════════════════════════════════
 // セル編集モーダル
 // ════════════════════════════════════════
-const EVENT_COLORS = ["#ffadad","#ffb347","#ffe066","#caffbf","#a0c4ff","#c77dff","#f06292","#90caf9","#aaa","#555"];
+// EVENT_COLORS は NAMED_COLORS に統合（下部参照）
 
 
 
@@ -2158,7 +2220,7 @@ function switchCellMode(mode,savedData) {
   } else {
     document.getElementById("event-title").value=savedData&&savedData.mode==="event"?(savedData.title||""):"";
     document.getElementById("event-memo").value=savedData&&savedData.mode==="event"?(savedData.memo||""):"";
-    eventSelColor=savedData&&savedData.mode==="event"?(savedData.color||"#ffadad"):"#ffadad";
+    eventSelColor=savedData&&savedData.mode==="event"?(savedData.color||NAMED_COLORS[1].color):NAMED_COLORS[1].color;
     renderEventColorSwatches();
   }
 }
@@ -2180,25 +2242,21 @@ function renderMatList() {
 }
 
 function renderEventColorSwatches() {
-  const el=document.getElementById("event-color-swatches"); el.innerHTML="";
-  [...EVENT_COLORS,...customColors.map(c=>c.color)].forEach(col=>{
-    const sw=document.createElement("div");
-    sw.className="color-swatch"+(col===eventSelColor?" selected":"");
-    sw.style.background=col;
-    sw.onclick=()=>{ eventSelColor=col; el.querySelectorAll(".color-swatch").forEach(s=>s.classList.remove("selected")); sw.classList.add("selected"); };
+  const el = document.getElementById("event-color-swatches"); el.innerHTML = "";
+  NAMED_COLORS.forEach(nc => {
+    const sw = document.createElement("div");
+    sw.className = "color-swatch-named" + (nc.color === eventSelColor ? " selected" : "");
+    sw.style.background = nc.color;
+    sw.style.color = getTextColor(nc.color);
+    sw.textContent = nc.label;
+    sw.setAttribute("data-color-key", nc.key);
+    sw.onclick = () => {
+      eventSelColor = nc.color;
+      el.querySelectorAll(".color-swatch-named").forEach(s => s.classList.remove("selected"));
+      sw.classList.add("selected");
+    };
     el.appendChild(sw);
   });
-  const picker=document.createElement("div");
-  picker.style.cssText="width:28px;height:28px;border-radius:6px;border:2px dashed #ccc;display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:16px;";
-  picker.innerText="＋";
-  picker.onclick=()=>{
-    const inp=document.createElement("input"); inp.type="color"; inp.value=eventSelColor;
-    inp.style.cssText="position:fixed;top:-100px;left:-100px;opacity:0;"; document.body.appendChild(inp);
-    inp.addEventListener("change",()=>{ eventSelColor=inp.value; document.body.removeChild(inp); renderEventColorSwatches(); });
-    inp.addEventListener("cancel",()=>{ if(document.body.contains(inp)) document.body.removeChild(inp); });
-    setTimeout(()=>inp.click(),50);
-  };
-  el.appendChild(picker);
 }
 
 function toggleNewMatForm() {
