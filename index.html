@@ -121,6 +121,7 @@
 <div id="day-modal-overlay" class="overlay hidden" style="z-index:200;">
   <div class="modal-box" style="min-width:300px; max-width:440px;">
     <h2 id="day-modal-title" class="modal-title"></h2>
+    <div style="font-size:11px; color:#888; margin-bottom:4px;">📅 この日の色分け</div>
     <div class="flex gap-6 flex-wrap" style="margin-bottom:10px;" id="day-modal-colors"></div>
     <textarea id="day-modal-memo" class="input-full-lg" style="height:100px; resize:none; font-family:sans-serif;" placeholder="この日のメモを入力..."></textarea>
     <div class="flex-center gap-8" style="margin-top:8px;">
@@ -152,6 +153,7 @@
         <input type="text" id="dm-event-title" placeholder="タイトル（例：部活・塾）" style="flex:1; padding:5px 8px; border:1px solid #d0d8e8; border-radius:6px; font-size:12px;">
       </div>
       <!-- 色 -->
+      <div style="font-size:11px; color:#888; margin-bottom:3px;">🎨 ブロックの色</div>
       <div style="display:flex; gap:5px; flex-wrap:wrap; margin-bottom:8px;" id="dm-color-swatches"></div>
       <button id="day-modal-add-block" style="width:100%; padding:8px 0; background:#4a90e2; color:#fff; border:none; border-radius:8px; font-size:13px; font-weight:bold; cursor:pointer;">
         ✅ グリッドに追加
@@ -223,12 +225,12 @@
           <button class="btn-add-sm">追加</button>
         </div>
       </div>
-      <div class="progress-row">
-        <label>ページ予定：</label>
-        <input type="number" id="mat-page-from" min="0" placeholder="開始">
-        <span class="form-label">〜</span>
-        <input type="number" id="mat-page-to" min="0" placeholder="終了">
-        <span class="form-label">p</span>
+      <div style="display:flex; align-items:center; gap:5px; margin-top:8px; flex-wrap:wrap;">
+        <label style="font-size:12px; color:#555; white-space:nowrap;">ページ予定：</label>
+        <input type="number" id="mat-page-from" min="0" placeholder="開始" style="width:64px; padding:4px 6px; border:1px solid #d0d8e8; border-radius:6px; font-size:12px;">
+        <span style="font-size:12px; color:#888;">〜</span>
+        <input type="number" id="mat-page-to" min="0" placeholder="終了" style="width:64px; padding:4px 6px; border:1px solid #d0d8e8; border-radius:6px; font-size:12px;">
+        <span style="font-size:12px; color:#888;">p</span>
       </div>
     </div>
     <div id="panel-event" class="hidden">
@@ -1076,6 +1078,10 @@ async function saveDayModal() {
   // Firestoreへはバックグラウンド同期
   syncToFirestore('monthly', currentMonthDocId, { [currentDayKey]: currentMonthData[currentDayKey] });
   syncMonthlyToWeekly(currentDayKey, memo);
+
+  // ウィークリーグリッドへ自動追加（フォームに時刻・タイトルが入力されている場合のみ）
+  await addBlockFromMonthlyCore({ silent: true });
+
   closeDayModal();
   loadMonthly();
 }
@@ -1119,8 +1125,9 @@ function gotoWeeklyFromMonthly() {
   loadWeekNew().then(() => renderNewGrid());
 }
 
-// 「グリッドに追加」ボタン：マンスリーの日付モーダルから直接ブロックを保存
-async function addBlockFromMonthly() {
+// 「グリッドに追加」コア処理（保存ボタン・追加ボタン共通）
+// silent=true のとき：タイトル未入力なら何もしない・alertを出さない
+async function addBlockFromMonthlyCore({ silent = false } = {}) {
   if (!currentDayKey) return;
   const fromSel = document.getElementById('dm-time-from');
   const toSel   = document.getElementById('dm-time-to');
@@ -1128,13 +1135,19 @@ async function addBlockFromMonthly() {
   const modeEl  = document.getElementById('dm-block-mode');
   if (!fromSel || !toSel) return;
 
+  const title = (titleEl ? titleEl.value.trim() : '');
+
+  // silentモード（保存ボタン経由）：タイトルが空なら何もしない
+  if (silent && !title) return;
+
   const startMin = parseInt(fromSel.value);
   const endMin   = parseInt(toSel.value);
   if (isNaN(startMin) || isNaN(endMin) || endMin <= startMin) {
-    alert('終了時刻は開始時刻より後にしてください'); return;
+    if (!silent) alert('終了時刻は開始時刻より後にしてください');
+    return;
   }
 
-  const title = (titleEl ? titleEl.value.trim() : '') || '予定';
+  const finalTitle = title || '予定';
   const mode  = modeEl ? modeEl.value : 'event';
 
   // currentDayKey = "YYYY-MM-DD" から colIndex を算出
@@ -1151,8 +1164,7 @@ async function addBlockFromMonthly() {
   const todayDow  = today.getDay();
   const todayDiff = ((todayDow - weekStartDay) + 7) % 7;
   const thisWeekStart = new Date(today); thisWeekStart.setDate(today.getDate() - todayDiff);
-  const targetWeekStart = weekStart;
-  const weekOffset = Math.round((targetWeekStart - thisWeekStart) / (7 * 86400000));
+  const weekOffset = Math.round((weekStart - thisWeekStart) / (7 * 86400000));
 
   // colIndexは weekStart から何日目か
   const colIndex = Math.round((targetDate - weekStart) / 86400000);
@@ -1164,7 +1176,7 @@ async function addBlockFromMonthly() {
 
   const cellRecord = {
     mode,
-    title,
+    title: finalTitle,
     color: _dmSelectedColor || '#a0c4ff',
     startMin,
     endMin,
@@ -1177,12 +1189,19 @@ async function addBlockFromMonthly() {
   currentWeek = savedWeek;
   currentWeekDocId = getWeekDocId();
 
-  // 成功メッセージ
-  const timeLabel = `${ngFormatTime(startMin)}〜${ngFormatTime(endMin)}`;
-  alert(`「${title}」（${timeLabel}）をウィークリーグリッドに追加しました！`);
+  if (!silent) {
+    // 手動追加ボタン経由：完了トーストを表示
+    const timeLabel = `${ngFormatTime(startMin)}〜${ngFormatTime(endMin)}`;
+    showToast(`「${finalTitle}」（${timeLabel}）をウィークリーに追加しました`);
+  }
 
   // タイトル欄をリセット
   if (titleEl) titleEl.value = '';
+}
+
+// 「グリッドに追加」ボタンから呼ぶラッパー
+async function addBlockFromMonthly() {
+  await addBlockFromMonthlyCore({ silent: false });
 }
 
 // ════════════════════════════════════════
@@ -2994,6 +3013,26 @@ function renderNewGrid() {
 // ════════════════════════════════════════
 
 // 新キー生成: '2025-04-21-480-510'
+// トースト通知（軽量・alert不使用）
+function showToast(msg, duration = 2500) {
+  let el = document.getElementById('_toast_msg');
+  if (!el) {
+    el = document.createElement('div');
+    el.id = '_toast_msg';
+    el.style.cssText = [
+      'position:fixed','bottom:72px','left:50%','transform:translateX(-50%)',
+      'background:rgba(40,40,40,0.88)','color:#fff','padding:8px 18px',
+      'border-radius:20px','font-size:13px','z-index:99999',
+      'pointer-events:none','transition:opacity 0.3s','white-space:nowrap'
+    ].join(';');
+    document.body.appendChild(el);
+  }
+  el.textContent = msg;
+  el.style.opacity = '1';
+  clearTimeout(el._timer);
+  el._timer = setTimeout(() => { el.style.opacity = '0'; }, duration);
+}
+
 function getCellDateKeyNew(colIndex, startMin, endMin) {
   const s = getStartOfWeek();
   const d = new Date(s); d.setDate(s.getDate() + colIndex); d.setHours(0,0,0,0);
@@ -3024,6 +3063,16 @@ async function saveCellDataNew(colIndex, startMin, endMin, cellRecord) {
   // IDBに即座に保存
   await idbSet('cells', entry);
   currentWeekDataNew[key] = entry;
+
+  // マンスリーキャッシュの該当日を無効化して即時反映
+  const _cellDate = getStartOfWeek();
+  _cellDate.setDate(_cellDate.getDate() + colIndex);
+  const _cellDayKey = getDateKey(_cellDate);
+  const _cellMonthKey = _cellDayKey.slice(0, 7); // "YYYY-MM"
+  if (_monthlyBlockCache[_cellMonthKey]) {
+    delete _monthlyBlockCache[_cellMonthKey][_cellDayKey];
+  }
+
   // Firestoreへはバックグラウンド同期
   if (navigator.onLine) {
     syncToFirestore('schedules2', entry.docId,
