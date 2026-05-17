@@ -1,6 +1,6 @@
 /**
  * nav.js — ボタン操作によるスライドナビゲーション
- * 右端に3ボタン縦並び ＋ 下部タブバー
+ * 下部中央タブバー（全ページ共通）
  */
 
 const NAV_PAGES = [
@@ -44,40 +44,30 @@ function navigateTo(target) {
 
 var _NAV_CURRENT_IDX = -1;
 
-// ログイン画面かどうかを判定してnavを初期化する
 function _initNav() {
   var filename = location.pathname.split('/').pop() || 'index.html';
   _NAV_CURRENT_IDX = NAV_PAGES.findIndex(function(p) { return p.file === filename; });
   if (_NAV_CURRENT_IDX === -1) return;
 
+  var currentPage = NAV_PAGES[_NAV_CURRENT_IDX];
+
   var style = document.createElement('style');
   style.id = '_nav_style';
   style.textContent = [
+    /* カーテン */
     '#_nav_curtain{position:fixed;inset:0;z-index:9998;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;pointer-events:none;transform:translateX(100%);background:#f5f5f0;}',
     '#_nav_curtain_icon{font-size:56px;}',
     '#_nav_curtain_title{font-size:18px;font-weight:700;color:#444;font-family:"Hiragino Kaku Gothic ProN",sans-serif;}',
 
-    /* 右端ボタングループ */
-    '#_nav_side{position:fixed;right:env(safe-area-inset-right,0);top:50%;transform:translateY(-50%);z-index:10001;display:flex;flex-direction:column;border-radius:12px 0 0 12px;overflow:hidden;box-shadow:-3px 0 16px rgba(0,0,0,0.14);}',
-    '.side-btn{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;width:46px;padding:13px 0;border:none;cursor:pointer;font-family:"Hiragino Kaku Gothic ProN",sans-serif;transition:filter .15s,transform .12s;-webkit-tap-highlight-color:transparent;position:relative;}',
-    '.side-btn+.side-btn{border-top:1px solid rgba(255,255,255,0.22);}',
-    '.side-btn:active{filter:brightness(0.86);transform:scaleX(0.93);}',
-    '.side-btn .side-icon{font-size:19px;line-height:1;}',
-    '.side-btn .side-label{font-size:9px;font-weight:700;writing-mode:vertical-rl;letter-spacing:0.08em;line-height:1;}',
-    '.side-btn.current{filter:brightness(0.78);cursor:default;}',
-    '.side-btn.current::before{content:"";position:absolute;left:0;top:20%;bottom:20%;width:3px;border-radius:0 2px 2px 0;background:rgba(255,255,255,0.9);}',
-
     /* 下部タブバー */
-    '#_nav_bar{position:fixed;bottom:0;left:0;right:0;height:calc(58px + env(safe-area-inset-bottom, 0px));background:rgba(255,255,255,0.95);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);border-top:1px solid rgba(0,0,0,0.08);display:flex;z-index:10000;box-shadow:0 -2px 12px rgba(0,0,0,0.06);padding-bottom:env(safe-area-inset-bottom, 0px);}',
+    '#_nav_bar{position:fixed;bottom:0;left:0;right:0;height:calc(58px + env(safe-area-inset-bottom,0px));background:rgba(255,255,255,0.97);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);border-top:1px solid rgba(0,0,0,0.08);display:flex;align-items:stretch;z-index:10000;box-shadow:0 -2px 12px rgba(0,0,0,0.07);padding-bottom:env(safe-area-inset-bottom,0px);}',
     '.nav-tab{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;border:none;background:none;cursor:pointer;padding:6px 0;font-family:"Hiragino Kaku Gothic ProN",sans-serif;transition:transform .12s;-webkit-tap-highlight-color:transparent;position:relative;}',
-    '.nav-tab:active{transform:scale(0.91);}',
+    '.nav-tab:active{transform:scale(0.88);}',
     '.nav-tab .tab-icon{font-size:22px;line-height:1;transition:transform .18s;}',
-    '.nav-tab .tab-label{font-size:10px;font-weight:600;color:#aaa;letter-spacing:0.03em;transition:color .18s;}',
-    '.nav-tab.active .tab-icon{transform:scale(1.15) translateY(-1px);}',
+    '.nav-tab .tab-label{font-size:10px;font-weight:600;color:#bbb;letter-spacing:0.03em;transition:color .18s;}',
+    '.nav-tab.active .tab-icon{transform:scale(1.18) translateY(-2px);}',
     '.nav-tab.active .tab-label{color:var(--tc,#333);}',
-    '.nav-tab.active::after{content:"";position:absolute;bottom:0;left:50%;transform:translateX(-50%);width:28px;height:3px;border-radius:3px 3px 0 0;background:var(--tc,#333);}',
-
-    '/* body padding-bottom削除 */'
+    '.nav-tab.active::after{content:"";position:absolute;top:0;left:50%;transform:translateX(-50%);width:32px;height:3px;border-radius:0 0 3px 3px;background:var(--tc,#333);}',
   ].join('');
   document.head.appendChild(style);
 
@@ -87,21 +77,18 @@ function _initNav() {
   curtain.innerHTML = '<div id="_nav_curtain_icon"></div><div id="_nav_curtain_title"></div>';
   document.body.appendChild(curtain);
 
-  /* 右端ボタン */
-  var side = document.createElement('div');
-  side.id = '_nav_side';
+  /* 下部タブバー */
+  var bar = document.createElement('div');
+  bar.id = '_nav_bar';
   NAV_PAGES.forEach(function(page, idx) {
-    var btn = document.createElement('button');
-    btn.className = 'side-btn' + (idx === _NAV_CURRENT_IDX ? ' current' : '');
-    btn.style.background = page.color;
-    btn.style.color = '#fff';
-    btn.innerHTML = '<span class="side-icon">' + page.label + '</span><span class="side-label">' + page.title + '</span>';
-    btn.addEventListener('click', function() { navigateTo(idx); });
-    side.appendChild(btn);
+    var tab = document.createElement('button');
+    tab.className = 'nav-tab' + (idx === _NAV_CURRENT_IDX ? ' active' : '');
+    tab.style.setProperty('--tc', page.color);
+    tab.innerHTML = '<span class="tab-icon">' + page.label + '</span><span class="tab-label">' + page.title + '</span>';
+    tab.addEventListener('click', function() { navigateTo(idx); });
+    bar.appendChild(tab);
   });
-  document.body.appendChild(side);
-
-  /* 下部タブバー：非表示 */
+  document.body.appendChild(bar);
 
   /* フェードイン */
   var prevIdx = parseInt(sessionStorage.getItem('_nav_prev') || '-1');
@@ -117,25 +104,19 @@ function _initNav() {
       document.body.style.transform  = 'translateX(0)';
       setTimeout(function() {
         document.body.style.transition = '';
-        document.body.style.transform  = ''; // fixed要素のズレを防ぐためリセット
+        document.body.style.transform  = '';
       }, 260);
     });
   });
 }
 
 (function () {
-  // index.htmlのログイン画面では、ログイン完了後に_initNavを呼ぶ
-  // app-contentが存在する＝index.htmlのログイン付きページ
   var appContent = document.getElementById('app-content');
   if (appContent) {
-    // ログイン済みで既にapp-contentが表示されている場合はすぐ初期化
     if (appContent.style.display !== 'none') {
       _initNav();
     }
-    // そうでなければshowApp()から_initNavが呼ばれるのを待つ
-    // （index.htmlのshowApp関数内で _initNav() を呼ぶこと）
   } else {
-    // pomodoro.html / review.html / record.html など：そのまま初期化
     _initNav();
   }
 })();
