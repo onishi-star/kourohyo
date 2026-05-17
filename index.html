@@ -2854,6 +2854,7 @@ const APP_PASSWORD = "korohyo";
 function showApp() {
   document.getElementById('auth-container').style.display = 'none';
   document.getElementById('app-content').style.display = 'block';
+  initTopbarClock();
   _initNav();
   // 祝日を起動時に先読みしてキャッシュを温める（以降はawaitなしで参照可能）
   getHolidays().then(() => {
@@ -4762,58 +4763,60 @@ async function addMaterialInline() {
 // ════════════════════════════════
 // トップバー：時計・ドロップダウン
 // ════════════════════════════════
-(function() {
-  const WEEKDAYS = ['日','月','火','水','木','金','土'];
+const TOPBAR_WEEKDAYS = ['日','月','火','水','木','金','土'];
+let _topbarClockStarted = false;
 
-  function updateClock() {
-    const now = new Date();
-    const elDate    = document.getElementById('topbar-date');
-    const elWeekday = document.getElementById('topbar-weekday');
-    const elTime    = document.getElementById('topbar-time');
-    if (!elDate) return;
-    const mm  = String(now.getMonth()+1).padStart(2,'0');
-    const dd  = String(now.getDate()).padStart(2,'0');
-    const wd  = WEEKDAYS[now.getDay()];
-    const hh  = String(now.getHours()).padStart(2,'0');
-    const min = String(now.getMinutes()).padStart(2,'0');
-    elDate.textContent    = now.getFullYear() + '/' + mm + '/' + dd;
-    elWeekday.textContent = wd + '曜日';
-    elWeekday.dataset.wd  = now.getDay(); // 0=日 6=土
-    elTime.textContent    = hh + ':' + min;
-    // 土日で色変更
-    elWeekday.style.color = now.getDay()===0 ? '#c0392b' : now.getDay()===6 ? '#1a6bbf' : '#4a90e2';
-  }
+function updateTopbarClock() {
+  const now = new Date();
+  const elDate    = document.getElementById('topbar-date');
+  const elWeekday = document.getElementById('topbar-weekday');
+  const elTime    = document.getElementById('topbar-time');
+  if (!elDate) return;
+  const mm  = String(now.getMonth()+1).padStart(2,'0');
+  const dd  = String(now.getDate()).padStart(2,'0');
+  const wd  = TOPBAR_WEEKDAYS[now.getDay()];
+  const hh  = String(now.getHours()).padStart(2,'0');
+  const min = String(now.getMinutes()).padStart(2,'0');
+  elDate.textContent    = now.getFullYear() + '/' + mm + '/' + dd;
+  elWeekday.textContent = wd + '曜日';
+  elTime.textContent    = hh + ':' + min;
+  elWeekday.style.color = now.getDay()===0 ? '#c0392b' : now.getDay()===6 ? '#1a6bbf' : '#7ab4f5';
+}
 
-  function initTopbarClock() {
-    updateClock();
-    setInterval(updateClock, 10000);
-  }
+// showApp()から呼ばれる
+function initTopbarClock() {
+  if (_topbarClockStarted) return;
+  _topbarClockStarted = true;
+  updateTopbarClock();
+  setInterval(updateTopbarClock, 10000);
+}
 
-  function initTopbarMenu() {
-    const btn      = document.getElementById('topbar-menu-btn');
-    const dropdown = document.getElementById('topbar-menu-dropdown');
-    if (!btn || !dropdown) return;
-    btn.addEventListener('click', e => {
-      e.stopPropagation();
-      dropdown.classList.toggle('hidden');
-    });
-    // メニュー外クリックで閉じる
-    document.addEventListener('click', () => {
+// メニューは DOM 確定後に一度だけ初期化
+document.addEventListener('DOMContentLoaded', () => {
+  const btn      = document.getElementById('topbar-menu-btn');
+  const dropdown = document.getElementById('topbar-menu-dropdown');
+  if (!btn || !dropdown) return;
+
+  // ⋮ボタン：開閉トグル
+  btn.addEventListener('click', e => {
+    e.stopPropagation();
+    dropdown.classList.toggle('hidden');
+  });
+
+  // ドロップダウン内ボタン：クリックを document へ伝播させてから閉じる
+  dropdown.addEventListener('click', e => {
+    // stopPropagation はしない → document の既存デリゲートが動く
+    // 少し遅らせて閉じることで、既存ハンドラが先に実行される
+    setTimeout(() => dropdown.classList.add('hidden'), 0);
+  });
+
+  // メニュー外クリックで閉じる
+  document.addEventListener('click', e => {
+    if (!dropdown.contains(e.target) && e.target !== btn) {
       dropdown.classList.add('hidden');
-    });
-    // メニューアイテムクリック後も閉じる
-    dropdown.addEventListener('click', () => {
-      dropdown.classList.add('hidden');
-    });
-  }
-
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', () => { initTopbarClock(); initTopbarMenu(); });
-  } else {
-    initTopbarClock();
-    initTopbarMenu();
-  }
-})();
+    }
+  });
+});
 </script>
 
 </body>
