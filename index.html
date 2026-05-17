@@ -1631,9 +1631,6 @@ async function refreshDeadlinePanel() {
     items.push({ name: mat.name, deadline: data.deadline, diff, color: mat.color });
   }
   for (const exam of exams) {
-    if (!exam.date) continue;
-    const diff = Math.ceil((parseLocalDate(exam.date) - today) / 86400000);
-    items.push({ name: "📝 " + exam.name, deadline: exam.date, diff, color: "#9c27b0" });
     for (const sub of (exam.submissions||[])) {
       if (!sub.deadline || sub.done) continue;
       const d = Math.ceil((parseLocalDate(sub.deadline) - today) / 86400000);
