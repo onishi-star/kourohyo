@@ -2624,8 +2624,8 @@ function showApp() {
   document.getElementById('auth-container').style.display = 'none';
   document.getElementById('app-content').style.display = 'block';
   _initNav();
-  // _initNavのフェードイン（260ms）完了後に時計を起動
-  setTimeout(initTopbarClock, 280);
+  // 時計を即時起動（_initNavより後に呼ぶことで要素が確実にDOM上にある）
+  initTopbarClock();
   // 祝日を起動時に先読みしてキャッシュを温める（以降はawaitなしで参照可能）
   getHolidays().then(() => {
     updateHeaders();
@@ -4556,26 +4556,32 @@ function updateTopbarClock() {
   const elDate    = document.getElementById('topbar-date');
   const elWeekday = document.getElementById('topbar-weekday');
   const elTime    = document.getElementById('topbar-time');
-  if (!elDate) return;
   const mm  = String(now.getMonth()+1).padStart(2,'0');
   const dd  = String(now.getDate()).padStart(2,'0');
   const wd  = TOPBAR_WEEKDAYS[now.getDay()];
   const hh  = String(now.getHours()).padStart(2,'0');
   const min = String(now.getMinutes()).padStart(2,'0');
-  elDate.textContent    = now.getFullYear() + '/' + mm + '/' + dd;
-  elWeekday.textContent = wd + '曜日';
-  elTime.textContent    = hh + ':' + min;
-  elWeekday.style.color = now.getDay()===0 ? '#c0392b' : now.getDay()===6 ? '#1a6bbf' : '#7ab4f5';
+  if (elDate)    elDate.textContent    = now.getFullYear() + '/' + mm + '/' + dd;
+  if (elWeekday) { elWeekday.textContent = wd + '曜日'; elWeekday.style.color = now.getDay()===0 ? '#c0392b' : now.getDay()===6 ? '#1a6bbf' : '#7ab4f5'; }
+  if (elTime)    elTime.textContent    = hh + ':' + min;
 }
 
-// showApp() から呼ばれる（_initNavのフェードイン完了後に実行）
+// showApp() から呼ばれる
 let _clockStarted = false;
 function initTopbarClock() {
   if (_clockStarted) return;
   _clockStarted = true;
   updateTopbarClock();
-  setInterval(updateTopbarClock, 10000);
+  setInterval(updateTopbarClock, 60000);
 }
+
+// app-contentがすでに表示済みの場合（リロード直後など）にも対応
+document.addEventListener('DOMContentLoaded', function() {
+  const appContent = document.getElementById('app-content');
+  if (appContent && appContent.style.display !== 'none') {
+    initTopbarClock();
+  }
+});
 </script>
 
 </body>
