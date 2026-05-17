@@ -455,9 +455,14 @@
   </div>
   <div id="memo-area">
     <div id="memo-label">📅 締切カウントダウン</div>
-    <div id="deadline-panel" style="overflow-y:auto; max-height:120px; font-size:12px;">
-      <div id="deadline-list" style="display:flex; flex-direction:column; gap:4px;"></div>
-      <div id="deadline-empty" class="hidden" style="color:#bbb; font-size:12px; padding:4px 0;">締切が設定された教材はありません</div>
+    <div id="deadline-panel" style="display:flex; height:110px; border:0.5px solid #ddd; border-radius:8px; overflow:hidden; background:#fff; font-size:12px;">
+      <div id="dl-counter" style="flex:0 0 33.333%; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:2px; border-right:0.5px solid #ddd;">
+        <span id="dl-counter-num" style="font-size:48px; font-weight:500; line-height:1;">-</span>
+        <span id="dl-counter-unit" style="font-size:11px; color:#888;">日後</span>
+        <span id="dl-counter-name" style="font-size:10px; color:#aaa; max-width:90%; overflow:hidden; white-space:nowrap; text-overflow:ellipsis; text-align:center;"></span>
+      </div>
+      <div id="deadline-list" style="flex:1; overflow-y:auto; padding:8px 10px; display:flex; flex-direction:column; gap:5px;"></div>
+      <div id="deadline-empty" class="hidden" style="flex:1; display:flex; align-items:center; justify-content:center; color:#bbb; font-size:12px;">締切が設定された教材はありません</div>
     </div>
   </div>
 </div>
@@ -627,7 +632,7 @@ let _idb = null;
 function openIDB() {
   if (_idb) return Promise.resolve(_idb);
   return new Promise((res, rej) => {
-    const r = indexedDB.open("scheduleDB", 5);
+    const r = indexedDB.open("scheduleDB", 4);
     r.onupgradeneeded = e => {
       const db = e.target.result;
       // 既存
@@ -1611,11 +1616,11 @@ async function saveProgress() {
 // 締切カウントダウンパネル
 // ════════════════════════════════════════
 async function refreshDeadlinePanel() {
-  const list = document.getElementById("deadline-list");
+  const list  = document.getElementById("deadline-list");
   const empty = document.getElementById("deadline-empty");
   if (!list) return;
   list.innerHTML = "";
-  const uid = auth.currentUser?.uid || 'unknown';
+  const uid   = auth.currentUser?.uid || 'unknown';
   const today = new Date(new Date().toDateString());
   const items = [];
   for (const mat of materials) {
@@ -1625,12 +1630,10 @@ async function refreshDeadlinePanel() {
     const diff = Math.ceil((parseLocalDate(data.deadline) - today) / 86400000);
     items.push({ name: mat.name, deadline: data.deadline, diff, color: mat.color });
   }
-　// 考査・模試の締切も追加
   for (const exam of exams) {
     if (!exam.date) continue;
     const diff = Math.ceil((parseLocalDate(exam.date) - today) / 86400000);
     items.push({ name: "📝 " + exam.name, deadline: exam.date, diff, color: "#9c27b0" });
-    // 提出物の締切も追加
     for (const sub of (exam.submissions||[])) {
       if (!sub.deadline || sub.done) continue;
       const d = Math.ceil((parseLocalDate(sub.deadline) - today) / 86400000);
@@ -1638,25 +1641,56 @@ async function refreshDeadlinePanel() {
     }
   }
   items.sort((a, b) => a.diff - b.diff);
-  if (!items.length) { empty.classList.remove("hidden"); return; }
+
+  // 左側カウンター更新
+  const cntNum  = document.getElementById("dl-counter-num");
+  const cntUnit = document.getElementById("dl-counter-unit");
+  const cntName = document.getElementById("dl-counter-name");
+  if (!items.length) {
+    empty.classList.remove("hidden");
+    cntNum.textContent  = "-";
+    cntNum.style.color  = "#bbb";
+    cntUnit.textContent = "";
+    cntName.textContent = "";
+    return;
+  }
   empty.classList.add("hidden");
+  const top = items[0];
+  if (top.diff < 0) {
+    cntNum.textContent  = -top.diff;
+    cntNum.style.color  = "#c62828";
+    cntUnit.textContent = "日超過";
+  } else {
+    cntNum.textContent  = top.diff;
+    cntNum.style.color  = top.diff <= 3 ? "#e65100" : "#2e7d32";
+    cntUnit.textContent = "日後";
+  }
+  cntName.textContent = top.name;
+
+  // 右側リスト描画
   items.forEach(item => {
-    const div = document.createElement("div");
-    div.className = "dl-item";
+    const row = document.createElement("div");
+    row.style.cssText = "display:flex; align-items:center; gap:7px; min-height:20px;";
+
     const dot = document.createElement("div");
-    dot.style.cssText = `width:8px;height:8px;border-radius:50%;background:${item.color};flex-shrink:0;`;
+    dot.style.cssText = `width:7px; height:7px; border-radius:50%; background:${item.color}; flex-shrink:0;`;
+
     const name = document.createElement("div");
-    name.className = "dl-name";
-    name.textContent = item.deadline
-      ? `${item.name}　${item.deadline}`
-      : item.name;
+    name.style.cssText = "flex:1; overflow:hidden; white-space:nowrap; text-overflow:ellipsis; color:inherit;";
+    name.textContent = item.name;
+
+    const date = document.createElement("div");
+    date.style.cssText = "font-size:11px; color:#999; flex-shrink:0;";
+    date.textContent = item.deadline || "";
+
     const badge = document.createElement("div");
-    badge.className = "dl-badge";
-    if (item.diff < 0)      { badge.style.cssText="background:#ffebee;color:#c62828;"; badge.textContent=`⚠️ ${-item.diff}日超過`; }
-    else if (item.diff <= 3){ badge.style.cssText="background:#fff3e0;color:#e65100;"; badge.textContent=`⚡ あと${item.diff}日`; }
-    else                    { badge.style.cssText="background:#e8f5e9;color:#2e7d32;"; badge.textContent=`✅ あと${item.diff}日`; }
-    div.appendChild(dot); div.appendChild(name); div.appendChild(badge);
-    list.appendChild(div);
+    badge.style.cssText = "font-size:11px; padding:1px 7px; border-radius:99px; flex-shrink:0;";
+    if (item.diff < 0)       { badge.style.cssText += "background:#ffebee; color:#c62828;"; badge.textContent = `${-item.diff}日超過`; }
+    else if (item.diff <= 3) { badge.style.cssText += "background:#fff3e0; color:#e65100;"; badge.textContent = `あと${item.diff}日`; }
+    else                     { badge.style.cssText += "background:#e8f5e9; color:#2e7d32;"; badge.textContent = `あと${item.diff}日`; }
+
+    row.appendChild(dot); row.appendChild(name); row.appendChild(date); row.appendChild(badge);
+    list.appendChild(row);
   });
 }
 
