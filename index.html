@@ -427,44 +427,66 @@
 
 <!-- ══ TOP BAR ══ -->
 <div id="top-bar">
-  <div id="left-controls">
-    <h1>週間スケジュール</h1>
-    <div class="ctrl-row">
-      <button id="btn-weekly" style="font-weight:bold; outline:3px solid #333;">ウィークリー</button>
-      <button id="btn-monthly">マンスリー</button>
+
+  <!-- 左：日付・時刻ブロック -->
+  <div id="topbar-datetime">
+    <div id="topbar-date-row">
+      <span id="topbar-date"></span>
+      <span id="topbar-weekday"></span>
     </div>
-    <div class="ctrl-row" id="week-nav">
-      <button>← 前の週</button>
-      <span id="week-label"></span>
-      <button>次の週 →</button>
-    </div>
-    <div class="ctrl-row hidden" id="month-nav">
-      <button>← 前の月</button>
-      <span id="month-label"></span>
-      <button>次の月 →</button>
-    </div>
-    <div class="ctrl-row">
-      <button id="btn-settings">⚙️ 設定</button>
-      <button id="btn-preset">📅 プリセット</button>
-      <button id="btn-print" style="font-size:12px;">🖨 印刷</button>
-      <button class="btn-topbar-record">✏️ 自由記録</button>
-      <button class="btn-topbar-exam">📝 考査管理</button>
+    <div id="topbar-time"></div>
+    <div id="topbar-status-row">
       <span id="offline-indicator" class="status-offline hidden">📵 オフライン</span>
       <span id="sync-indicator"   class="status-sync hidden">✅ 同期完了</span>
     </div>
   </div>
+
+  <!-- 中央：ビュー切替 ＋ 週／月ナビ -->
+  <div id="topbar-center">
+    <div id="topbar-view-tabs">
+      <button id="btn-weekly"  class="topbar-view-tab active-tab">ウィークリー</button>
+      <button id="btn-monthly" class="topbar-view-tab">マンスリー</button>
+    </div>
+    <div id="topbar-nav-row">
+      <div id="week-nav" style="display:flex; align-items:center; gap:6px;">
+        <button class="topbar-nav-btn">‹</button>
+        <span id="week-label" class="topbar-nav-label"></span>
+        <button class="topbar-nav-btn">›</button>
+      </div>
+      <div id="month-nav" class="hidden" style="display:none; align-items:center; gap:6px;">
+        <button class="topbar-nav-btn">‹</button>
+        <span id="month-label" class="topbar-nav-label"></span>
+        <button class="topbar-nav-btn">›</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 右：締切カウントダウン -->
   <div id="memo-area">
     <div id="memo-label">📅 締切カウントダウン</div>
-    <div id="deadline-panel" style="display:flex; height:110px; border:0.5px solid #ddd; border-radius:8px; overflow:hidden; background:#fff; font-size:12px;">
+    <div id="deadline-panel" style="display:flex; height:90px; border:0.5px solid #ddd; border-radius:8px; overflow:hidden; background:#fff; font-size:12px;">
       <div id="dl-counter" style="flex:0 0 33.333%; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:2px; border-right:0.5px solid #ddd;">
-        <span id="dl-counter-num" style="font-size:48px; font-weight:500; line-height:1;">-</span>
+        <span id="dl-counter-num" style="font-size:40px; font-weight:500; line-height:1;">-</span>
         <span id="dl-counter-unit" style="font-size:11px; color:#888;">日後</span>
         <span id="dl-counter-name" style="font-size:10px; color:#aaa; max-width:90%; overflow:hidden; white-space:nowrap; text-overflow:ellipsis; text-align:center;"></span>
       </div>
       <div id="deadline-list" style="flex:1; overflow-y:auto; padding:8px 10px; display:flex; flex-direction:column; gap:5px;"></div>
-      <div id="deadline-empty" class="hidden" style="flex:1; display:flex; align-items:center; justify-content:center; color:#bbb; font-size:12px;">締切が設定された教材はありません</div>
+      <div id="deadline-empty" class="hidden" style="flex:1; display:flex; align-items:center; justify-content:center; color:#bbb; font-size:12px;">締切が設定された提出物はありません</div>
     </div>
   </div>
+
+  <!-- メニューボタン（⋮） -->
+  <div id="topbar-menu-wrap">
+    <button id="topbar-menu-btn" title="メニュー">⋮</button>
+    <div id="topbar-menu-dropdown" class="hidden">
+      <button id="btn-settings"         class="topbar-menu-item">⚙️ 設定</button>
+      <button id="btn-preset"           class="topbar-menu-item">📅 プリセット</button>
+      <button class="btn-topbar-record  topbar-menu-item">✏️ 自由記録</button>
+      <button class="btn-topbar-exam    topbar-menu-item">📝 考査管理</button>
+      <button id="btn-print"            class="topbar-menu-item">🖨 印刷</button>
+    </div>
+  </div>
+
 </div>
 
 <!-- 新旧グリッド切り替えボタン（ウィークリービュー内のみ表示） -->
@@ -484,6 +506,225 @@
 /* nav.jsの_nav_side（右端46px）と重ならないようにtop-barの右にスペース確保 */
 #top-bar {
   padding-right: calc(10px + 46px + env(safe-area-inset-right, 0px)) !important;
+}
+
+
+/* ══ トップバー新デザイン ══ */
+#top-bar {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 10px 16px;
+  padding-left: calc(16px + env(safe-area-inset-left, 0px));
+  padding-right: calc(16px + 46px + env(safe-area-inset-right, 0px));
+  background: linear-gradient(135deg, #1a2540 0%, #2c3e6b 100%);
+  border-bottom: none;
+  box-shadow: 0 2px 12px rgba(0,0,0,0.18);
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  min-height: 72px;
+}
+
+/* ── 日付・時刻ブロック ── */
+#topbar-datetime {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  flex-shrink: 0;
+  min-width: 140px;
+}
+#topbar-date-row {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+}
+#topbar-date {
+  font-size: 13px;
+  font-weight: 500;
+  color: rgba(255,255,255,0.7);
+  letter-spacing: 0.5px;
+}
+#topbar-weekday {
+  font-size: 13px;
+  font-weight: bold;
+  color: #4a90e2;
+}
+#topbar-time {
+  font-size: 36px;
+  font-weight: 200;
+  color: #ffffff;
+  letter-spacing: 2px;
+  line-height: 1;
+}
+#topbar-status-row {
+  min-height: 16px;
+}
+
+/* ── 中央：ビュー切替＋ナビ ── */
+#topbar-center {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+}
+#topbar-view-tabs {
+  display: flex;
+  background: rgba(255,255,255,0.1);
+  border-radius: 20px;
+  padding: 3px;
+  gap: 2px;
+}
+.topbar-view-tab {
+  padding: 4px 16px;
+  border: none;
+  background: transparent;
+  color: rgba(255,255,255,0.6);
+  font-size: 12px;
+  font-weight: bold;
+  border-radius: 16px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+.topbar-view-tab.active-tab {
+  background: #ffffff;
+  color: #1a2540;
+}
+#topbar-nav-row {
+  display: flex;
+  align-items: center;
+}
+.topbar-nav-btn {
+  width: 28px;
+  height: 28px;
+  border: 1.5px solid rgba(255,255,255,0.25);
+  background: rgba(255,255,255,0.08);
+  color: #fff;
+  border-radius: 50%;
+  font-size: 16px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.15s;
+  padding: 0;
+  line-height: 1;
+}
+.topbar-nav-btn:hover {
+  background: rgba(255,255,255,0.2);
+}
+.topbar-nav-label {
+  font-size: 12px;
+  color: rgba(255,255,255,0.85);
+  min-width: 100px;
+  text-align: center;
+  font-weight: 500;
+}
+
+/* ── 右：締切カウントダウン ── */
+#memo-area {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  margin-right: 0;
+  min-width: 0;
+}
+#memo-label {
+  font-size: 11px;
+  color: rgba(255,255,255,0.5);
+  margin-bottom: 4px;
+}
+#deadline-panel {
+  background: rgba(255,255,255,0.07) !important;
+  border: 1px solid rgba(255,255,255,0.15) !important;
+  border-radius: 10px !important;
+}
+#dl-counter {
+  border-right: 1px solid rgba(255,255,255,0.15) !important;
+}
+#dl-counter-num {
+  color: #ffffff !important;
+}
+#dl-counter-unit {
+  color: rgba(255,255,255,0.5) !important;
+}
+#dl-counter-name {
+  color: rgba(255,255,255,0.4) !important;
+}
+#deadline-list {
+  color: rgba(255,255,255,0.85);
+}
+#deadline-empty {
+  color: rgba(255,255,255,0.3) !important;
+}
+
+/* ── メニューボタン（⋮） ── */
+#topbar-menu-wrap {
+  position: relative;
+  flex-shrink: 0;
+}
+#topbar-menu-btn {
+  width: 36px;
+  height: 36px;
+  border: 1.5px solid rgba(255,255,255,0.25);
+  background: rgba(255,255,255,0.08);
+  color: #fff;
+  border-radius: 50%;
+  font-size: 20px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.15s;
+  padding: 0;
+  line-height: 1;
+  writing-mode: vertical-rl;
+  letter-spacing: -2px;
+}
+#topbar-menu-btn:hover {
+  background: rgba(255,255,255,0.2);
+}
+#topbar-menu-dropdown {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  background: #fff;
+  border: 1px solid #e0e8f8;
+  border-radius: 12px;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.18);
+  padding: 6px;
+  z-index: 300;
+  min-width: 160px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+#topbar-menu-dropdown.hidden { display: none; }
+.topbar-menu-item {
+  width: 100%;
+  text-align: left;
+  padding: 9px 14px;
+  border: none;
+  background: transparent;
+  border-radius: 8px;
+  font-size: 13px;
+  color: #333;
+  cursor: pointer;
+  transition: background 0.12s;
+}
+.topbar-menu-item:hover {
+  background: #f0f4ff;
+}
+
+/* ── ステータスバッジ（ダーク背景対応） ── */
+.status-offline {
+  font-size: 11px;
+  color: #ff8a80;
+}
+.status-sync {
+  font-size: 11px;
+  color: #69f0ae;
 }
 
 /* ══ クロックピッカー ══ */
@@ -807,12 +1048,17 @@ function switchView(view) {
   document.getElementById("monthly-view").classList.toggle("hidden", view !== "monthly");
   const newGrid = document.getElementById("weekly-view-new");
   if (newGrid) newGrid.style.display = view === "weekly" ? "block" : "none";
-  document.getElementById("week-nav").classList.toggle("hidden", view !== "weekly");
-  document.getElementById("month-nav").classList.toggle("hidden", view !== "monthly");
-  document.getElementById("btn-weekly").style.outline    = view==="weekly"  ? "3px solid #333" : "";
-  document.getElementById("btn-weekly").style.fontWeight = view==="weekly"  ? "bold" : "";
-  document.getElementById("btn-monthly").style.outline   = view==="monthly" ? "3px solid #333" : "";
-  document.getElementById("btn-monthly").style.fontWeight= view==="monthly" ? "bold" : "";
+  const wNav = document.getElementById("week-nav");
+  const mNav = document.getElementById("month-nav");
+  if (view === "weekly") {
+    wNav.classList.remove("hidden"); wNav.style.display = "flex";
+    mNav.classList.add("hidden");    mNav.style.display = "none";
+  } else {
+    wNav.classList.add("hidden");    wNav.style.display = "none";
+    mNav.classList.remove("hidden"); mNav.style.display = "flex";
+  }
+  document.getElementById("btn-weekly").classList.toggle("active-tab",  view === "weekly");
+  document.getElementById("btn-monthly").classList.toggle("active-tab", view === "monthly");
   if (view==="monthly") { showLoading(); loadMonthly().finally(() => hideLoading()); }
   if (view==="weekly")  { showLoading(); loadWeekNew().then(() => { renderNewGrid(); hideLoading(); }).catch(() => hideLoading()); }
   setTimeout(adjustHeaderTop, 50);
@@ -4511,6 +4757,64 @@ async function addMaterialInline() {
   }
 })();
 
+
+<script>
+// ════════════════════════════════
+// トップバー：時計・ドロップダウン
+// ════════════════════════════════
+(function() {
+  const WEEKDAYS = ['日','月','火','水','木','金','土'];
+
+  function updateClock() {
+    const now = new Date();
+    const elDate    = document.getElementById('topbar-date');
+    const elWeekday = document.getElementById('topbar-weekday');
+    const elTime    = document.getElementById('topbar-time');
+    if (!elDate) return;
+    const mm  = String(now.getMonth()+1).padStart(2,'0');
+    const dd  = String(now.getDate()).padStart(2,'0');
+    const wd  = WEEKDAYS[now.getDay()];
+    const hh  = String(now.getHours()).padStart(2,'0');
+    const min = String(now.getMinutes()).padStart(2,'0');
+    elDate.textContent    = now.getFullYear() + '/' + mm + '/' + dd;
+    elWeekday.textContent = wd + '曜日';
+    elWeekday.dataset.wd  = now.getDay(); // 0=日 6=土
+    elTime.textContent    = hh + ':' + min;
+    // 土日で色変更
+    elWeekday.style.color = now.getDay()===0 ? '#c0392b' : now.getDay()===6 ? '#1a6bbf' : '#4a90e2';
+  }
+
+  function initTopbarClock() {
+    updateClock();
+    setInterval(updateClock, 10000);
+  }
+
+  function initTopbarMenu() {
+    const btn      = document.getElementById('topbar-menu-btn');
+    const dropdown = document.getElementById('topbar-menu-dropdown');
+    if (!btn || !dropdown) return;
+    btn.addEventListener('click', e => {
+      e.stopPropagation();
+      dropdown.classList.toggle('hidden');
+    });
+    // メニュー外クリックで閉じる
+    document.addEventListener('click', () => {
+      dropdown.classList.add('hidden');
+    });
+    // メニューアイテムクリック後も閉じる
+    dropdown.addEventListener('click', () => {
+      dropdown.classList.add('hidden');
+    });
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', () => { initTopbarClock(); initTopbarMenu(); });
+  } else {
+    initTopbarClock();
+    initTopbarMenu();
+  }
+})();
 </script>
+
 </body>
 </html>
