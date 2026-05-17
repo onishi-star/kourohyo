@@ -632,7 +632,7 @@ let _idb = null;
 function openIDB() {
   if (_idb) return Promise.resolve(_idb);
   return new Promise((res, rej) => {
-    const r = indexedDB.open("scheduleDB", 4);
+    const r = indexedDB.open("scheduleDB", 5);
     r.onupgradeneeded = e => {
       const db = e.target.result;
       // 既存
