@@ -1,141 +1,4798 @@
-/**
- * nav.js — ボタン操作によるスライドナビゲーション
- * 右端に3ボタン縦並び ＋ 下部タブバー
- */
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <title>行路表</title>
+  <link rel="icon" href="data:,">
+  <link rel="stylesheet" href="style.css">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-storage-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
-const NAV_PAGES = [
-  { file: 'index.html',    label: '📅', title: 'スケジュール', color: '#4a90e2' },
-  { file: 'pomodoro.html', label: '🍅', title: 'ポモドーロ',   color: '#e05a2b' },
-  { file: 'review.html',   label: '📝', title: '復習',         color: '#2ecc87' },
-  { file: 'record.html',   label: '📊', title: '記録',         color: '#9c27b0' },
-];
 
-function navigateTo(target) {
-  let targetIdx;
-  if (typeof target === 'number') {
-    targetIdx = target;
-  } else {
-    targetIdx = NAV_PAGES.findIndex(p => p.file === target);
-  }
-  if (targetIdx === -1 || targetIdx === _NAV_CURRENT_IDX) return;
+</head>
+<body>
 
-  const page = NAV_PAGES[targetIdx];
-  const goingRight = targetIdx > _NAV_CURRENT_IDX;
+<!-- ══ ログイン画面 ══ -->
+<div id="auth-container" class="auth-container">
+  <div class="auth-icon">🗓</div>
+  <h2 class="auth-title">行路表</h2>
+  <p class="auth-hint">パスワードを入力してください</p>
+  <input type="password" id="auth-password" placeholder="パスワード" class="auth-input">
+  <button id="auth-login" class="btn-login">入る</button>
+  <p id="auth-error" class="auth-error"></p>
+</div>
 
-  const curtain = document.getElementById('_nav_curtain');
-  curtain.style.transition = 'none';
-  curtain.style.transform = goingRight ? 'translateX(100%)' : 'translateX(-100%)';
-  curtain.querySelector('#_nav_curtain_icon').textContent  = page.label;
-  curtain.querySelector('#_nav_curtain_title').textContent = page.title;
-  curtain.style.background = page.color + '22';
+<div id="app-content" style="display:none;">
 
-  curtain.offsetHeight;
+<!-- ══ 設定モーダル ══ -->
+<div id="modal-overlay" class="overlay hidden" style="z-index:200;">
+  <div class="modal-box" style="min-width:320px; max-width:400px;">
+    <h2 class="modal-title">⚙️ 設定</h2>
 
-  curtain.style.transition = 'transform 0.30s cubic-bezier(0.22, 0.61, 0.36, 1)';
-  curtain.style.transform  = 'translateX(0%)';
+    <!-- 基本設定パネル -->
+    <div id="panel-basic">
+      <h3 class="section-title">週の開始曜日</h3>
+      <div id="day-select-buttons" style="display:flex; flex-wrap:wrap; gap:8px; justify-content:center; margin-bottom:20px;"></div>
 
-  const exitX = goingRight ? '-40px' : '40px';
-  document.body.style.transition = 'transform 0.28s cubic-bezier(0.22,0.61,0.36,1), opacity 0.22s';
-  document.body.style.transform  = 'translateX(' + exitX + ')';
-  document.body.style.opacity    = '0';
+    </div>
 
-  setTimeout(function() { window.location.href = page.file; }, 280);
+    <div style="display:flex; gap:8px; margin-top:4px; margin-bottom:4px;">
+      <button class="btn-topbar-material" style="flex:1; padding:8px 0; font-size:13px;">📚 教材管理</button>
+      <button id="btn-logout" class="btn-topbar-logout" style="flex:1; padding:8px 0; font-size:13px;">🔒 ロック</button>
+    </div>
+
+    <button class="btn-close">閉じる</button>
+  </div>
+</div>
+
+<!-- ══ プリセットモーダル ══ -->
+<div id="preset-modal-overlay" class="overlay hidden" style="z-index:200;">
+  <div class="modal-box" style="min-width:320px; max-width:400px;">
+    <h2 class="modal-title">📅 プリセット</h2>
+
+    <div id="panel-preset">
+      <h3 class="section-title-xs">📅 曜日別ワンタッチ設定</h3>
+      <div class="form-label-gap6">ボタンを押すとその曜日の新グリッドにブロックを一括生成します</div>
+      <div style="display:flex; flex-direction:column; gap:8px; margin-bottom:16px;">
+        <button class="btn-preset-blue" id="btn-preset-mon">
+          月曜日　<span class="btn-preset-label">7限・演劇部</span>
+        </button>
+        <button class="btn-preset-purple" id="btn-preset-tue">
+          火曜日　<span class="btn-preset-label">7限・執行部</span>
+        </button>
+        <button class="btn-preset-green" id="btn-preset-wed">
+          水曜日　<span class="btn-preset-label">6限・演劇部</span>
+        </button>
+        <button class="btn-preset-green" id="btn-preset-thu">
+          木曜日　<span class="btn-preset-label">6限・演劇部</span>
+        </button>
+        <button class="btn-preset-blue" id="btn-preset-fri">
+          金曜日　<span class="btn-preset-label">7限・演劇部</span>
+        </button>
+        <button class="btn-preset-all" id="btn-preset-all">
+          🗓 月〜金まとめて設定
+        </button>
+      </div>
+
+      <!-- ブロック時間カスタム設定（折りたたみ） -->
+      <button id="btn-toggle-blocktime" onclick="togglePresetSection('blocktime')" style="width:100%; text-align:left; padding:10px 14px; background:#f0f4ff; border:1.5px solid #c5d0f0; border-radius:8px; font-size:13px; font-weight:bold; color:#3a5aad; cursor:pointer; margin-bottom:4px; display:flex; justify-content:space-between; align-items:center;">
+        <span>⏱ ブロック時間のカスタム設定</span><span id="icon-blocktime">▼</span>
+      </button>
+      <div id="section-blocktime" style="display:none; padding:10px; background:#f8f9fb; border:1px solid #e0e8f0; border-radius:8px; margin-bottom:12px;">
+        <div class="form-label" style="margin-bottom:10px;">各ブロックの開始・終了時刻を変更できます</div>
+        <div id="block-time-editor" style="display:flex; flex-direction:column; gap:6px; margin-bottom:10px;"></div>
+        <button class="btn-save" style="margin-bottom:4px;" id="btn-save-block-time">💾 時間設定を保存</button>
+      </div>
+
+      <!-- 時間割テーブル（折りたたみ） -->
+      <button id="btn-toggle-timetable" onclick="togglePresetSection('timetable')" style="width:100%; text-align:left; padding:10px 14px; background:#f0f4ff; border:1.5px solid #c5d0f0; border-radius:8px; font-size:13px; font-weight:bold; color:#3a5aad; cursor:pointer; margin-bottom:4px; display:flex; justify-content:space-between; align-items:center;">
+        <span>📚 授業名プリセット</span><span id="icon-timetable">▼</span>
+      </button>
+      <div id="section-timetable" style="display:none; padding:10px; background:#f8f9fb; border:1px solid #e0e8f0; border-radius:8px; margin-bottom:12px;">
+        <div class="form-label" style="margin-bottom:8px;">各時限の授業名を入力してください（省略可）</div>
+        <div style="overflow-x:auto;">
+          <table id="timetable-edit" style="border-collapse:collapse; font-size:12px; width:100%;">
+            <thead>
+              <tr>
+                <th class="timetable-th">時限</th>
+                <th class="timetable-th">月</th>
+                <th class="timetable-th">火</th>
+                <th class="timetable-th">水</th>
+                <th class="timetable-th">木</th>
+                <th class="timetable-th">金</th>
+              </tr>
+            </thead>
+            <tbody id="timetable-edit-body"></tbody>
+          </table>
+        </div>
+        <button class="btn-save" style="margin-top:10px;" id="btn-save-timetable">💾 授業名を保存</button>
+      </div>
+    </div>
+
+    <button class="btn-close" style="margin-top:12px;">閉じる</button>
+  </div>
+</div>
+
+<!-- ══ 日メモモーダル（マンスリー用） ══ -->
+<div id="day-modal-overlay" class="overlay hidden" style="z-index:200;">
+  <div class="modal-box" style="min-width:300px; max-width:440px;">
+    <h2 id="day-modal-title" class="modal-title"></h2>
+    <div style="font-size:11px; color:#888; margin-bottom:4px;">📅 この日の色分け</div>
+    <div class="flex gap-6 flex-wrap" style="margin-bottom:10px;" id="day-modal-colors"></div>
+    <textarea id="day-modal-memo" class="input-full-lg" style="height:100px; resize:none; font-family:sans-serif;" placeholder="この日のメモを入力..."></textarea>
+    <div class="flex-center gap-8" style="margin-top:8px;">
+      <input type="checkbox" id="day-modal-check">
+      <label for="day-modal-check" style="font-size:14px;">完了</label>
+    </div>
+
+    <!-- ウィークリーへの誘導ボタン -->
+    <button id="day-modal-goto-weekly" style="width:100%; margin-top:10px; padding:8px 0; background:#e8f0fe; color:#1565c0; border:1.5px solid #90caf9; border-radius:8px; font-size:13px; font-weight:bold; cursor:pointer;">
+      📅 この日のウィークリーを表示
+    </button>
+
+    <div class="row-end" style="margin-top:10px;">
+      <button class="btn-delete" id="day-modal-clear">消す</button>
+      <button class="btn-save">保存</button>
+      <button class="btn-close">閉じる</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══ ファイルビューアモーダル ══ -->
+<div id="file-viewer-overlay" class="hidden" style="position:fixed; inset:0; background:rgba(0,0,0,0.88); z-index:600; align-items:center; justify-content:center; flex-direction:column; display:flex;">
+  <button style="position:absolute; top:16px; right:16px; background:rgba(255,255,255,0.15); border:none; color:white; font-size:22px; width:40px; height:40px; border-radius:50%; cursor:pointer; display:flex; align-items:center; justify-content:center;">✕</button>
+  <div id="file-viewer-content" style="max-width:92vw; max-height:88vh; display:flex; align-items:center; justify-content:center;"></div>
+  <div id="file-viewer-name" style="color:rgba(255,255,255,0.7); font-size:12px; margin-top:10px; text-align:center;"></div>
+</div>
+
+<!-- ══ ポモドーロ起動モーダル ══ -->
+<div id="pomodoro-modal-overlay" class="overlay hidden" style="z-index:350;">
+  <div class="modal-box" style="text-align:center; max-width:340px;">
+    <div style="font-size:32px; margin-bottom:8px;">🍅</div>
+    <div id="pom-subject" style="font-size:16px; font-weight:bold; margin-bottom:6px;"></div>
+    <div id="pom-pages" style="font-size:12px; color:#7a9fd4; margin-bottom:20px;"></div>
+    <button id="pom-go-btn" style="width:100%; padding:14px; background:#e05a2b; color:white; border:none; border-radius:10px; font-size:16px; font-weight:bold; cursor:pointer; margin-bottom:10px;">
+      ▶ ポモドーロタイマーへ
+    </button>
+    <div class="flex gap-8" style="justify-content:center; margin-top:4px;">
+      <button style="font-size:12px; color:#4a90e2; background:none; border:1px dashed #4a90e2; border-radius:6px; padding:5px 14px; cursor:pointer;">✏️ 予約を編集</button>
+      <button id="pom-delete-btn" style="font-size:12px; color:#e53935; background:none; border:1px solid #ef9a9a; border-radius:6px; padding:5px 14px; cursor:pointer;">🗑 削除</button>
+      <button style="font-size:12px; color:#aaa; background:none; border:1px solid #ddd; border-radius:6px; padding:5px 14px; cursor:pointer;">閉じる</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══ セル編集モーダル ══ -->
+<div id="cell-modal-overlay" class="overlay hidden" style="z-index:200;">
+  <div class="modal-box card">
+    <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:8px;">
+      <div id="cell-modal-title" style="font-size:15px; font-weight:bold;"></div>
+      <div id="cell-modal-time" style="font-size:12px; color:#888; background:#f3f4f6; padding:3px 10px; border-radius:10px;"></div>
+    </div>
+    <!-- 新規予約時の時刻セレクトがここに動的挿入される -->
+    <div id="cell-modal-time-selects" style="display:none; align-items:center; gap:6px; margin-bottom:10px; flex-wrap:wrap;">
+      <span style="font-size:12px; color:#555; font-weight:bold;">⏰ 時刻：</span>
+      <select id="ng-new-time-from" class="select-time" data-cp-label="開始時刻"></select>
+      <span style="font-size:12px; color:#888;">〜</span>
+      <select id="ng-new-end-date" class="select-date" style="font-size:11px; padding:3px 4px;"></select>
+      <select id="ng-new-time-to" class="select-time" data-cp-label="終了時刻"></select>
+    </div>
+    <div class="mode-tabs">
+      <button class="mode-tab active-study" id="mode-tab-study">📚 勉強予約</button>
+      <button class="mode-tab inactive"     id="mode-tab-event">📅 行事・予定</button>
+    </div>
+    <div id="panel-study">
+      <div class="form-label" style="margin-bottom:5px;">教材を選択（なしでもOK）</div>
+      <div id="mat-list" style="max-height:180px; overflow-y:auto; border:1px solid #e8eef8; border-radius:8px; padding:4px; margin-bottom:8px;"></div>
+      <button id="new-mat-toggle" style="font-size:12px; color:#4a90e2; border:1px dashed #4a90e2; background:#f0f6ff; border-radius:6px; padding:4px 12px; cursor:pointer; margin-bottom:4px;">
+        ＋ 新しい教材を追加
+      </button>
+      <div class="new-mat-form hidden" id="new-mat-form">
+        <input type="text" id="new-mat-name" placeholder="教材名（例：英単語帳、数学B）">
+        <div class="form-row">
+          <label class="form-label-color">色：</label>
+          <input type="color" id="new-mat-color" value="#4a90e2" class="input-color-picker">
+          <label class="form-label-color">カテゴリ：</label>
+          <input type="text" id="new-mat-category" placeholder="例：英語、数学" class="input-sm" style="flex:1;">
+          <button class="btn-add-sm">追加</button>
+        </div>
+      </div>
+      <div style="display:flex; align-items:center; gap:5px; margin-top:8px; flex-wrap:wrap;">
+        <label style="font-size:12px; color:#555; white-space:nowrap;">ページ予定：</label>
+        <input type="number" id="mat-page-from" min="0" placeholder="開始" style="width:64px; padding:4px 6px; border:1px solid #d0d8e8; border-radius:6px; font-size:12px;">
+        <span style="font-size:12px; color:#888;">〜</span>
+        <input type="number" id="mat-page-to" min="0" placeholder="終了" style="width:64px; padding:4px 6px; border:1px solid #d0d8e8; border-radius:6px; font-size:12px;">
+        <span style="font-size:12px; color:#888;">p</span>
+      </div>
+    </div>
+    <div id="panel-event" class="hidden">
+      <div class="form-block">
+        <label class="form-label">タイトル</label>
+        <input type="text" id="event-title" placeholder="例：部活、外出、塾、模試..." class="input-full-lg">
+      </div>
+      <div class="form-block">
+        <label class="form-label-gap6">色</label>
+        <div id="event-color-swatches" class="flex flex-wrap gap-6"></div>
+      </div>
+
+      <div>
+        <label class="form-label">メモ</label>
+        <textarea id="event-memo" rows="2" class="input-full" style="border-radius:8px; resize:none; font-family:sans-serif;" placeholder="メモを入力..."></textarea>
+      </div>
+    </div>
+    <div class="row-end-wrap">
+      <button class="btn-delete">消す</button>
+      <button id="cell-save-btn" class="btn-save">保存</button>
+      <button class="btn-close">閉じる</button>
+    </div>
+  </div>
+</div>
+
+  <!-- ══ 自由記録モーダル ══ -->
+<div id="free-record-overlay" class="overlay hidden" style="z-index:350;">
+  <div class="modal-box" style="max-width:400px;">
+    <h2 class="modal-title-sm">✏️ 自由記録（予約外の勉強）</h2>
+    <div style="display:flex; flex-direction:column; gap:10px;">
+      <div>
+        <label class="form-label">教材名 <span class="form-required">*</span></label>
+        <input type="text" id="fr-name" placeholder="例：過去問、英単語帳" class="input-full">
+      </div>
+      <div>
+        <label class="form-label">日付 <span class="form-required">*</span></label>
+        <input type="date" id="fr-date" class="input-full">
+      </div>
+      <div class="flex gap-8">
+        <div style="flex:1;">
+          <label class="form-label">勉強時間（時間）</label>
+          <input type="number" id="fr-hours" min="0" max="24" value="0" class="input-full">
+        </div>
+        <div style="flex:1;">
+          <label class="form-label">勉強時間（分）</label>
+          <input type="number" id="fr-minutes" min="0" max="59" step="5" value="0" class="input-full">
+        </div>
+      </div>
+      <div class="flex gap-8">
+        <div style="flex:1;">
+          <label class="form-label">ページ（from）</label>
+          <input type="number" id="fr-page-from" min="1" placeholder="例：100" class="input-full">
+        </div>
+        <div style="flex:1;">
+          <label class="form-label">ページ（to）</label>
+          <input type="number" id="fr-page-to" min="1" placeholder="例：120" class="input-full">
+        </div>
+      </div>
+      <div>
+        <label class="form-label">メモ</label>
+        <textarea id="fr-memo" rows="2" placeholder="自由に記入..." class="input-full" style="resize:none; font-family:sans-serif;"></textarea>
+      </div>
+    </div>
+    <div class="row-end">
+      <button class="btn-save-green">保存</button>
+      <button class="btn-close">閉じる</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══ 考査管理モーダル ══ -->
+<div id="exam-overlay" class="overlay hidden" style="z-index:200;">
+  <div class="modal-box" style="max-width:520px;">
+
+    <!-- ステップヘッダー -->
+    <div class="row-between">
+      <div class="step-header">
+        <span id="exam-step-label">STEP 1</span>
+        <span id="exam-step-desc" style="color:#333; font-weight:normal;">考査・模試を選択</span>
+      </div>
+      <button class="btn-icon-close">✕</button>
+    </div>
+
+    <!-- STEP1: 考査一覧 -->
+    <div id="exam-step1" class="exam-step active">
+      <div id="exam-list" style="max-height:240px; overflow-y:auto; margin-bottom:12px;"></div>
+      <div style="border:1.5px dashed #ce93d8; border-radius:10px; padding:12px; background:#fdf5ff;">
+        <div style="font-size:12px; font-weight:bold; color:#6a1b9a; margin-bottom:8px;">＋ 考査・模試を追加</div>
+        <div class="flex gap-8 flex-wrap" style="align-items:center; margin-bottom:8px;">
+          <input type="text" id="exam-new-name" placeholder="例：1学期中間考査" class="input" style="flex:1; min-width:140px;">
+        </div>
+        <div class="flex gap-8 flex-wrap" style="align-items:center;">
+          <span style="font-size:12px; color:#6a1b9a; white-space:nowrap;">📅 期間</span>
+          <input type="date" id="exam-new-date-from" class="input-sm" style="padding:6px 8px;">
+          <span style="font-size:12px; color:#888;">〜</span>
+          <input type="date" id="exam-new-date" class="input-sm" style="padding:6px 8px;">
+          <button class="btn-add-purple">追加</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- STEP2: 提出物一覧 -->
+    <div id="exam-step2" class="exam-step">
+      <button class="btn-text-back">← 考査一覧に戻る</button>
+      <div id="exam-submission-list" style="max-height:220px; overflow-y:auto; margin-bottom:12px;"></div>
+      <div style="border:1px dashed #bbb; border-radius:8px; padding:10px; background:#fafafa;">
+        <div class="form-label" style="margin-bottom:6px; font-weight:bold;">＋ 提出物を追加</div>
+        <div class="flex gap-6 flex-wrap" style="align-items:center; margin-bottom:6px;">
+          <input type="text" id="sub-new-subject" placeholder="科目（例：数学）" class="input-sm" style="width:80px;">
+          <input type="text" id="sub-new-name" placeholder="提出物名（例：問題集p.1〜50）" class="input-sm" style="flex:1; min-width:120px;">
+        </div>
+        <div class="flex gap-6 flex-wrap" style="align-items:center;">
+          <input type="date" id="sub-new-deadline" class="input-sm" style="padding:5px 8px;">
+          <label class="form-label-inline-flex">
+            <input type="checkbox" id="sub-new-hasprog"> 進捗管理
+          </label>
+          <button class="btn-add-purple-sm">追加</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- STEP3: 提出物の進捗詳細 -->
+    <div id="exam-step3" class="exam-step">
+      <button class="btn-text-back">← 提出物一覧に戻る</button>
+      <div id="exam-sub-detail" class="mb-14"></div>
+    </div>
+
+    <div style="display:flex; justify-content:flex-end; margin-top:14px;">
+      <button class="btn-close-lg">閉じる</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══ 進捗管理モーダル ══ -->
+<div id="progress-overlay" class="overlay hidden" style="z-index:200;">
+  <div class="prog-modal-box card">
+    <div class="row-between">
+      <h2 id="prog-mat-name" class="modal-title-none"></h2>
+      <button class="btn-icon-close">✕</button>
+    </div>
+
+    <!-- 締切日 -->
+    <div class="flex-center gap-8 mb-14" style="padding:10px; background:#f8f9fb; border-radius:10px;">
+      <span style="font-size:13px; color:#555; white-space:nowrap;">📅 締切日：</span>
+      <input type="date" id="prog-deadline" class="input-sm" style="flex:1;">
+      <span id="prog-deadline-badge" class="deadline-warning hidden"></span>
+    </div>
+
+    <!-- 周回タブ（教材全体で共通） -->
+    <div class="mb-14" style="padding:10px; background:#f0f6ff; border-radius:10px;">
+      <div style="font-size:12px; color:#666; font-weight:bold; margin-bottom:6px;">📖 周回（教材全体）</div>
+      <div id="prog-round-tabs" class="flex flex-wrap gap-6"></div>
+      <button class="btn-round-add">＋ 周追加</button>
+    </div>
+
+    <!-- 章タブ -->
+    <div style="margin-bottom:10px;">
+      <div class="flex-between" style="margin-bottom:6px;">
+        <div style="font-size:12px; color:#666; font-weight:bold;">📑 章</div>
+        <button class="btn-chapter-add">＋ 章を追加</button>
+      </div>
+      <div id="prog-chapter-tabs" class="flex flex-wrap gap-6" style="margin-bottom:8px;"></div>
+    </div>
+
+    <!-- 現在の章のヘッダー -->
+    <div id="prog-chapter-header" class="hidden" style="margin-bottom:10px; padding:8px 12px; background:#fdf3ff; border-radius:8px; border-left:3px solid #9c27b0;">
+      <div class="flex-center gap-8 flex-wrap">
+        <input id="prog-chapter-name" type="text" placeholder="章の名前（例：1章 式と計算）" class="input-sm" style="flex:1; min-width:120px;">
+        <input type="number" id="prog-total" min="1" placeholder="問題数" class="input-sm" style="width:80px;">
+        <button class="btn-apply-sm">適用</button>
+        <button class="btn-delete-sm">削除</button>
+      </div>
+    </div>
+
+    <!-- プログレスバー（現在の章） -->
+    <div class="mb-14">
+      <div class="flex-between" style="font-size:12px; color:#666; margin-bottom:4px;">
+        <span id="prog-stats-label">章を選択してください</span>
+        <span id="prog-pct-label" style="font-weight:bold; color:#4a90e2;"></span>
+      </div>
+      <div style="background:#e0e0e0; border-radius:6px; height:12px; overflow:hidden;">
+        <div id="prog-bar-fill" style="height:100%; width:0%; background:linear-gradient(90deg,#43a047,#66bb6a); border-radius:6px; transition:width .4s;"></div>
+      </div>
+    </div>
+
+    <!-- 問題リスト -->
+    <div id="prog-question-list" style="max-height:320px; overflow-y:auto;"></div>
+
+    <!-- 保存ボタン -->
+    <div class="row-end">
+      <button class="btn-save-lg">💾 保存</button>
+      <button class="btn-close-lg">閉じる</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══ 教材管理モーダル ══ -->
+<div id="mat-manage-overlay" class="overlay hidden" style="z-index:200;">
+  <div class="modal-box" style="max-width:460px;">
+    <h2 class="modal-title-sm">📚 教材管理</h2>
+    <div id="mat-manage-list" style="max-height:300px; overflow-y:auto; margin-bottom:14px;"></div>
+    <div class="new-mat-form">
+      <div style="font-size:12px; font-weight:bold; color:#555; margin-bottom:8px;">新しい教材を追加</div>
+      <input type="text" id="manage-mat-name" placeholder="教材名（例：古文単語、物理基礎）">
+      <div class="form-row">
+        <label class="form-label-color">色：</label>
+        <input type="color" id="manage-mat-color" value="#e07b54" class="input-color-picker">
+        <label class="form-label-color">カテゴリ：</label>
+        <input type="text" id="manage-mat-category" placeholder="例：英語、数学" class="input-sm" style="flex:1;">
+        <button class="btn-add-sm">追加</button>
+      </div>
+    </div>
+    <div style="display:flex; justify-content:flex-end; margin-top:16px;">
+      <button class="btn-close">閉じる</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══ TOP BAR ══ -->
+<div id="top-bar">
+
+  <!-- 左：日付・時刻ブロック -->
+  <div id="topbar-datetime">
+    <div id="topbar-date-row">
+      <span id="topbar-date"></span>
+      <span id="topbar-weekday"></span>
+    </div>
+    <div id="topbar-time"></div>
+    <div id="topbar-status-row">
+      <span id="offline-indicator" class="status-offline hidden">📵 オフライン</span>
+      <span id="sync-indicator"   class="status-sync hidden">✅ 同期完了</span>
+    </div>
+  </div>
+
+  <!-- 中央：ビュー切替 ＋ 週／月ナビ -->
+  <div id="topbar-center">
+    <div id="topbar-view-tabs">
+      <button id="btn-weekly"  class="topbar-view-tab active-tab">ウィークリー</button>
+      <button id="btn-monthly" class="topbar-view-tab">マンスリー</button>
+    </div>
+    <div id="topbar-nav-row">
+      <div id="week-nav" style="align-items:center; gap:6px; display:flex;">
+        <button class="topbar-nav-btn">‹</button>
+        <span id="week-label" class="topbar-nav-label"></span>
+        <button class="topbar-nav-btn">›</button>
+      </div>
+      <div id="month-nav" class="hidden" style="align-items:center; gap:6px;">
+        <button class="topbar-nav-btn">‹</button>
+        <span id="month-label" class="topbar-nav-label"></span>
+        <button class="topbar-nav-btn">›</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 右：締切カウントダウン -->
+  <div id="memo-area">
+    <div id="memo-label">📅 締切カウントダウン</div>
+    <div id="deadline-panel" style="display:flex; height:90px; border:0.5px solid #ddd; border-radius:8px; overflow:hidden; background:#fff; font-size:12px;">
+      <div id="dl-counter" style="flex:0 0 33.333%; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:2px; border-right:0.5px solid #ddd;">
+        <span id="dl-counter-num" style="font-size:40px; font-weight:500; line-height:1;">-</span>
+        <span id="dl-counter-unit" style="font-size:11px; color:#888;">日後</span>
+        <span id="dl-counter-name" style="font-size:10px; color:#aaa; max-width:90%; overflow:hidden; white-space:nowrap; text-overflow:ellipsis; text-align:center;"></span>
+      </div>
+      <div id="deadline-list" style="flex:1; overflow-y:auto; padding:8px 10px; display:flex; flex-direction:column; gap:5px;"></div>
+      <div id="deadline-empty" class="hidden" style="flex:1; display:flex; align-items:center; justify-content:center; color:#bbb; font-size:12px;">締切が設定された提出物はありません</div>
+    </div>
+  </div>
+
+  <!-- メニューボタン（⋮） -->
+  <div id="topbar-menu-wrap">
+    <button id="topbar-menu-btn" title="メニュー">⋮</button>
+    <div id="topbar-menu-dropdown" class="hidden">
+      <button id="btn-settings"         class="topbar-menu-item">⚙️ 設定</button>
+      <button id="btn-preset"           class="topbar-menu-item">📅 プリセット</button>
+      <button class="btn-topbar-record  topbar-menu-item">✏️ 自由記録</button>
+      <button class="btn-topbar-exam    topbar-menu-item">📝 考査管理</button>
+      <button id="btn-print"            class="topbar-menu-item">🖨 印刷</button>
+    </div>
+  </div>
+
+</div>
+
+<!-- 新旧グリッド切り替えボタン（ウィークリービュー内のみ表示） -->
+
+
+<!-- ローディングオーバーレイ -->
+<div id="loading-overlay" style="display:none; position:fixed; inset:0; z-index:999; background:rgba(255,255,255,0.75); align-items:center; justify-content:center; flex-direction:column; gap:12px;">
+  <div style="width:36px; height:36px; border:4px solid #d0d8f0; border-top-color:#4a90e2; border-radius:50%; animation:spin 0.7s linear infinite;"></div>
+  <div style="font-size:14px; color:#4a90e2; font-weight:bold;">読み込み中...</div>
+</div>
+<style>
+@keyframes spin { to { transform: rotate(360deg); } }
+/* 日またぎブロック：カラム間の境界線を強調 */
+.ng-block-multiday {
+  border-left: 3px solid rgba(255,255,255,0.6) !important;
+}
+/* nav.jsの_nav_side（右端46px）と重ならないようにtop-barの右にスペース確保 */
+#top-bar {
+  padding-right: calc(10px + 46px + env(safe-area-inset-right, 0px)) !important;
 }
 
-var _NAV_CURRENT_IDX = -1;
 
-// ログイン画面かどうかを判定してnavを初期化する
-function _initNav() {
-  var filename = location.pathname.split('/').pop() || 'index.html';
-  _NAV_CURRENT_IDX = NAV_PAGES.findIndex(function(p) { return p.file === filename; });
-  if (_NAV_CURRENT_IDX === -1) return;
+/* ══ トップバー新デザイン ══ */
+#top-bar {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 10px 16px;
+  padding-left: calc(16px + env(safe-area-inset-left, 0px));
+  padding-right: calc(16px + 46px + env(safe-area-inset-right, 0px));
+  background: linear-gradient(135deg, #1a2540 0%, #2c3e6b 100%);
+  border-bottom: none;
+  box-shadow: 0 2px 12px rgba(0,0,0,0.18);
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  min-height: 72px;
+}
 
-  var style = document.createElement('style');
-  style.id = '_nav_style';
-  style.textContent = [
-    '#_nav_curtain{position:fixed;inset:0;z-index:9998;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;pointer-events:none;transform:translateX(100%);background:#f5f5f0;}',
-    '#_nav_curtain_icon{font-size:56px;}',
-    '#_nav_curtain_title{font-size:18px;font-weight:700;color:#444;font-family:"Hiragino Kaku Gothic ProN",sans-serif;}',
+/* ── 日付・時刻ブロック ── */
+#topbar-datetime {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  flex-shrink: 0;
+  min-width: 140px;
+}
+#topbar-date-row {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+}
+#topbar-date {
+  font-size: 13px;
+  font-weight: 500;
+  color: rgba(255,255,255,0.7);
+  letter-spacing: 0.5px;
+}
+#topbar-weekday {
+  font-size: 13px;
+  font-weight: bold;
+  color: #4a90e2;
+}
+#topbar-time {
+  font-size: 36px;
+  font-weight: 200;
+  color: #ffffff;
+  letter-spacing: 2px;
+  line-height: 1;
+}
+#topbar-status-row {
+  min-height: 16px;
+}
 
-    /* 右端ボタングループ */
-    '#_nav_side{position:fixed;right:env(safe-area-inset-right,0);top:50%;transform:translateY(-50%);z-index:10001;display:flex;flex-direction:column;border-radius:12px 0 0 12px;overflow:hidden;box-shadow:-3px 0 16px rgba(0,0,0,0.14);}',
-    '.side-btn{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;width:46px;padding:13px 0;border:none;cursor:pointer;font-family:"Hiragino Kaku Gothic ProN",sans-serif;transition:filter .15s,transform .12s;-webkit-tap-highlight-color:transparent;position:relative;}',
-    '.side-btn+.side-btn{border-top:1px solid rgba(255,255,255,0.22);}',
-    '.side-btn:active{filter:brightness(0.86);transform:scaleX(0.93);}',
-    '.side-btn .side-icon{font-size:19px;line-height:1;}',
-    '.side-btn .side-label{font-size:9px;font-weight:700;writing-mode:vertical-rl;letter-spacing:0.08em;line-height:1;}',
-    '.side-btn.current{filter:brightness(0.78);cursor:default;}',
-    '.side-btn.current::before{content:"";position:absolute;left:0;top:20%;bottom:20%;width:3px;border-radius:0 2px 2px 0;background:rgba(255,255,255,0.9);}',
+/* ── 中央：ビュー切替＋ナビ ── */
+#topbar-center {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+}
+#topbar-view-tabs {
+  display: flex;
+  background: rgba(255,255,255,0.1);
+  border-radius: 20px;
+  padding: 3px;
+  gap: 2px;
+}
+.topbar-view-tab {
+  padding: 4px 16px;
+  border: none;
+  background: transparent;
+  color: rgba(255,255,255,0.6);
+  font-size: 12px;
+  font-weight: bold;
+  border-radius: 16px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+.topbar-view-tab.active-tab {
+  background: #ffffff;
+  color: #1a2540;
+}
+#topbar-nav-row {
+  display: flex;
+  align-items: center;
+}
+.topbar-nav-btn {
+  width: 28px;
+  height: 28px;
+  border: 1.5px solid rgba(255,255,255,0.25);
+  background: rgba(255,255,255,0.08);
+  color: #fff;
+  border-radius: 50%;
+  font-size: 16px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.15s;
+  padding: 0;
+  line-height: 1;
+}
+.topbar-nav-btn:hover {
+  background: rgba(255,255,255,0.2);
+}
+.topbar-nav-label {
+  font-size: 12px;
+  color: rgba(255,255,255,0.85);
+  min-width: 100px;
+  text-align: center;
+  font-weight: 500;
+}
 
-    /* 下部タブバー */
-    '#_nav_bar{position:fixed;bottom:0;left:0;right:0;height:calc(58px + env(safe-area-inset-bottom, 0px));background:rgba(255,255,255,0.95);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);border-top:1px solid rgba(0,0,0,0.08);display:flex;z-index:10000;box-shadow:0 -2px 12px rgba(0,0,0,0.06);padding-bottom:env(safe-area-inset-bottom, 0px);}',
-    '.nav-tab{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;border:none;background:none;cursor:pointer;padding:6px 0;font-family:"Hiragino Kaku Gothic ProN",sans-serif;transition:transform .12s;-webkit-tap-highlight-color:transparent;position:relative;}',
-    '.nav-tab:active{transform:scale(0.91);}',
-    '.nav-tab .tab-icon{font-size:22px;line-height:1;transition:transform .18s;}',
-    '.nav-tab .tab-label{font-size:10px;font-weight:600;color:#aaa;letter-spacing:0.03em;transition:color .18s;}',
-    '.nav-tab.active .tab-icon{transform:scale(1.15) translateY(-1px);}',
-    '.nav-tab.active .tab-label{color:var(--tc,#333);}',
-    '.nav-tab.active::after{content:"";position:absolute;bottom:0;left:50%;transform:translateX(-50%);width:28px;height:3px;border-radius:3px 3px 0 0;background:var(--tc,#333);}',
+/* ── 右：締切カウントダウン ── */
+#memo-area {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  margin-right: 0;
+  min-width: 0;
+}
+#memo-label {
+  font-size: 11px;
+  color: rgba(255,255,255,0.5);
+  margin-bottom: 4px;
+}
+#deadline-panel {
+  background: rgba(255,255,255,0.07) !important;
+  border: 1px solid rgba(255,255,255,0.15) !important;
+  border-radius: 10px !important;
+}
+#dl-counter {
+  border-right: 1px solid rgba(255,255,255,0.15) !important;
+}
+#dl-counter-num {
+  color: #ffffff !important;
+}
+#dl-counter-unit {
+  color: rgba(255,255,255,0.5) !important;
+}
+#dl-counter-name {
+  color: rgba(255,255,255,0.4) !important;
+}
+#deadline-list {
+  color: rgba(255,255,255,0.85);
+}
+#deadline-empty {
+  color: rgba(255,255,255,0.3) !important;
+}
 
-    '/* body padding-bottom削除 */'
-  ].join('');
-  document.head.appendChild(style);
+/* ── メニューボタン（⋮） ── */
+#topbar-menu-wrap {
+  position: relative;
+  flex-shrink: 0;
+}
+#topbar-menu-btn {
+  width: 36px;
+  height: 36px;
+  border: 1.5px solid rgba(255,255,255,0.25);
+  background: rgba(255,255,255,0.08);
+  color: #fff;
+  border-radius: 50%;
+  font-size: 20px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.15s;
+  padding: 0;
+  line-height: 1;
+  writing-mode: vertical-rl;
+  letter-spacing: -2px;
+}
+#topbar-menu-btn:hover {
+  background: rgba(255,255,255,0.2);
+}
+#topbar-menu-dropdown {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  background: #fff;
+  border: 1px solid #e0e8f8;
+  border-radius: 12px;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.18);
+  padding: 6px;
+  z-index: 300;
+  min-width: 160px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+#topbar-menu-dropdown.hidden { display: none; }
+.topbar-menu-item {
+  width: 100%;
+  text-align: left;
+  padding: 9px 14px;
+  border: none;
+  background: transparent;
+  border-radius: 8px;
+  font-size: 13px;
+  color: #333;
+  cursor: pointer;
+  transition: background 0.12s;
+}
+.topbar-menu-item:hover {
+  background: #f0f4ff;
+}
 
-  /* カーテン */
-  var curtain = document.createElement('div');
-  curtain.id = '_nav_curtain';
-  curtain.innerHTML = '<div id="_nav_curtain_icon"></div><div id="_nav_curtain_title"></div>';
-  document.body.appendChild(curtain);
+/* ── ステータスバッジ（ダーク背景対応） ── */
+.status-offline {
+  font-size: 11px;
+  color: #ff8a80;
+}
+.status-sync {
+  font-size: 11px;
+  color: #69f0ae;
+}
 
-  /* 右端ボタン */
-  var side = document.createElement('div');
-  side.id = '_nav_side';
-  NAV_PAGES.forEach(function(page, idx) {
-    var btn = document.createElement('button');
-    btn.className = 'side-btn' + (idx === _NAV_CURRENT_IDX ? ' current' : '');
-    btn.style.background = page.color;
-    btn.style.color = '#fff';
-    btn.innerHTML = '<span class="side-icon">' + page.label + '</span><span class="side-label">' + page.title + '</span>';
-    btn.addEventListener('click', function() { navigateTo(idx); });
-    side.appendChild(btn);
+/* ══ クロックピッカー ══ */
+.cp-trigger {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 10px;
+  border: 1.5px solid #c5d0f0;
+  border-radius: 8px;
+  background: #f5f8ff;
+  font-size: 13px;
+  font-weight: bold;
+  color: #3a5aad;
+  cursor: pointer;
+  user-select: none;
+  min-width: 64px;
+  justify-content: center;
+  transition: background 0.15s;
+}
+.cp-trigger:hover { background: #e0eaff; }
+.cp-trigger .cp-icon { font-size: 14px; }
+
+/* オーバーレイ */
+#cp-overlay {
+  position: fixed; inset: 0;
+  z-index: 9999;
+  display: none;
+  align-items: center;
+  justify-content: center;
+}
+#cp-overlay.cp-open { display: flex; }
+#cp-backdrop {
+  position: absolute; inset: 0;
+  background: rgba(0,0,0,0.35);
+}
+#cp-popup {
+  position: relative; z-index: 1;
+  background: #fff;
+  border-radius: 18px;
+  padding: 18px 20px 16px;
+  box-shadow: 0 8px 40px rgba(0,0,0,0.22);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  min-width: 260px;
+}
+#cp-title {
+  font-size: 13px; font-weight: bold; color: #555;
+  align-self: flex-start; margin-bottom: -4px;
+}
+/* モード切替タブ */
+#cp-mode-row {
+  display: flex; gap: 6px; margin-bottom: 2px;
+}
+.cp-mode-btn {
+  flex: 1;
+  padding: 5px 0;
+  border: 1.5px solid #c5d0f0;
+  border-radius: 8px;
+  background: #f5f8ff;
+  font-size: 12px; font-weight: bold; color: #3a5aad;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+}
+.cp-mode-btn.active {
+  background: #3a5aad; color: #fff; border-color: #3a5aad;
+}
+/* 時計盤 */
+#cp-clock-wrap {
+  position: relative;
+  width: 200px; height: 200px;
+}
+#cp-svg { width: 200px; height: 200px; display: block; touch-action: none; }
+/* デジタル表示 */
+#cp-digital {
+  font-size: 28px; font-weight: bold; color: #2a4a9a;
+  letter-spacing: 1px;
+  background: #f0f5ff; border-radius: 10px;
+  padding: 4px 18px;
+}
+#cp-digital span { cursor: pointer; border-radius: 6px; padding: 0 2px; }
+#cp-digital span:hover { background: #d0e0ff; }
+/* 時・分の数値直接入力 */
+#cp-num-row {
+  display: flex; align-items: center; gap: 6px;
+}
+.cp-num-input {
+  width: 48px; text-align: center;
+  border: 1.5px solid #c5d0f0; border-radius: 8px;
+  font-size: 20px; font-weight: bold; color: #2a4a9a;
+  padding: 4px 0; background: #f5f8ff;
+}
+.cp-num-sep { font-size: 22px; font-weight: bold; color: #888; }
+/* ボタン行 */
+#cp-btn-row {
+  display: flex; gap: 8px; width: 100%;
+}
+#cp-btn-row button {
+  flex: 1; padding: 8px 0;
+  border-radius: 8px; border: none;
+  font-size: 13px; font-weight: bold; cursor: pointer;
+}
+#cp-btn-cancel { background: #f0f0f0; color: #666; }
+#cp-btn-ok     { background: #3a5aad; color: #fff; }
+</style>
+
+<!-- 新グリッド（Phase 2 - 10分スロット） -->
+<div id="weekly-view-new" style="position:relative; z-index:1;"></div>
+
+<!-- ウィークリー -->
+
+
+<!-- マンスリー -->
+<div id="monthly-view" class="hidden" style="padding:10px; box-sizing:border-box; width:100%;">
+  <div id="monthly-calendar" style="display:grid; grid-template-columns:repeat(7,1fr); width:100%; box-sizing:border-box; padding-right:10px;"></div>
+</div>
+
+<script>
+// ════════════════════════════════════════
+// Firebase
+// ════════════════════════════════════════
+const firebaseConfig = {
+  apiKey: "YOUR_API_KEY",
+  authDomain: "YOUR_AUTH_DOMAIN",
+  projectId: "YOUR_PROJECT_ID",
+  storageBucket: "YOUR_STORAGE_BUCKET",
+  messagingSenderId: "YOUR_MESSAGING_SENDER_ID",
+  appId: "YOUR_APP_ID"
+};
+firebase.initializeApp(firebaseConfig);
+const db = firebase.firestore();
+const storage = firebase.storage();
+const auth = firebase.auth();
+
+// ════════════════════════════════════════
+// IndexedDB
+// ════════════════════════════════════════
+// ════════════════════════════════════════
+// IndexedDB 統合レイヤー
+// 接続を使い回し、全データをIDB優先で読み書き
+// Firestoreはバックグラウンド同期のみ
+// ════════════════════════════════════════
+let _idb = null;
+function openIDB() {
+  if (_idb) return Promise.resolve(_idb);
+  return new Promise((res, rej) => {
+    const r = indexedDB.open("scheduleDB", 5);
+    r.onupgradeneeded = e => {
+      const db = e.target.result;
+      // 既存
+      if (!db.objectStoreNames.contains("cells"))     db.createObjectStore("cells",     { keyPath:"id" });
+      if (!db.objectStoreNames.contains("pending"))   db.createObjectStore("pending",   { keyPath:"id" });
+      if (!db.objectStoreNames.contains("materials")) db.createObjectStore("materials", { keyPath:"id" });
+      // 新規追加（v3）
+      if (!db.objectStoreNames.contains("monthly"))   db.createObjectStore("monthly",   { keyPath:"id" });
+      if (!db.objectStoreNames.contains("config"))    db.createObjectStore("config",    { keyPath:"id" });
+      if (!db.objectStoreNames.contains("progress"))  db.createObjectStore("progress",  { keyPath:"id" });
+      if (!db.objectStoreNames.contains("freeRec"))   db.createObjectStore("freeRec",   { keyPath:"id" });
+    };
+    r.onsuccess = e => { _idb = e.target.result; res(_idb); };
+    r.onerror   = e => rej(e.target.error);
   });
-  document.body.appendChild(side);
+}
+async function idbSet(store, val) {
+  const db = await openIDB();
+  return new Promise((res, rej) => {
+    const tx = db.transaction(store, "readwrite");
+    tx.objectStore(store).put(val);
+    tx.oncomplete = res;
+    tx.onerror = e => rej(e.target.error);
+  });
+}
+async function idbGet(store, id) {
+  const db = await openIDB();
+  return new Promise((res, rej) => {
+    const tx = db.transaction(store, "readonly");
+    const r  = tx.objectStore(store).get(id);
+    r.onsuccess = e => res(e.target.result || null);
+    r.onerror   = e => rej(e.target.error);
+  });
+}
+async function idbGetAll(store) {
+  const db = await openIDB();
+  return new Promise((res, rej) => {
+    const tx = db.transaction(store, "readonly");
+    const r  = tx.objectStore(store).getAll();
+    r.onsuccess = e => res(e.target.result);
+    r.onerror   = e => rej(e.target.error);
+  });
+}
+async function idbDelete(store, id) {
+  const db = await openIDB();
+  return new Promise((res, rej) => {
+    const tx = db.transaction(store, "readwrite");
+    tx.objectStore(store).delete(id);
+    tx.oncomplete = res;
+    tx.onerror = e => rej(e.target.error);
+  });
+}
 
-  /* 下部タブバー：非表示 */
+// ── Firestoreへのバックグラウンド同期（fire-and-forget） ──
+function syncToFirestore(collection, docId, data) {
+  if (!navigator.onLine) return;
+  db.collection(collection).doc(docId).set(data, { merge: true })
+    .catch(e => console.warn('[sync]', e));
+}
+// ── Firestoreから取得してIDBに保存（起動時同期） ──
+async function fetchAndCacheFirestore(collection, docId, store, id) {
+  try {
+    const doc = await db.collection(collection).doc(docId).get();
+    if (!doc.exists) return null;
+    const data = doc.data();
+    await idbSet(store, { id, ...data });
+    return data;
+  } catch(e) {
+    console.warn('[fetchAndCache]', e);
+    return null;
+  }
+}
 
-  /* フェードイン */
-  var prevIdx = parseInt(sessionStorage.getItem('_nav_prev') || '-1');
-  var fromRight = _NAV_CURRENT_IDX > prevIdx;
-  document.body.style.opacity   = '0';
-  document.body.style.transform = fromRight ? 'translateX(24px)' : 'translateX(-24px)';
-  sessionStorage.setItem('_nav_prev', String(_NAV_CURRENT_IDX));
+// ════════════════════════════════════════
+// オフライン
+// ════════════════════════════════════════
+function updateOnlineStatus() {
+  document.getElementById("offline-indicator").classList.toggle("hidden", navigator.onLine);
+}
+window.addEventListener("online",  updateOnlineStatus);
+window.addEventListener("offline", updateOnlineStatus);
+updateOnlineStatus();
 
-  requestAnimationFrame(function() {
-    requestAnimationFrame(function() {
-      document.body.style.transition = 'opacity 0.22s ease, transform 0.22s cubic-bezier(0.22,0.61,0.36,1)';
-      document.body.style.opacity    = '1';
-      document.body.style.transform  = 'translateX(0)';
-      setTimeout(function() {
-        document.body.style.transition = '';
-        document.body.style.transform  = ''; // fixed要素のズレを防ぐためリセット
-      }, 260);
+window.addEventListener("online", async () => {
+  const pendings = await idbGetAll("pending");
+  if (!pendings.length) return;
+  for (const e of pendings) {
+    // Phase 7: 新キー形式対応 - pending キューも新キーで管理
+    const u = {}; u[e.key] = { 
+      text:e.text, 
+      color:e.color, 
+      checked:e.checked, 
+      cell:e.cell||null,
+      mode: e.mode || 'schedule',
+      title: e.title || '',
+      startMin: e.startMin,
+      endMin: e.endMin
+    };
+    try {
+      await db.collection("schedules2").doc(e.docId).set(u, { merge:true });
+      await idbDelete("pending", e.id);
+    } catch(err) { console.error("sync fail:", err); }
+  }
+  const s = document.getElementById("sync-indicator");
+  s.classList.remove("hidden");
+  setTimeout(() => s.classList.add("hidden"), 2000);
+  loadWeekNew().then(() => renderNewGrid());
+});
+
+// ════════════════════════════════════════
+// 状態
+// ════════════════════════════════════════
+let currentColor    = "";
+let currentWeek     = 0;
+let currentWeekDocId = "";
+let currentView     = "weekly";
+let currentMonthDate = new Date();
+let weekStartDay    = parseInt(localStorage.getItem("weekStartDay") || "1");
+const allDayNames   = ["日","月","火","水","木","金","土"];
+let customColors    = JSON.parse(localStorage.getItem("customColors") || "[]");
+let currentDayKey   = "";
+let currentMonthDocId = "";
+let currentMonthData  = {};
+let materials       = [];
+
+let summaryChart    = null;
+
+let cellModalId     = null;
+let cellModalCol    = null;
+let cellModalHour   = null;
+let cellModalMode   = "study";
+let matSelectedId   = null;
+let eventSelColor   = "#ffadad";
+
+// ════════════════════════════════════════
+// ユーティリティ
+// ════════════════════════════════════════
+function adjustHeaderTop() {
+  const h = document.getElementById("top-bar").offsetHeight;
+  document.querySelectorAll(".header").forEach(el => el.style.top = h + "px");
+  document.getElementById("monthly-view").style.paddingTop = h + "px";
+}
+function getTextColor(hex) {
+  if (!hex || hex.length < 4) return "#000";
+  let h = hex.replace("#","");
+  if (h.length === 3) h = h.split("").map(c=>c+c).join("");
+  const r=parseInt(h.substring(0,2),16), g=parseInt(h.substring(2,4),16), b=parseInt(h.substring(4,6),16);
+  return (0.299*r+0.587*g+0.114*b)/255 > 0.5 ? "#000" : "#fff";
+}
+function getColorStyle(colorKey) {
+  if (!colorKey) return "";
+  if (colorKey === "study") return "#a0c4ff";
+  if (colorKey === "club")  return "#ffadad";
+  if (colorKey === "rest")  return "#caffbf";
+  if (colorKey.startsWith("custom-")) {
+    const idx = parseInt(colorKey.split("-")[1]);
+    return customColors[idx] ? customColors[idx].color : "";
+  }
+  return "";
+}
+function escHtml(str) {
+  return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+// ════════════════════════════════════════
+// ビュー切り替え
+// ════════════════════════════════════════
+function switchView(view) {
+  currentView = view;
+  // 切り替えバーはウィークリーのときだけ表示
+
+  document.getElementById("monthly-view").classList.toggle("hidden", view !== "monthly");
+  const newGrid = document.getElementById("weekly-view-new");
+  if (newGrid) newGrid.style.display = view === "weekly" ? "block" : "none";
+  document.getElementById("week-nav").classList.toggle("hidden", view !== "weekly");
+  document.getElementById("month-nav").classList.toggle("hidden", view !== "monthly");
+  document.getElementById("btn-weekly").classList.toggle("active-tab",  view === "weekly");
+  document.getElementById("btn-monthly").classList.toggle("active-tab", view === "monthly");
+  if (view==="monthly") { showLoading(); loadMonthly().finally(() => hideLoading()); }
+  if (view==="weekly")  { showLoading(); loadWeekNew().then(() => { renderNewGrid(); hideLoading(); }).catch(() => hideLoading()); }
+  setTimeout(adjustHeaderTop, 50);
+}
+function changeMonth(offset) {
+  currentMonthDate.setMonth(currentMonthDate.getMonth()+offset);
+  showLoading();
+  loadMonthly().finally(() => hideLoading());
+}
+
+// ════════════════════════════════════════
+// マンスリー
+// ════════════════════════════════════════
+// ════════════════════════════════════════
+// Phase 7: マンスリー用・新グリッドデータ集計
+// ════════════════════════════════════════
+// マンスリー用ブロックプレビューキャッシュ（月ごと）
+let _monthlyBlockCache = {}; // { 'YYYY-MM': { 'YYYY-MM-DD': [...blocks] } }
+
+// 月の全ブロックをIDBから一括取得してキャッシュ
+async function preloadMonthlyBlocks(year, month) {
+  const monthKey = `${year}-${String(month+1).padStart(2,'0')}`;
+  const all = await idbGetAll('cells');
+  const byDay = {};
+  for (const entry of all) {
+    if (!entry.key) continue;
+    const match = entry.key.match(/^(\d{4}-\d{2}-\d{2})-(\d+)-(\d+)$/);
+    if (!match) continue;
+    const dateStr = match[1];
+    if (!dateStr.startsWith(monthKey)) continue;
+    const startMin = parseInt(match[2]);
+    const endMin   = parseInt(match[3]);
+    if (!byDay[dateStr]) byDay[dateStr] = [];
+    byDay[dateStr].push({
+      key: entry.key, startMin, endMin,
+      title: entry.title || entry.text || '(無題)',
+      timeStr: `${ngFormatTime(startMin)}〜${ngFormatTime(endMin)}`,
+      duration: endMin - startMin,
+      color: entry.color || '#f5f5f5',
+      isPomo: entry.cell?.pomoCells?.length > 0,
+      mode: entry.mode || 'schedule'
+    });
+  }
+  // 時刻でソート
+  for (const d of Object.keys(byDay)) byDay[d].sort((a,b) => a.startMin - b.startMin);
+  _monthlyBlockCache[monthKey] = byDay;
+  return byDay;
+}
+
+function getBlocksForMonthlyDay(dateStr) {
+  const [y, m] = dateStr.split('-');
+  const monthKey = `${y}-${m}`;
+  const cache = _monthlyBlockCache[monthKey];
+  return Promise.resolve(cache ? (cache[dateStr] || []) : []);
+}
+
+async function loadMonthly(){
+  const year=currentMonthDate.getFullYear(), month=currentMonthDate.getMonth();
+  document.getElementById("month-label").innerText = `${year}年${month+1}月`;
+  const firstDay=new Date(year,month,1), lastDay=new Date(year,month+1,0);
+  const startOffset=(firstDay.getDay()-weekStartDay+7)%7;
+  const rows=Math.ceil((startOffset+lastDay.getDate())/7);
+  const topBarH=document.getElementById("top-bar").offsetHeight;
+  const cal=document.getElementById("monthly-calendar");
+  cal.innerHTML="";
+  // ブロックプレビューをIDBから一括プリロード（getBlocksForMonthlyDayが同期で参照できる）
+  await preloadMonthlyBlocks(year, month);
+  for (let i=0;i<7;i++) {
+    const h=document.createElement("div");
+    const dow=(weekStartDay+i)%7;
+    h.innerText=allDayNames[dow];
+    let hBg="#333", hColor="white";
+    if (dow===6) { hBg="#1a6bbf"; }
+    else if (dow===0) { hBg="#c0392b"; }
+    h.style.cssText=`background:${hBg};color:${hColor};text-align:center;padding:6px;font-size:13px;position:sticky;top:${topBarH}px;z-index:10;`;
+    cal.appendChild(h);
+  }
+  const monthDocId = `monthly-${year}-${String(month+1).padStart(2,'0')}`;
+  const today=new Date();
+  // ① IDBから即座に読み込む
+  const idbRecord = await idbGet('monthly', monthDocId);
+  const md = idbRecord ? { ...idbRecord } : {};
+  delete md.id; // keyPathのidは除外
+
+  // ② バックグラウンドでFirestoreと同期
+  if (navigator.onLine) {
+    db.collection("monthly").doc(monthDocId).get()
+      .then(async doc => {
+        if (!doc.exists) return;
+        const fsData = doc.data();
+        await idbSet('monthly', { id: monthDocId, ...fsData });
+      }).catch(()=>{});
+  }
+
+  // ③ 祝日取得と並行してセルを描画
+  Promise.all([
+    Promise.resolve(md),
+    getHolidays()
+  ]).then(async ([mdData, holidays]) => {
+
+    // 表示対象の日キー一覧を先に作成
+    const dayKeys = [];
+    for (let i = 0; i < rows*7; i++) {
+      const dayNum = i - startOffset + 1;
+      if (dayNum >= 1 && dayNum <= lastDay.getDate()) {
+        dayKeys.push(`${year}-${String(month+1).padStart(2,'0')}-${String(dayNum).padStart(2,'0')}`);
+      } else {
+        dayKeys.push(null);
+      }
+    }
+
+    // ブロックプレビューを並列取得
+    const blockMap = {};
+    await Promise.all(dayKeys.filter(k=>k).map(async k => {
+      blockMap[k] = await getBlocksForMonthlyDay(k);
+    }));
+
+    // セルを一括描画
+    for (let i = 0; i < rows*7; i++) {
+      const cell = document.createElement("div");
+      const dayNum = i - startOffset + 1;
+      const isValid = dayNum >= 1 && dayNum <= lastDay.getDate();
+      cell.style.cssText = "border:1px solid #ccc;min-height:80px;padding:4px;box-sizing:border-box;cursor:pointer;position:relative;font-size:12px;";
+      if (isValid) {
+        const dateObj = new Date(year, month, dayNum);
+        const isToday = dateObj.getFullYear()===today.getFullYear() && dateObj.getMonth()===today.getMonth() && dateObj.getDate()===today.getDate();
+        const dayKey = dayKeys[i];
+        const saved = mdData[dayKey] || {memo:"", color:"", checked:false};
+        const bg = saved.color ? getColorStyle(saved.color) : (isToday ? "#fffde7" : "");
+        const tc = bg ? getTextColor(bg) : "#333";
+        if (bg) cell.style.background = bg;
+        const dayOfWeek = dateObj.getDay();
+        const isHol = isHoliday(dayKey, holidays);
+        if (dayOfWeek === 6) { cell.classList.add("monthly-sat"); }
+        else if (dayOfWeek === 0 || isHol) { cell.classList.add(dayOfWeek === 0 ? "monthly-sun" : "monthly-hol"); }
+        const dl = document.createElement("div");
+        dl.className = "monthly-day-num";
+        dl.style.cssText = `font-weight:bold;color:${isToday?'#f9a825':tc};margin-bottom:2px;`;
+        dl.innerText = dayNum;
+        if (saved.checked) { const ck = document.createElement("span"); ck.innerText = " ✓"; ck.style.cssText = "color:#4caf50;font-weight:bold;"; dl.appendChild(ck); }
+        cell.appendChild(dl);
+        // ブロックプレビュー（並列取得済み）
+        const blocks = blockMap[dayKey] || [];
+        if (blocks.length > 0) {
+          const blockPreview = document.createElement("div");
+          blockPreview.style.cssText = `font-size:10px;color:${tc};overflow:hidden;max-height:48px;line-height:1.3;margin-bottom:2px;`;
+          blockPreview.className = 'monthly-block-preview';
+          blockPreview.innerHTML = blocks.slice(0, 3).map(b =>
+            `<span class="js-block-preview-item"><span class="js-block-time">${b.timeStr}</span> ${b.title}</span>`
+          ).join('');
+          if (blocks.length > 3) blockPreview.innerHTML += `<span class="js-block-more">他${blocks.length-3}件</span>`;
+          cell.appendChild(blockPreview);
+        }
+        if (saved.memo) { const mv = document.createElement("div"); mv.style.cssText = `font-size:11px;color:${tc};overflow:hidden;max-height:48px;${saved.checked?'text-decoration:line-through;opacity:0.5;':''}`; mv.innerText = saved.memo; cell.appendChild(mv); }
+        cell.onclick = () => openDayModal(dayKey, year, month, dayNum, mdData);
+      } else { cell.style.background = "#f5f5f5"; cell.style.cursor = "default"; }
+      cal.appendChild(cell);
+    }
+    setTimeout(attachFileBadges, 300);
+  }).catch(e => console.error(e));
+}
+
+function openDayModal(dayKey,year,month,dayNum,monthData) {
+  currentDayKey=dayKey;
+  currentMonthDocId=`monthly-${year}-${String(month+1).padStart(2,'0')}`;
+  currentMonthData=monthData;
+  _fileDayKey=dayKey;
+  _fileMonthDocId=currentMonthDocId;
+
+  const saved=monthData[dayKey]||{memo:"",color:"",checked:false};
+  document.getElementById("day-modal-title").innerText=`${year}/${month+1}/${dayNum}`;
+  document.getElementById("day-modal-memo").value=saved.memo||"";
+  document.getElementById("day-modal-check").checked=saved.checked||false;
+  const cc=document.getElementById("day-modal-colors"); cc.innerHTML="";
+  [{key:"",label:"なし",bg:"#eee"},{key:"study",label:"勉強",bg:"#a0c4ff"},{key:"club",label:"部活",bg:"#ffadad"},{key:"rest",label:"休み",bg:"#caffbf"},...customColors.map((c,i)=>({key:`custom-${i}`,label:c.name,bg:c.color}))].forEach(opt=>{
+    const b=document.createElement("button");
+    b.innerText=opt.label;
+    b.style.cssText=`background:${opt.bg};color:${getTextColor(opt.bg)};border:${saved.color===opt.key?'3px solid #333':'1px solid #ccc'};border-radius:4px;padding:4px 8px;cursor:pointer;font-size:12px;`;
+    b.onclick=()=>{cc.querySelectorAll("button").forEach(x=>x.style.border="1px solid #ccc");b.style.border="3px solid #333";currentMonthData[currentDayKey]=currentMonthData[currentDayKey]||{};currentMonthData[currentDayKey].color=opt.key;};
+    cc.appendChild(b);
+  });
+  document.getElementById("day-modal-overlay").classList.remove("hidden");
+  injectFileTabs();
+  loadFileList();
+}
+
+async function saveDayModal() {
+  currentMonthData[currentDayKey] = currentMonthData[currentDayKey] || {};
+  currentMonthData[currentDayKey].memo    = document.getElementById("day-modal-memo").value;
+  currentMonthData[currentDayKey].checked = document.getElementById("day-modal-check").checked;
+  const memo = currentMonthData[currentDayKey].memo;
+
+  // IDBに即座に保存（currentMonthDataをまるごと上書き）
+  const idbRecord = await idbGet('monthly', currentMonthDocId) || {};
+  delete idbRecord.id;
+  Object.assign(idbRecord, { [currentDayKey]: currentMonthData[currentDayKey] });
+  await idbSet('monthly', { id: currentMonthDocId, ...idbRecord });
+
+  // Firestoreへはバックグラウンド同期
+  syncToFirestore('monthly', currentMonthDocId, { [currentDayKey]: currentMonthData[currentDayKey] });
+  syncMonthlyToWeekly(currentDayKey, memo);
+
+  closeDayModal();
+  loadMonthly();
+}
+
+async function clearDayModal() {
+  if (!confirm('この日の色・メモ・完了をすべて消しますか？')) return;
+  currentMonthData[currentDayKey] = { memo: '', color: '', checked: false };
+
+  const idbRecord = await idbGet('monthly', currentMonthDocId) || {};
+  delete idbRecord.id;
+  Object.assign(idbRecord, { [currentDayKey]: currentMonthData[currentDayKey] });
+  await idbSet('monthly', { id: currentMonthDocId, ...idbRecord });
+
+  syncToFirestore('monthly', currentMonthDocId, { [currentDayKey]: currentMonthData[currentDayKey] });
+
+  closeDayModal();
+  loadMonthly();
+}
+
+function closeDayModal() {
+  // タブとファイルパネルをリセット
+  const tabs = document.querySelector('.day-modal-tabs');
+  const filePanel = document.getElementById('day-file-panel');
+  if (tabs) tabs.remove();
+  if (filePanel) filePanel.remove();
+  // メモ関連要素を再表示
+  const box = document.querySelector('#day-modal-overlay .modal-box');
+  if (box) box.querySelectorAll('textarea, div').forEach(el => el.classList.remove('hidden'));
+  document.getElementById("day-modal-overlay").classList.add("hidden");
+}
+
+// ════════════════════════════════════════
+// マンスリー → ウィークリー 連携
+// ════════════════════════════════════════
+
+// 「この日のウィークリーを表示」ボタン
+function gotoWeeklyFromMonthly() {
+  if (!currentDayKey) return;
+  // currentDayKey = "YYYY-MM-DD"
+  const [y, m, d] = currentDayKey.split('-').map(Number);
+  const targetDate = new Date(y, m - 1, d);
+  targetDate.setHours(0, 0, 0, 0);
+
+  // 週の開始日を求め、その週が何週目(currentWeek)かを計算
+  const today = new Date(); today.setHours(0, 0, 0, 0);
+  const todayDow = today.getDay();
+  const todayDiff = ((todayDow - weekStartDay) + 7) % 7;
+  const thisWeekStart = new Date(today); thisWeekStart.setDate(today.getDate() - todayDiff);
+
+  const diffDays = Math.round((targetDate - thisWeekStart) / 86400000);
+  const diffWeeks = Math.floor(diffDays / 7);
+
+  closeDayModal();
+  currentWeek = diffWeeks;
+  switchView('weekly');
+  loadWeekNew().then(() => renderNewGrid());
+}
+
+// ════════════════════════════════════════
+// ファイル添付機能
+// ════════════════════════════════════════
+let _fileDayKey = '';
+let _fileMonthDocId = '';
+
+function injectFileTabs() {
+  const box = document.querySelector('#day-modal-overlay .modal-box');
+  if (!box || box.querySelector('.day-modal-tabs')) return;
+
+  const tabs = document.createElement('div');
+  tabs.className = 'day-modal-tabs';
+  tabs.innerHTML = `
+    <button class="day-modal-tab active" id="tab-memo">📝 メモ</button>
+    <button class="day-modal-tab"        id="tab-file">📎 ファイル</button>
+  `;
+  const title = box.querySelector('#day-modal-title');
+  title.after(tabs);
+
+  const filePanel = document.createElement('div');
+  filePanel.id = 'day-file-panel';
+  filePanel.classList.add('hidden');
+  filePanel.innerHTML = `
+    <div class="upload-zone" id="upload-zone">
+      <input type="file" id="file-input" multiple accept="image/*,.pdf">
+      <div class="uz-icon">📁</div>
+      <div class="uz-text">タップしてファイルを選択<br>または画像・PDFをここにドロップ</div>
+    </div>
+    <div class="upload-progress hidden" id="upload-progress">
+      <div class="prog-bar-wrap"><div class="prog-bar" id="prog-bar" style="width:0%"></div></div>
+      <div class="prog-label" id="prog-label">アップロード中...</div>
+    </div>
+    <div class="file-grid" id="file-grid"></div>
+  `;
+  const memoArea = box.querySelector('textarea#day-modal-memo');
+  memoArea.parentElement.before(filePanel);
+
+  // ドラッグ&ドロップ・ファイル選択イベントをJSで登録
+  const zone  = filePanel.querySelector('#upload-zone');
+  const input = filePanel.querySelector('#file-input');
+  zone.addEventListener('dragover',  onDragOver);
+  zone.addEventListener('dragleave', onDragLeave);
+  zone.addEventListener('drop',      onDrop);
+  input.addEventListener('change',   onFileSelect);
+}
+
+function switchDayTab(tab) {
+  const isMemo = tab === 'memo';
+  document.getElementById('tab-memo').className = 'day-modal-tab' + (isMemo ? ' active' : '');
+  document.getElementById('tab-file').className = 'day-modal-tab' + (!isMemo ? ' active' : '');
+  const box = document.querySelector('#day-modal-overlay .modal-box');
+  const memoEl2  = box.querySelector('textarea#day-modal-memo');
+  const checkRow = box.querySelector('div:has(#day-modal-check)');
+  const btnRow   = box.querySelector('.row-end');
+  const colorDiv = document.getElementById('day-modal-colors');
+  const filePanel = document.getElementById('day-file-panel');
+  [memoEl2, checkRow, btnRow, colorDiv].forEach(el => { if (el) el.classList.toggle('hidden', !isMemo); });
+  if (filePanel) filePanel.classList.toggle('hidden', isMemo);
+}
+
+function onDragOver(e) { e.preventDefault(); document.getElementById('upload-zone').classList.add('dragover'); }
+function onDragLeave(e) { document.getElementById('upload-zone').classList.remove('dragover'); }
+function onDrop(e) { e.preventDefault(); document.getElementById('upload-zone').classList.remove('dragover'); uploadFiles([...e.dataTransfer.files]); }
+function onFileSelect(e) { uploadFiles([...e.target.files]); e.target.value = ''; }
+
+async function uploadFiles(files) {
+  const validFiles = files.filter(f => f.type.startsWith('image/') || f.type === 'application/pdf');
+  if (!validFiles.length) { alert('画像またはPDFを選択してください'); return; }
+  const prog = document.getElementById('upload-progress');
+  const bar  = document.getElementById('prog-bar');
+  const lbl  = document.getElementById('prog-label');
+  prog.classList.remove('hidden');
+  for (let i = 0; i < validFiles.length; i++) {
+    const file = validFiles[i];
+    const ext  = file.name.split('.').pop();
+    const path = `monthly/${_fileDayKey}/${Date.now()}_${Math.random().toString(36).slice(2,6)}.${ext}`;
+    const ref  = storage.ref(path);
+    lbl.textContent = `${i+1}/${validFiles.length} アップロード中: ${file.name}`;
+    await new Promise((resolve, reject) => {
+      const task = ref.put(file);
+      task.on('state_changed',
+        snap => { bar.style.width = Math.round(snap.bytesTransferred / snap.totalBytes * 100) + '%'; },
+        err  => { console.error(err); reject(err); },
+        resolve
+      );
+    });
+    const url  = await ref.getDownloadURL();
+    await saveFileMeta({ path, url, name: file.name, type: file.type, ts: Date.now() });
+  }
+  bar.style.width = '100%';
+  lbl.textContent = '完了！';
+  setTimeout(() => { prog.classList.add('hidden'); bar.style.width = '0%'; }, 1200);
+  loadFileList();
+  attachFileBadges();
+}
+
+async function saveFileMeta(meta) {
+  const docRef = db.collection('monthly_files').doc(_fileMonthDocId);
+  const doc = await docRef.get();
+  const existing = doc.exists ? (doc.data()[_fileDayKey] || []) : [];
+  existing.push(meta);
+  const u = {}; u[_fileDayKey] = existing;
+  await docRef.set(u, { merge: true });
+}
+
+async function loadFileList() {
+  const grid = document.getElementById('file-grid');
+  if (!grid) return;
+  grid.innerHTML = '<div class="js-loading-msg">読み込み中...</div>';
+  try {
+    const doc = await db.collection('monthly_files').doc(_fileMonthDocId).get();
+    const files = doc.exists ? (doc.data()[_fileDayKey] || []) : [];
+    if (!files.length) {
+      grid.innerHTML = '<div class="js-loading-msg" style="grid-column:1/-1;">まだファイルがありません</div>';
+      return;
+    }
+    grid.innerHTML = '';
+    files.forEach((f, idx) => {
+      const thumb = document.createElement('div');
+      thumb.className = 'file-thumb';
+      const isPdf = f.type === 'application/pdf';
+      thumb.innerHTML = isPdf
+        ? `<div class="pdf-thumb"><div class="pdf-icon">📄</div><div class="pdf-name">${escHtml(f.name)}</div></div>`
+        : `<img src="${f.url}" alt="${escHtml(f.name)}" loading="lazy">`;
+      const del = document.createElement('button');
+      del.className = 'del-btn'; del.textContent = '✕'; del.title = '削除';
+      del.onclick = async (e) => {
+        e.stopPropagation();
+        if (!confirm(`「${f.name}」を削除しますか？`)) return;
+        await deleteFile(f, idx);
+        loadFileList(); attachFileBadges();
+      };
+      thumb.appendChild(del);
+      thumb.onclick = () => openFileViewer(f);
+      grid.appendChild(thumb);
+    });
+  } catch(e) {
+    console.error(e);
+    grid.innerHTML = '<div class="js-error-msg">読み込みに失敗しました</div>';
+  }
+}
+
+async function deleteFile(fileMeta, idx) {
+  try { await storage.ref(fileMeta.path).delete(); } catch(e) { console.warn(e); }
+  const docRef = db.collection('monthly_files').doc(_fileMonthDocId);
+  const doc = await docRef.get();
+  if (!doc.exists) return;
+  const files = doc.data()[_fileDayKey] || [];
+  files.splice(idx, 1);
+  const u = {}; u[_fileDayKey] = files;
+  await docRef.set(u, { merge: true });
+}
+
+function openFileViewer(f) {
+  const overlay = document.getElementById('file-viewer-overlay');
+  const content = document.getElementById('file-viewer-content');
+  document.getElementById('file-viewer-name').textContent = f.name;
+  if (f.type === 'application/pdf') {
+    content.innerHTML = `<div style="text-align:center;"><div style="font-size:64px;margin-bottom:16px;">📄</div>
+      <a href="${f.url}" target="_blank" class="btn-save-lg" style="text-decoration:none;">PDFを開く（新しいタブ）</a></div>`;
+  } else {
+    content.innerHTML = `<img src="${f.url}" style="max-width:92vw;max-height:80vh;border-radius:8px;object-fit:contain;">`;
+  }
+  overlay.classList.remove('hidden');
+}
+function closeFileViewer() {
+  document.getElementById('file-viewer-overlay').classList.add('hidden');
+  document.getElementById('file-viewer-content').innerHTML = '';
+}
+
+async function attachFileBadges() {
+  const year  = currentMonthDate.getFullYear();
+  const month = currentMonthDate.getMonth();
+  const docId = `monthly-${year}-${String(month+1).padStart(2,'0')}`;
+  try {
+    const doc = await db.collection('monthly_files').doc(docId).get();
+    if (!doc.exists) return;
+    const data = doc.data();
+    document.querySelectorAll('#monthly-calendar > div').forEach(cell => {
+      const dayEl = cell.querySelector('.monthly-day-num');
+      if (!dayEl) return;
+      const dayNum = parseInt(dayEl.textContent);
+      if (isNaN(dayNum)) return;
+      const dayKey = `${year}-${String(month+1).padStart(2,'0')}-${String(dayNum).padStart(2,'0')}`;
+      const count = (data[dayKey] || []).length;
+      cell.querySelectorAll('.cell-file-badge').forEach(b => b.remove());
+      if (count > 0) {
+        const badge = document.createElement('div');
+        badge.className = 'cell-file-badge';
+        badge.textContent = `📎${count}`;
+        cell.appendChild(badge);
+      }
+    });
+  } catch(e) {}
+}
+  
+// ════════════════════════════════════════
+// 進捗管理（章対応版）
+// ════════════════════════════════════════
+let progMatId = null;
+let progCurrentRound = 0;
+let progCurrentChapter = 0;
+// progData構造:
+// {
+//   deadline: "2025-06-01",
+//   currentRound: 1,          // 教材全体の現在周回（0始まり）
+//   chapters: [
+//     { name: "1章 式と計算", totalQ: 30,
+//       rounds: [ {marks:[null,'o','x',...]}, ... ] }
+//   ]
+// }
+let progData = null;
+
+// "YYYY-MM-DD" 文字列をローカル時間として正しく Date に変換するヘルパー
+function parseLocalDate(str) {
+  if (!str) return null;
+  const [y, m, d] = str.split("-").map(Number);
+  return new Date(y, m - 1, d);
+}
+
+async function openProgressModal(mat) {
+  progMatId = mat.id;
+  document.getElementById("prog-mat-name").textContent = "📊 " + mat.name;
+
+  const uid = auth.currentUser?.uid || 'unknown';
+  const idbId = uid + "_" + mat.id;
+  const cached = await idbGet("progress", idbId);
+  progData = cached ? { ...cached } : null;
+  if (progData) delete progData.id;
+
+  // デフォルト構造
+  if (!progData || !progData.chapters) {
+    progData = { deadline: "", currentRound: 0, chapters: [] };
+  }
+  progCurrentRound   = progData.currentRound || 0;
+  progCurrentChapter = 0;
+
+  document.getElementById("prog-deadline").value = progData.deadline || "";
+  updateDeadlineBadge();
+  renderProgRoundTabs();
+  renderProgChapterTabs();
+  renderProgQuestions();
+  document.getElementById("progress-overlay").classList.remove("hidden");
+
+  // バックグラウンドでFirestoreと同期
+  if (navigator.onLine) {
+    db.collection("material_progress").doc(idbId).get()
+      .then(async doc => {
+        if (!doc.exists) return;
+        progData = doc.data();
+        await idbSet("progress", { id: idbId, ...progData });
+        progCurrentRound = progData.currentRound || 0;
+        renderProgRoundTabs(); renderProgChapterTabs(); renderProgQuestions();
+      }).catch(() => {});
+  }
+}
+
+function closeProgressModal() {
+  document.getElementById("progress-overlay").classList.add("hidden");
+}
+
+function updateDeadlineBadge() {
+  const val = document.getElementById("prog-deadline").value;
+  const badge = document.getElementById("prog-deadline-badge");
+  if (!val) { badge.classList.add("hidden"); return; }
+  const diff = Math.ceil((parseLocalDate(val) - new Date(new Date().toDateString())) / 86400000);
+  badge.classList.remove("hidden");
+  if (diff < 0)       { badge.className="deadline-warning over"; badge.textContent=`⚠️ ${-diff}日超過`; }
+  else if (diff <= 3) { badge.className="deadline-warning near"; badge.textContent=`⚡ あと${diff}日`; }
+  else                { badge.className="deadline-warning ok";   badge.textContent=`✅ あと${diff}日`; }
+}
+document.addEventListener("change", e => { if (e.target.id === "prog-deadline") updateDeadlineBadge(); });
+
+// ── 周回タブ（教材全体） ──
+function renderProgRoundTabs() {
+  const el = document.getElementById("prog-round-tabs"); el.innerHTML = "";
+  const roundCount = Math.max(1, ...progData.chapters.map(c => (c.rounds||[]).length), progCurrentRound + 1);
+  for (let i = 0; i < roundCount; i++) {
+    // 全章の合計◯数・合計回答数を集計
+    let totalO = 0, totalAns = 0, totalQ = 0;
+    progData.chapters.forEach(ch => {
+      const r = (ch.rounds || [])[i];
+      const marks = r ? (r.marks || []) : [];
+      totalO   += marks.filter(m=>m==="o").length;
+      totalAns += marks.filter(m=>m).length;
+      totalQ   += ch.totalQ || marks.length;
+    });
+    const pct = totalAns ? Math.round(totalO / totalAns * 100) : null;
+    const btn = document.createElement("button");
+    btn.className = "round-tab" + (i === progCurrentRound ? " active" : "");
+    btn.textContent = `${i+1}周目` + (pct !== null ? ` ${pct}%` : "");
+    btn.onclick = () => {
+      progCurrentRound = i;
+      progData.currentRound = i;
+      renderProgRoundTabs();
+      renderProgChapterTabs();
+      renderProgQuestions();
+    };
+    el.appendChild(btn);
+  }
+}
+
+function addRound() {
+  // 全章に新しい周回分のmarksを追加
+  progData.chapters.forEach(ch => {
+    const n = ch.totalQ || 0;
+    if (!ch.rounds) ch.rounds = [];
+    ch.rounds.push({ marks: Array(n).fill(null) });
+  });
+  progCurrentRound = progData.chapters[0]?.rounds.length - 1 || 0;
+  progData.currentRound = progCurrentRound;
+  renderProgRoundTabs();
+  renderProgChapterTabs();
+  renderProgQuestions();
+}
+
+// ── 章タブ ──
+function renderProgChapterTabs() {
+  const el = document.getElementById("prog-chapter-tabs"); el.innerHTML = "";
+  progData.chapters.forEach((ch, i) => {
+    const r = (ch.rounds || [])[progCurrentRound];
+    const marks = r ? (r.marks || []) : [];
+    const o = marks.filter(m=>m==="o").length;
+    const ans = marks.filter(m=>m).length;
+    const pct = ans ? Math.round(o/ans*100) : null;
+
+    const btn = document.createElement("button");
+    btn.className = "round-tab" + (i === progCurrentChapter ? " active" : "");
+    btn.style.borderColor = i === progCurrentChapter ? "#9c27b0" : "#ccc";
+    if (i === progCurrentChapter) btn.style.background = "#9c27b0";
+    btn.textContent = (ch.name || `章${i+1}`) + (pct !== null ? ` ${pct}%` : "");
+    btn.onclick = () => {
+      // 章名を現在の章に保存してから切り替え
+      saveCurrentChapterName();
+      progCurrentChapter = i;
+      renderProgChapterTabs();
+      renderProgQuestions();
+    };
+    el.appendChild(btn);
+  });
+}
+
+function saveCurrentChapterName() {
+  const ch = progData.chapters[progCurrentChapter];
+  if (!ch) return;
+  const nameEl = document.getElementById("prog-chapter-name");
+  if (nameEl) ch.name = nameEl.value.trim() || ch.name;
+}
+
+function addChapter() {
+  saveCurrentChapterName();
+  const roundCount = Math.max(progCurrentRound + 1,
+    ...progData.chapters.map(c => (c.rounds||[]).length), 1);
+  const newChapter = {
+    name: `章${progData.chapters.length + 1}`,
+    totalQ: 0,
+    rounds: Array.from({length: roundCount}, () => ({ marks: [] }))
+  };
+  progData.chapters.push(newChapter);
+  progCurrentChapter = progData.chapters.length - 1;
+  renderProgChapterTabs();
+  renderProgQuestions();
+}
+
+function deleteChapter() {
+  if (progData.chapters.length <= 1) { alert("最後の章は削除できません"); return; }
+  const ch = progData.chapters[progCurrentChapter];
+  if (!confirm(`「${ch.name || "この章"}」を削除しますか？`)) return;
+  progData.chapters.splice(progCurrentChapter, 1);
+  progCurrentChapter = Math.max(0, progCurrentChapter - 1);
+  renderProgChapterTabs();
+  renderProgQuestions();
+}
+
+function applyTotalQuestions() {
+  const n = parseInt(document.getElementById("prog-total").value);
+  if (!n || n < 1) { alert("1以上の数を入力してください"); return; }
+  const ch = progData.chapters[progCurrentChapter];
+  if (!ch) return;
+  ch.totalQ = n;
+  ch.name = document.getElementById("prog-chapter-name").value.trim() || ch.name;
+  // 全周回のmarksを新しい問題数に合わせる
+  if (!ch.rounds) ch.rounds = [];
+  // 周回数は教材全体の周回数に合わせる
+  const roundCount = Math.max(progCurrentRound + 1,
+    ...progData.chapters.map(c => (c.rounds||[]).length), 1);
+  while (ch.rounds.length < roundCount) ch.rounds.push({ marks: [] });
+  ch.rounds.forEach(r => {
+    const cur = r.marks || [];
+    if (cur.length < n) r.marks = [...cur, ...Array(n - cur.length).fill(null)];
+    else r.marks = cur.slice(0, n);
+  });
+  renderProgChapterTabs();
+  renderProgQuestions();
+}
+
+// ── 問題リスト（現在の章・周回） ──
+function renderProgQuestions() {
+  const el = document.getElementById("prog-question-list"); el.innerHTML = "";
+  const headerEl = document.getElementById("prog-chapter-header");
+
+  if (!progData.chapters.length) {
+    headerEl.classList.add("hidden");
+    el.innerHTML = '<div class="js-empty-msg-center">「＋ 章を追加」から章を作成してください</div>';
+    updateProgBar(null);
+    return;
+  }
+
+  const ch = progData.chapters[progCurrentChapter];
+  if (!ch) return;
+
+  // 章ヘッダー表示
+  headerEl.classList.remove("hidden");
+  document.getElementById("prog-chapter-name").value = ch.name || "";
+  document.getElementById("prog-total").value = ch.totalQ || "";
+
+  // 現在の周回のmarks取得
+  if (!ch.rounds) ch.rounds = [];
+  while (ch.rounds.length <= progCurrentRound) ch.rounds.push({ marks: [] });
+  const round = ch.rounds[progCurrentRound];
+  const marks = round.marks || [];
+
+  if (!marks.length) {
+    el.innerHTML = '<div class="js-empty-msg-center">問題数を入力して「適用」を押してください</div>';
+    updateProgBar(round);
+    return;
+  }
+
+  // 50問ごとにグループ表示
+  const chunkSize = 50;
+  for (let start = 0; start < marks.length; start += chunkSize) {
+    const end = Math.min(start + chunkSize, marks.length);
+    const section = document.createElement("div");
+    section.style.cssText = "margin-bottom:10px;";
+    const header = document.createElement("div");
+    header.style.cssText = "font-size:11px;color:#999;font-weight:bold;margin-bottom:4px;padding:2px 0;border-bottom:1px solid #eee;";
+    header.textContent = `${start+1}〜${end}問`;
+    section.appendChild(header);
+    for (let i = start; i < end; i++) {
+    const wrap = document.createElement("div");
+    wrap.className = "q-row-wrap";
+
+      const row = document.createElement("div");
+      row.className = "q-row";
+      row.style.borderBottom = "none";
+      row.innerHTML = `<span class="js-mat-category" style="min-width:36px;">${i+1}問</span>`;
+
+      const states  = [null,   "o",      "t",        "x"    ];
+      const labels  = ["－",   "◯",      "△",        "✕"    ];
+      const classes = ["",     "circle", "triangle", "cross"];
+
+      // ── ◯×△ボタン ──
+      states.forEach((s, si) => {
+        const btn = document.createElement("button");
+        btn.className = "q-mark-btn" + (marks[i] === s ? " " + classes[si] : "");
+        btn.textContent = labels[si];
+        btn.onclick = () => {
+          round.marks[i] = s;
+          btn.parentElement.querySelectorAll(".q-mark-btn").forEach((b, bi) => {
+            b.className = "q-mark-btn" + (states[bi] === s ? " " + classes[bi] : "");
+          });
+          // ◯×△がついたらメモボタンを表示
+          memoBtn.classList.toggle("hidden", !s);
+          if (!s) memoArea.classList.add("hidden");
+          updateProgBar(round);
+          renderProgRoundTabs();
+          renderProgChapterTabs();
+        };
+        row.appendChild(btn);
+      });
+
+      // ── メモボタン ──
+      const memoBtn = document.createElement("button");
+      const hasMemo = !!(round.memos && round.memos[i]);
+      memoBtn.className = "q-memo-btn" + (hasMemo ? " has-memo" : "");
+      memoBtn.title = "メモ";
+      memoBtn.textContent = "🖊";
+      memoBtn.classList.toggle("hidden", !marks[i]);
+      memoBtn.style.marginLeft = "4px";
+
+      // ── メモ展開エリア ──
+      const memoArea = document.createElement("div");
+      memoArea.className = "q-memo-area";
+      const memoTa = document.createElement("textarea");
+      memoTa.rows = 2;
+      memoTa.placeholder = "間違えたポイント・メモ...";
+      memoTa.value = (round.memos && round.memos[i]) || "";
+      memoTa.oninput = () => {
+        if (!round.memos) round.memos = {};
+        round.memos[i] = memoTa.value;
+        memoBtn.className = "q-memo-btn" + (memoTa.value.trim() ? " has-memo" : "");
+      };
+      memoArea.appendChild(memoTa);
+
+      memoBtn.onclick = () => {
+        const isOpen = !memoArea.classList.contains("hidden");
+        memoArea.classList.toggle("hidden", isOpen);
+        if (!isOpen) memoTa.focus();
+      };
+
+      row.appendChild(memoBtn);
+      wrap.appendChild(row);
+      wrap.appendChild(memoArea);
+    section.appendChild(wrap);
+    }    // ← for i ループの閉じ
+    el.appendChild(section);
+  }      // ← for start ループの閉じ
+  updateProgBar(round);
+}        // ← renderProgQuestions の閉じ
+  
+function updateProgBar(round) {
+  const marks = round ? (round.marks || []) : [];
+  const o = marks.filter(m=>m==="o").length;
+  const t = marks.filter(m=>m==="t").length;
+  const x = marks.filter(m=>m==="x").length;
+  const answered = o + t + x;
+  const pct = answered ? Math.round(o / answered * 100) : 0;
+  document.getElementById("prog-bar-fill").style.width = (marks.length ? pct : 0) + "%";
+  document.getElementById("prog-pct-label").textContent = marks.length ? pct + "%" : "";
+  document.getElementById("prog-stats-label").textContent = marks.length
+    ? `◯ ${o}問 / △ ${t}問 / × ${x}問（未 ${marks.length - answered}問）`
+    : "問題数を設定してください";
+}
+
+async function saveProgress() {
+  saveCurrentChapterName();
+  progData.deadline     = document.getElementById("prog-deadline").value;
+  progData.currentRound = progCurrentRound;
+  const uid = auth.currentUser?.uid || 'unknown';
+  const idbId = uid + "_" + progMatId;
+  await idbSet("progress", { id: idbId, ...progData });
+  syncToFirestore("material_progress", idbId, progData);
+  const btn = document.querySelector("#progress-overlay .btn-save-lg");
+  const orig = btn.textContent;
+  btn.textContent = "✅ 保存完了！"; btn.disabled = true;
+  refreshDeadlinePanel();
+  setTimeout(() => { btn.textContent = orig; btn.disabled = false; }, 1500);
+}
+
+// ════════════════════════════════════════
+// 締切カウントダウンパネル
+// ════════════════════════════════════════
+async function refreshDeadlinePanel() {
+  const list  = document.getElementById("deadline-list");
+  const empty = document.getElementById("deadline-empty");
+  if (!list) return;
+  list.innerHTML = "";
+  const uid   = auth.currentUser?.uid || 'unknown';
+  const today = new Date(new Date().toDateString());
+  const items = [];
+  for (const mat of materials) {
+    const idbId = uid + "_" + mat.id;
+    const data = await idbGet("progress", idbId);
+    if (!data || !data.deadline) continue;
+    const diff = Math.ceil((parseLocalDate(data.deadline) - today) / 86400000);
+    items.push({ name: mat.name, deadline: data.deadline, diff, color: mat.color });
+  }
+  for (const exam of exams) {
+    for (const sub of (exam.submissions||[])) {
+      if (!sub.deadline || sub.done) continue;
+      const d = Math.ceil((parseLocalDate(sub.deadline) - today) / 86400000);
+      items.push({ name: `[${sub.subject||"提出"}] ${sub.name}`, deadline: sub.deadline, diff: d, color: "#7b1fa2" });
+    }
+  }
+  items.sort((a, b) => a.diff - b.diff);
+
+  // 左側カウンター更新
+  const cntNum  = document.getElementById("dl-counter-num");
+  const cntUnit = document.getElementById("dl-counter-unit");
+  const cntName = document.getElementById("dl-counter-name");
+  if (!items.length) {
+    empty.classList.remove("hidden");
+    cntNum.textContent  = "-";
+    cntNum.style.color  = "#bbb";
+    cntUnit.textContent = "";
+    cntName.textContent = "";
+    return;
+  }
+  empty.classList.add("hidden");
+  const top = items[0];
+  if (top.diff < 0) {
+    cntNum.textContent  = -top.diff;
+    cntNum.style.color  = "#c62828";
+    cntUnit.textContent = "日超過";
+  } else {
+    cntNum.textContent  = top.diff;
+    cntNum.style.color  = top.diff <= 3 ? "#e65100" : "#2e7d32";
+    cntUnit.textContent = "日後";
+  }
+  cntName.textContent = top.name;
+
+  // 右側リスト描画
+  items.forEach(item => {
+    const row = document.createElement("div");
+    row.style.cssText = "display:flex; align-items:center; gap:7px; min-height:20px;";
+
+    const dot = document.createElement("div");
+    dot.style.cssText = `width:7px; height:7px; border-radius:50%; background:${item.color}; flex-shrink:0;`;
+
+    const name = document.createElement("div");
+    name.style.cssText = "flex:1; overflow:hidden; white-space:nowrap; text-overflow:ellipsis; color:inherit;";
+    name.textContent = item.name;
+
+    const date = document.createElement("div");
+    date.style.cssText = "font-size:11px; color:#999; flex-shrink:0;";
+    date.textContent = item.deadline || "";
+
+    const badge = document.createElement("div");
+    badge.style.cssText = "font-size:11px; padding:1px 7px; border-radius:99px; flex-shrink:0;";
+    if (item.diff < 0)       { badge.style.cssText += "background:#ffebee; color:#c62828;"; badge.textContent = `${-item.diff}日超過`; }
+    else if (item.diff <= 3) { badge.style.cssText += "background:#fff3e0; color:#e65100;"; badge.textContent = `あと${item.diff}日`; }
+    else                     { badge.style.cssText += "background:#e8f5e9; color:#2e7d32;"; badge.textContent = `あと${item.diff}日`; }
+
+    row.appendChild(dot); row.appendChild(name); row.appendChild(date); row.appendChild(badge);
+    list.appendChild(row);
+  });
+}
+
+// ════════════════════════════════════════
+// 考査・模試管理（ステップ形式）
+// ════════════════════════════════════════
+let exams = [];
+let selectedExamIdx = null;
+let selectedSubIdx  = null;
+let currentExamStep = 1;
+let reviewModeSub   = null;
+
+function genExamId() { return "exam_"+Date.now()+"_"+Math.random().toString(36).slice(2,5); }
+
+async function loadExams() {
+  const uid = auth.currentUser?.uid || 'unknown';
+  const idbId = "exams_" + uid;
+  const cached = await idbGet("config", idbId);
+  exams = cached ? (cached.list || []) : [];
+  if (navigator.onLine) {
+    db.collection("app_config").doc(idbId).get()
+      .then(async doc => {
+        if (!doc.exists) return;
+        exams = doc.data().list || [];
+        await idbSet("config", { id: idbId, list: exams });
+        refreshDeadlinePanel();
+      }).catch(() => {});
+  }
+}
+
+async function saveExams() {
+  const uid = auth.currentUser?.uid || 'unknown';
+  const idbId = "exams_" + uid;
+  await idbSet("config", { id: idbId, list: exams });
+  syncToFirestore("app_config", idbId, { list: exams });
+  refreshDeadlinePanel();
+}
+
+async function openExamModal() {
+  await loadExams();
+  selectedExamIdx = null; selectedSubIdx = null;
+  goExamStep(1);
+  document.getElementById("exam-overlay").classList.remove("hidden");
+}
+function closeExamModal() { document.getElementById("exam-overlay").classList.add("hidden"); }
+
+function goExamStep(step) {
+  currentExamStep = step;
+  document.querySelectorAll(".exam-step").forEach(el => el.classList.remove("active"));
+  document.getElementById("exam-step"+step).classList.add("active");
+  const labels = ["","STEP 1","STEP 2","STEP 3"];
+  const descs  = ["","考査・模試を選択","提出物を確認","提出物の詳細・進捗"];
+  document.getElementById("exam-step-label").textContent = labels[step];
+  document.getElementById("exam-step-desc").textContent  = descs[step];
+  if (step===1) renderExamList();
+  if (step===2) renderSubmissionList();
+  if (step===3) renderSubDetail();
+}
+
+function renderExamList() {
+  const el = document.getElementById("exam-list"); el.innerHTML = "";
+  const today = new Date(new Date().toDateString());
+  if (!exams.length) {
+    el.innerHTML = '<div style="color:#aaa;font-size:13px;padding:8px;">考査・模試が登録されていません</div>';
+    return;
+  }
+  [...exams].map((e,i)=>({...e,_i:i}))
+    .sort((a,b)=>a.date<b.date?-1:1)
+    .forEach(exam => {
+      const i = exam._i;
+      const div = document.createElement("div");
+      div.className = "exam-item" + (i===selectedExamIdx?" selected":"");
+      const diff = exam.date ? Math.ceil((parseLocalDate(exam.date)-today)/86400000) : null;
+      let badge = "";
+      if (diff!==null) {
+        if (diff<0)       badge=`<span class="deadline-warning over">⚠️ ${-diff}日前</span>`;
+        else if (diff<=7) badge=`<span class="deadline-warning near">⚡ あと${diff}日</span>`;
+        else              badge=`<span class="deadline-warning ok">あと${diff}日</span>`;
+      }
+      const subs = exam.submissions||[];
+      const done = subs.filter(s=>s.done).length;
+      const subInfo = subs.length ? `<span class="form-label" style="color:#999;display:inline;"> ${done}/${subs.length}提出済</span>` : "";
+      const dateLabel = exam.dateFrom && exam.date
+        ? `${exam.dateFrom} 〜 ${exam.date}`
+        : (exam.dateFrom ? `${exam.dateFrom} 〜` : (exam.date || ""));
+      div.innerHTML = `
+        <span class="exam-item-name">${exam.name}${subInfo}</span>
+        <span class="exam-item-date">${dateLabel}</span>
+        ${badge}
+        <button class="btn-delete-sm js-delete-exam" data-index="${i}">削除</button>
+      `;
+      div.onclick = (e) => {
+        if (e.target.classList.contains("js-delete-exam")) { deleteExam(parseInt(e.target.dataset.index), e); return; }
+        selectedExamIdx=i; goExamStep(2);
+      };
+      el.appendChild(div);
+    });
+}
+
+async function addExam() {
+  const name     = document.getElementById("exam-new-name").value.trim();
+  const dateFrom = document.getElementById("exam-new-date-from").value;
+  const date     = document.getElementById("exam-new-date").value;
+  if (!name) { alert("考査名を入力してください"); return; }
+  if (dateFrom && date && dateFrom > date) { alert("開始日は終了日より前の日付を入力してください"); return; }
+  exams.push({id:genExamId(), name, dateFrom, date, submissions:[]});
+  await saveExams();
+  document.getElementById("exam-new-name").value="";
+  document.getElementById("exam-new-date-from").value="";
+  document.getElementById("exam-new-date").value="";
+  renderExamList();
+}
+
+async function deleteExam(i, e) {
+  e.stopPropagation();
+  if (!confirm(`「${exams[i].name}」を削除しますか？`)) return;
+  exams.splice(i,1);
+  if (selectedExamIdx===i) selectedExamIdx=null;
+  await saveExams(); renderExamList();
+}
+
+function renderSubmissionList() {
+  const exam = exams[selectedExamIdx]; if (!exam) return;
+  document.getElementById("exam-step-desc").textContent = exam.name + " の提出物";
+  const el = document.getElementById("exam-submission-list"); el.innerHTML="";
+  const subs = exam.submissions||[];
+  const today = new Date(new Date().toDateString());
+  if (!subs.length) {
+    el.innerHTML='<div style="color:#aaa;font-size:12px;padding:6px 0;">提出物が登録されていません</div>';
+    return;
+  }
+  subs.forEach((sub,si) => {
+    const div = document.createElement("div");
+    div.className = "sub-item";
+    div.style.flexWrap = "wrap";
+    const checkBtn = document.createElement("button");
+    checkBtn.className = "sub-check-btn"+(sub.done?" done":"");
+    checkBtn.textContent = sub.done?"✅":"○";
+    checkBtn.onclick = async(e) => {
+      e.stopPropagation();
+      sub.done=!sub.done; await saveExams(); renderSubmissionList();
+    };
+    let dlBadge = "";
+    if (sub.deadline) {
+      const diff = Math.ceil((parseLocalDate(sub.deadline)-today)/86400000);
+      if (diff<0)       dlBadge=`<span class="deadline-warning over" style="font-size:10px;">⚠️${-diff}日超過</span>`;
+      else if (diff<=3) dlBadge=`<span class="deadline-warning near" style="font-size:10px;">⚡${diff}日</span>`;
+      else              dlBadge=`<span class="deadline-warning ok" style="font-size:10px;">${diff}日</span>`;
+    }
+    div.innerHTML = `
+      <span class="sub-item-subject">${sub.subject||""}</span>
+      <span class="sub-item-name" style="font-weight:${sub.done?"normal":"bold"};color:${sub.done?"#aaa":"#333"};text-decoration:${sub.done?"line-through":"none"};">${sub.name}</span>
+      ${dlBadge}
+      <div style="display:flex;gap:4px;margin-left:auto;">
+        ${sub.hasProg?`<button class="btn-exam-progress js-open-sub-prog" data-si="${si}">📊 進捗</button>`:""}
+        <button class="btn-exam-review js-start-review" data-exam="${selectedExamIdx}" data-si="${si}">📅 復習へ</button>
+        <button class="btn-delete-sm js-delete-sub" data-si="${si}">削除</button>
+      </div>
+    `;
+    div.prepend(checkBtn);
+    // data属性経由でイベント委譲
+    div.addEventListener("click", e => {
+      const t = e.target;
+      if (t.classList.contains("js-open-sub-prog"))  { openSubProgress(parseInt(t.dataset.si)); return; }
+      if (t.classList.contains("js-start-review"))   { startReviewMode(parseInt(t.dataset.exam), parseInt(t.dataset.si)); return; }
+      if (t.classList.contains("js-delete-sub"))     { deleteSubmission(parseInt(t.dataset.si), e); return; }
+    });
+    el.appendChild(div);
+  });
+}
+
+async function addSubmission() {
+  const exam = exams[selectedExamIdx]; if (!exam) return;
+  const name = document.getElementById("sub-new-name").value.trim();
+  if (!name) { alert("提出物名を入力してください"); return; }
+  if (!exam.submissions) exam.submissions=[];
+  exam.submissions.push({
+    id:genExamId(),
+    subject:  document.getElementById("sub-new-subject").value.trim(),
+    name,
+    deadline: document.getElementById("sub-new-deadline").value,
+    done:     false,
+    hasProg:  document.getElementById("sub-new-hasprog").checked
+  });
+  await saveExams();
+  document.getElementById("sub-new-subject").value="";
+  document.getElementById("sub-new-name").value="";
+  document.getElementById("sub-new-deadline").value="";
+  document.getElementById("sub-new-hasprog").checked=false;
+  renderSubmissionList();
+}
+
+async function deleteSubmission(si, e) {
+  e.stopPropagation();
+  const exam = exams[selectedExamIdx];
+  if (!confirm(`「${exam.submissions[si].name}」を削除しますか？`)) return;
+  exam.submissions.splice(si,1);
+  await saveExams(); renderSubmissionList();
+}
+
+function openSubProgress(si) { selectedSubIdx=si; goExamStep(3); }
+
+function renderSubDetail() {
+  const exam = exams[selectedExamIdx]; if (!exam) return;
+  const sub  = exam.submissions[selectedSubIdx]; if (!sub) return;
+  const el   = document.getElementById("exam-sub-detail"); el.innerHTML="";
+  el.innerHTML = `
+    <div style="background:#f3e5f5;border-radius:8px;padding:10px 12px;margin-bottom:12px;">
+      <div style="font-size:13px;font-weight:bold;color:#6a1b9a;">${sub.subject||""} ${sub.name}</div>
+      <div class="form-label" style="color:#888;margin-top:2px;">締切：${sub.deadline||"未設定"} 　提出：${sub.done?"✅ 済み":"⬜ 未提出"}</div>
+    </div>
+    <div class="flex gap-8 flex-wrap" style="margin-bottom:12px;">
+      <button class="js-toggle-sub-done"
+        style="padding:7px 16px;border-radius:8px;font-size:13px;cursor:pointer;font-weight:bold;
+               background:${sub.done?"#ffebee":"#e8f5e9"};color:${sub.done?"#c62828":"#2e7d32"};
+               border:1.5px solid ${sub.done?"#ef9a9a":"#a5d6a7"};">
+        ${sub.done?"⬜ 未提出に戻す":"✅ 提出済みにする"}
+      </button>
+      <button class="btn-exam-review js-start-review" data-exam="${selectedExamIdx}" data-si="${selectedSubIdx}">
+        📅 復習へ（セル予約）
+      </button>
+    </div>
+    ${sub.hasProg?`<button class="btn-save js-open-sub-prog-modal">📊 進捗を開く</button>`:'<div class="form-label" style="color:#aaa;">進捗管理なし</div>'}
+  `;
+  // イベント委譲
+  el.addEventListener("click", e => {
+    if (e.target.classList.contains("js-toggle-sub-done"))   { toggleSubDone(); return; }
+    if (e.target.classList.contains("js-start-review"))      { startReviewMode(parseInt(e.target.dataset.exam), parseInt(e.target.dataset.si)); return; }
+    if (e.target.classList.contains("js-open-sub-prog-modal")){ openSubProgModal(); return; }
+  });
+}
+
+async function toggleSubDone() {
+  const sub = exams[selectedExamIdx].submissions[selectedSubIdx];
+  sub.done = !sub.done;
+  await saveExams(); renderSubDetail();
+}
+
+function openSubProgModal() {
+  const sub = exams[selectedExamIdx].submissions[selectedSubIdx];
+  const fakeMat = { id:"sub_"+sub.id, name:`[${sub.subject||"提出物"}] ${sub.name}`, color:"#9c27b0" };
+  closeExamModal();
+  openProgressModal(fakeMat);
+}
+
+function startReviewMode(examIdx, subIdx) {
+  const sub = exams[examIdx].submissions[subIdx];
+  reviewModeSub = { id:"sub_"+sub.id, name:(sub.subject?`[${sub.subject}] `:"")+sub.name, color:"#9c27b0" };
+  closeExamModal();
+  showReviewToast();
+}
+
+function showReviewToast() {
+  document.getElementById("review-toast").classList.remove("hidden");
+}
+
+function cancelReviewMode() {
+  reviewModeSub = null;
+  document.getElementById("review-toast").classList.add("hidden");
+}
+  
+// ════════════════════════════════════════
+// 設定モーダル
+// ════════════════════════════════════════
+function openModal() {
+  document.getElementById("modal-overlay").classList.remove("hidden");
+  const c=document.getElementById("day-select-buttons"); c.innerHTML="";
+  allDayNames.forEach((name,i)=>{
+    const b=document.createElement("button");
+    b.innerText=name;
+    b.style.cssText=`padding:8px 14px;border-radius:6px;cursor:pointer;font-size:14px;border:2px solid ${i===weekStartDay?'#333':'#ccc'};font-weight:${i===weekStartDay?'bold':'normal'};`;
+    b.onclick=()=>{weekStartDay=i;localStorage.setItem("weekStartDay",i);closeModal();currentWeek=0;loadWeekNew().then(()=>renderNewGrid());};
+    c.appendChild(b);
+  });
+}
+function closeModal(){ document.getElementById("modal-overlay").classList.add("hidden"); }
+
+function openPresetModal() {
+  document.getElementById("preset-modal-overlay").classList.remove("hidden");
+  // 折りたたみを初期状態（閉じた状態）にリセット
+  ['blocktime','timetable'].forEach(key => {
+    const sec = document.getElementById('section-' + key);
+    const icon = document.getElementById('icon-' + key);
+    if (sec)  sec.style.display = 'none';
+    if (icon) icon.textContent = '▼';
+  });
+  renderTimetableEditor();
+}
+function closePresetModal() { document.getElementById("preset-modal-overlay").classList.add("hidden"); }
+
+function togglePresetSection(key) {
+  const sec  = document.getElementById('section-' + key);
+  const icon = document.getElementById('icon-' + key);
+  if (!sec) return;
+  const opening = sec.style.display === 'none';
+  sec.style.display  = opening ? 'block' : 'none';
+  icon.textContent   = opening ? '▲' : '▼';
+}
+
+// ════════════════════════════════════════
+// 教材マスタ管理
+// ════════════════════════════════════════
+async function loadMaterials() {
+  // IDBから即座に読み込む
+  const cached = await idbGet("materials", "materials");
+  materials = cached ? (cached.list || []) : [];
+  // バックグラウンドでFirestoreと同期
+  if (navigator.onLine) {
+    db.collection("app_config").doc("materials").get()
+      .then(async doc => {
+        if (!doc.exists) return;
+        const list = doc.data().list || [];
+        materials = list;
+        await idbSet("materials", { id: "materials", list });
+      }).catch(() => {});
+  }
+}
+async function saveMaterials() {
+  await idbSet("materials", { id: "materials", list: materials });
+  syncToFirestore("app_config", "materials", { list: materials });
+}
+function genMatId(){ return "mat_"+Date.now()+"_"+Math.random().toString(36).slice(2,6); }
+
+function openMatManage(){  renderMatManageList(); document.getElementById("mat-manage-overlay").classList.remove("hidden"); }
+function closeMatManage(){ document.getElementById("mat-manage-overlay").classList.add("hidden"); }
+function renderMatManageList() {
+  const el=document.getElementById("mat-manage-list"); el.innerHTML="";
+  if (!materials.length){ el.innerHTML='<div class="js-empty-msg">教材が登録されていません</div>'; return; }
+  materials.forEach((mat,idx)=>{
+    const row=document.createElement("div");
+    row.className = "mat-list-item";
+    const dot=document.createElement("div"); dot.className="mat-color-dot"; dot.style.background=mat.color;
+    const info=document.createElement("div"); info.className="js-mat-info"; info.innerHTML=`<b>${mat.name}</b>${mat.category?` <span class="js-mat-category">${mat.category}</span>`:""}`;
+   const del=document.createElement("button"); del.innerText="削除"; del.className="btn-delete-sm";
+    del.onclick=async()=>{ if(!confirm(`「${mat.name}」を削除しますか？`))return; materials.splice(idx,1); await saveMaterials(); renderMatManageList(); };
+    const prog=document.createElement("button"); prog.innerText="📊"; prog.title="進捗管理";
+    prog.className = "btn-exam-progress";
+    prog.onclick=()=>{ closeMatManage(); openProgressModal(mat); };
+    row.appendChild(dot); row.appendChild(info); row.appendChild(prog); row.appendChild(del); el.appendChild(row);
+  });
+}
+async function addMaterialFromManage() {
+  const name=document.getElementById("manage-mat-name").value.trim(); if(!name){alert("教材名を入力してください");return;}
+  materials.push({id:genMatId(),name,color:document.getElementById("manage-mat-color").value,category:document.getElementById("manage-mat-category").value.trim()});
+  await saveMaterials();
+  document.getElementById("manage-mat-name").value=""; document.getElementById("manage-mat-category").value="";
+  renderMatManageList();
+}
+
+// ════════════════════════════════════════
+// セル編集モーダル
+// ════════════════════════════════════════
+const EVENT_COLORS = ["#ffadad","#ffb347","#ffe066","#caffbf","#a0c4ff","#c77dff","#f06292","#90caf9","#aaa","#555"];
+
+
+
+
+function switchCellMode(mode,savedData) {
+  cellModalMode=mode;
+  const ts=document.getElementById("mode-tab-study"), te=document.getElementById("mode-tab-event");
+  if (mode==="study"){ ts.className="mode-tab active-study"; te.className="mode-tab inactive"; }
+  else { ts.className="mode-tab inactive"; te.className="mode-tab active-event"; }
+  document.getElementById("cell-save-btn").style.background=mode==="study"?"#4a90e2":"#f06292";
+  document.getElementById("panel-study").classList.toggle("hidden", mode !== "study");
+  document.getElementById("panel-event").classList.toggle("hidden", mode !== "event");
+  if (mode==="study") {
+    matSelectedId=savedData&&savedData.mode==="study"?(savedData.materialId||null):null;
+    renderMatList();
+    document.getElementById("mat-page-from").value=savedData&&savedData.mode==="study"?(savedData.pageFrom||""):"";
+    document.getElementById("mat-page-to").value=savedData&&savedData.mode==="study"?(savedData.pageTo||""):"";
+    document.getElementById("new-mat-form").classList.add("hidden");
+    document.getElementById("new-mat-toggle").innerText="＋ 新しい教材を追加";
+  } else {
+    document.getElementById("event-title").value=savedData&&savedData.mode==="event"?(savedData.title||""):"";
+    document.getElementById("event-memo").value=savedData&&savedData.mode==="event"?(savedData.memo||""):"";
+    eventSelColor=savedData&&savedData.mode==="event"?(savedData.color||"#ffadad"):"#ffadad";
+    renderEventColorSwatches();
+  }
+}
+
+function renderMatList() {
+  const el=document.getElementById("mat-list"); el.innerHTML="";
+  const none=document.createElement("div");
+  none.className="mat-list-item"+(matSelectedId===null?" selected":"");
+  none.innerHTML=`<div class="mat-color-dot" style="background:#ddd;"></div><span class="mat-list-name">（教材なし）</span>`;
+  none.onclick=()=>{ matSelectedId=null; el.querySelectorAll(".mat-list-item").forEach(i=>i.classList.remove("selected")); none.classList.add("selected"); };
+  el.appendChild(none);
+  materials.forEach(mat=>{
+    const item=document.createElement("div");
+    item.className="mat-list-item"+(matSelectedId===mat.id?" selected":"");
+    item.innerHTML=`<div class="mat-color-dot" style="background:${mat.color};"></div><span class="mat-list-name"><b>${mat.name}</b>${mat.category?` <span style="color:#aaa;font-size:11px;">${mat.category}</span>`:""}</span>`;
+    item.onclick=()=>{ matSelectedId=mat.id; el.querySelectorAll(".mat-list-item").forEach(i=>i.classList.remove("selected")); item.classList.add("selected"); };
+    el.appendChild(item);
+  });
+}
+
+function renderEventColorSwatches() {
+  const el=document.getElementById("event-color-swatches"); el.innerHTML="";
+  [...EVENT_COLORS,...customColors.map(c=>c.color)].forEach(col=>{
+    const sw=document.createElement("div");
+    sw.className="color-swatch"+(col===eventSelColor?" selected":"");
+    sw.style.background=col;
+    sw.onclick=()=>{ eventSelColor=col; el.querySelectorAll(".color-swatch").forEach(s=>s.classList.remove("selected")); sw.classList.add("selected"); };
+    el.appendChild(sw);
+  });
+  const picker=document.createElement("div");
+  picker.style.cssText="width:28px;height:28px;border-radius:6px;border:2px dashed #ccc;display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:16px;";
+  picker.innerText="＋";
+  picker.onclick=()=>{
+    const inp=document.createElement("input"); inp.type="color"; inp.value=eventSelColor;
+    inp.style.cssText="position:fixed;top:-100px;left:-100px;opacity:0;"; document.body.appendChild(inp);
+    inp.addEventListener("change",()=>{ eventSelColor=inp.value; document.body.removeChild(inp); renderEventColorSwatches(); });
+    inp.addEventListener("cancel",()=>{ if(document.body.contains(inp)) document.body.removeChild(inp); });
+    setTimeout(()=>inp.click(),50);
+  };
+  el.appendChild(picker);
+}
+
+function toggleNewMatForm() {
+  const f=document.getElementById("new-mat-form"), b=document.getElementById("new-mat-toggle");
+  const hide=f.classList.contains("hidden"); f.classList.toggle("hidden", !hide); b.innerText=hide?"▲ 閉じる":"＋ 新しい教材を追加";
+}
+async function saveNewMaterial() {
+  const name=document.getElementById("new-mat-name").value.trim(); if(!name){alert("教材名を入力してください");return;}
+  const newMat={id:genMatId(),name,color:document.getElementById("new-mat-color").value,category:document.getElementById("new-mat-category").value.trim()};
+  materials.push(newMat); await saveMaterials();
+  matSelectedId=newMat.id;
+  document.getElementById("new-mat-name").value=""; document.getElementById("new-mat-category").value="";
+  document.getElementById("new-mat-form").classList.add("hidden"); document.getElementById("new-mat-toggle").innerText="＋ 新しい教材を追加";
+  renderMatList();
+}
+
+
+function closeMatModal() {
+  // 時刻セレクト行を非表示に戻す
+  const timeSelRow = document.getElementById('cell-modal-time-selects');
+  if (timeSelRow) timeSelRow.style.display = 'none';
+  // 時刻ラベルを再表示
+  const timeEl = document.getElementById('cell-modal-time');
+  if (timeEl) timeEl.style.display = '';
+  // 終了日セレクトの表示をリセット（既存ブロック編集時に非表示にした場合）
+  const endDateSel = document.getElementById('ng-new-end-date');
+  if (endDateSel) endDateSel.style.display = '';
+  // data-ng-isnew をリセット
+  const saveBtn = document.getElementById('cell-save-btn');
+  if (saveBtn) saveBtn.removeAttribute('data-ng-isnew');
+  const overlay = document.getElementById('cell-modal-overlay');
+  overlay.classList.add('hidden');
+  overlay.style.display = '';
+}
+
+// ════════════════════════════════════════
+// 週ナビゲーション
+// ════════════════════════════════════════
+function showLoading() {
+  const el = document.getElementById('loading-overlay');
+  if (el) { el.style.display = 'flex'; }
+}
+function hideLoading() {
+  const el = document.getElementById('loading-overlay');
+  if (el) { el.style.display = 'none'; }
+}
+
+function changeWeek(offset) {
+  currentWeek += offset;
+  showLoading();
+  loadWeekNew().then(() => { renderNewGrid(); hideLoading(); }).catch(() => hideLoading());
+}
+function getWeekMondayBase() {
+  const today=new Date(), dow=today.getDay();
+  const diff=dow===0?-6:1-dow;
+  const m=new Date(today); m.setDate(today.getDate()+diff+currentWeek*7); m.setHours(0,0,0,0);
+  return m;
+}
+function getStartOfWeek() {
+  const today=new Date();
+  today.setHours(0,0,0,0);
+  const dow=today.getDay(); // 0=日〜6=土
+  // 今日からweekStartDayまで何日前か
+  const diff=((dow - weekStartDay) + 7) % 7;
+  const s=new Date(today);
+  s.setDate(today.getDate() - diff + currentWeek*7);
+  return s;
+}
+function formatDate(d){ return (d.getMonth()+1)+"/"+d.getDate(); }
+function getDateKey(d){ return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`; }
+function getWeekDocId(){ return getDateKey(getWeekMondayBase()); }
+function updateHeaders() {
+  // 祝日はキャッシュから同期で取得（awaitなし）
+  const holidays = _holidayCache || {};
+  const today=new Date(), start=getStartOfWeek(), topBarH=document.getElementById("top-bar").offsetHeight;
+  for (let j=0;j<7;j++){
+    const d=new Date(start); d.setDate(start.getDate()+j);
+    const isToday=d.getFullYear()===today.getFullYear()&&d.getMonth()===today.getMonth()&&d.getDate()===today.getDate();
+    const h=document.getElementById("header-"+j);
+    if (!h) continue;
+    h.innerText=formatDate(d)+" "+allDayNames[d.getDay()]; h.style.top=topBarH+"px";
+    const dow=d.getDay();
+    const dayKey=getDateKey(d);
+    h.classList.remove("today-header","header-sat","header-sun","header-hol");
+    if (isToday) h.classList.add("today-header");
+    else if (dow===6) h.classList.add("header-sat");
+    else if (dow===0 || isHoliday(dayKey, holidays)) h.classList.add(dow===0?"header-sun":"header-hol");
+  }
+  const eh=document.querySelector(".header:first-child"); if(eh) eh.style.top=topBarH+"px";
+}
+
+// ════════════════════════════════════════
+// 集計（新グリッドデータ使用）
+// ════════════════════════════════════════
+function renderSummary(start) {
+  const totals = {}, daily = Array(7).fill(0);
+
+  // 新キー形式で集計
+  const startObj = getStartOfWeek();
+  for (let j = 0; j < 7; j++) {
+    const d = new Date(startObj); d.setDate(startObj.getDate() + j);
+    const dateStr = getDateKey(d);
+    for (const [key, val] of Object.entries(currentWeekDataNew)) {
+      if (!key.startsWith(dateStr + '-')) continue;
+      const cell = val.cell;
+      if (cell && cell.mode === 'study' && cell.materialId) {
+        const id = cell.materialId;
+        const parts = key.split('-');
+        const dur = (parseInt(parts[4]) - parseInt(parts[3])) / 60;
+        if (!totals[id]) totals[id] = { name: cell.materialName, color: cell.materialColor, hours: 0, free: false };
+        totals[id].hours += dur;
+        daily[j] += dur;
+      }
+    }
+  }
+
+  // 自由記録の集計
+  currentFreeRecords.forEach(rec => {
+    for (let j = 0; j < 7; j++) {
+      const d = new Date(start); d.setDate(start.getDate() + j);
+      if (getDateKey(d) === rec.date) {
+        daily[j] += rec.hours;
+        const freeKey = 'free__' + rec.name;
+        if (!totals[freeKey]) totals[freeKey] = { name: rec.name, color: '#43a047', hours: 0, free: true };
+        totals[freeKey].hours += rec.hours;
+        break;
+      }
+    }
+  });
+
+  const barsEl = document.getElementById('summary-bars'); if (!barsEl) return; barsEl.innerHTML = '';
+  const entries = Object.values(totals).sort((a, b) => b.hours - a.hours);
+  const maxH = entries.length ? entries[0].hours : 1;
+  if (!entries.length) {
+    barsEl.innerHTML = '<div style="color:#bbb;font-size:12px;padding:4px 0;">この週の勉強記録はまだありません</div>';
+  } else {
+    const totalH = entries.reduce((s, e) => s + e.hours, 0);
+    const tr = document.createElement('div');
+    tr.style.cssText = 'font-size:12px;color:#555;margin-bottom:8px;';
+    tr.innerHTML = `週間合計：<b style="color:#4a90e2;">${totalH.toFixed(1)}時間</b>`;
+    barsEl.appendChild(tr);
+    entries.forEach(entry => {
+      const row = document.createElement('div'); row.className = 'summary-row';
+      const badge = entry.free ? '<span class="free-record-badge">自由</span>' : '';
+      row.innerHTML = `<div class="summary-label" title="${entry.name}">${entry.name}${badge}</div><div class="summary-bar-wrap"><div class="summary-bar" style="width:${(entry.hours/maxH*100).toFixed(1)}%;background:${entry.color};"></div></div><div class="summary-time">${entry.hours.toFixed(1)}h</div>`;
+      barsEl.appendChild(row);
+    });
+  }
+  renderDailyChart(daily, start);
+}
+
+function renderDailyChart(daily, start) {
+  const labels = [];
+  for (let j = 0; j < 7; j++) {
+    const d = new Date(start); d.setDate(start.getDate() + j);
+    labels.push(`${d.getMonth()+1}/${d.getDate()}`);
+  }
+  const ctx = document.getElementById('summary-chart').getContext('2d');
+  if (summaryChart) summaryChart.destroy();
+  summaryChart = new Chart(ctx, {
+    type: 'bar',
+    data: { labels, datasets: [{ label: '勉強時間（h）', data: daily, backgroundColor: 'rgba(74,144,226,0.7)', borderColor: 'rgba(74,144,226,1)', borderWidth: 1, borderRadius: 4 }] },
+    options: {
+      responsive: true,
+      plugins: { legend: { display: false }, tooltip: { callbacks: { label: c => `${c.parsed.y.toFixed(1)}時間` } } },
+      scales: {
+        y: { beginAtZero: true, ticks: { stepSize: 1, font: { size: 11 } }, title: { display: true, text: '時間', font: { size: 11 } } },
+        x: { ticks: { font: { size: 11 } } }
+      }
+    }
+  });
+}
+  
+// ════════════════════════════════════════
+// Phase 4: プリセット機能（新グリッド対応）
+// ════════════════════════════════════════
+
+// 時間割プリセット（localStorage保存）
+// 構造: { 1:{1:'',2:'',...}, 2:{...}, ... } (dayOfWeek: period)
+let TIMETABLE_PRESET = (() => {
+  try { return JSON.parse(localStorage.getItem('timetablePreset')) || {}; }
+  catch(e) { return {}; }
+})();
+
+function saveTimetablePreset() {
+  const rows = document.querySelectorAll('#timetable-edit-body tr');
+  const preset = {1:{},2:{},3:{},4:{},5:{}};
+  rows.forEach(tr => {
+    const period = parseInt(tr.dataset.period);
+    const inputs = tr.querySelectorAll('input');
+    [1,2,3,4,5].forEach((dow, i) => {
+      preset[dow][period] = inputs[i] ? inputs[i].value.trim() : '';
     });
   });
+  TIMETABLE_PRESET = preset;
+  localStorage.setItem('timetablePreset', JSON.stringify(preset));
+  alert('授業名を保存しました！');
 }
 
-(function () {
-  // index.htmlのログイン画面では、ログイン完了後に_initNavを呼ぶ
-  // app-contentが存在する＝index.htmlのログイン付きページ
-  var appContent = document.getElementById('app-content');
-  if (appContent) {
-    // ログイン済みで既にapp-contentが表示されている場合はすぐ初期化
-    if (appContent.style.display !== 'none') {
-      _initNav();
+function renderTimetableEditor() {
+  const tbody = document.getElementById('timetable-edit-body');
+  if (!tbody) return;
+  tbody.innerHTML = '';
+  const periodLabels = ['①','②','③','④','⑤','⑥','⑦'];
+  for (let p = 1; p <= 7; p++) {
+    const tr = document.createElement('tr');
+    tr.dataset.period = p;
+    let html = `<td style="padding:3px 6px; border:1px solid #e0e8f0; text-align:center; background:#f8f9fb; font-weight:bold;">${periodLabels[p-1]}</td>`;
+    [1,2,3,4,5].forEach(dow => {
+      const noClass = (p === 7) && (dow === 3 || dow === 4); // 水木に7限なし
+      const val = (TIMETABLE_PRESET[dow] && TIMETABLE_PRESET[dow][p]) ? TIMETABLE_PRESET[dow][p] : '';
+      html += `<td style="padding:2px 4px; border:1px solid #e0e8f0; ${noClass?'background:#f0f0f0;':''}">
+        <input type="text" value="${val}" placeholder="${noClass?'なし':''}" ${noClass?'disabled':''}
+          style="width:100%; padding:3px 5px; border:1px solid #ddd; border-radius:4px; font-size:11px; box-sizing:border-box; ${noClass?'background:#f0f0f0; color:#bbb;':''}">
+      </td>`;
+    });
+    tr.innerHTML = html;
+    tbody.appendChild(tr);
+  }
+}
+
+// 授業名を取得（なければデフォルト「①授業」形式）
+function getClassName(dayOfWeek, period) {
+  const periodLabels = ['①','②','③','④','⑤','⑥','⑦'];
+  const name = TIMETABLE_PRESET[dayOfWeek] && TIMETABLE_PRESET[dayOfWeek][period];
+  return name || `${periodLabels[period-1]}授業`;
+}
+
+// 今週のcolIndexを曜日番号から求める
+function colIndexOfDayOfWeek(dayOfWeek) {
+  const start = getStartOfWeek();
+  for (let j = 0; j < 7; j++) {
+    const d = new Date(start); d.setDate(start.getDate() + j);
+    if (d.getDay() === dayOfWeek) return j;
+  }
+  return -1;
+}
+
+// 新グリッド用ブロックを保存するヘルパー
+async function saveNewBlock(colIndex, startMin, endMin, blockType, title, color) {
+  const dur = endMin - startMin;
+  // ポモドーロブロックの場合は箱数を計算してpomoCellsを生成
+  const pomoCells = blockType === 'pomo'
+    ? Array.from({ length: Math.max(1, Math.floor(dur / 30)) }, (_, i) => ({
+        index: i,
+        status: 'pending',
+        content: '',
+        materialId: null,
+        startedAt: null,
+        endedAt: null,
+        isManual: false,
+        memo: ''
+      }))
+    : undefined;
+
+  const cellRecord = {
+    mode: blockType === 'study' || blockType === 'pomo' ? 'study' : 'event',
+    blockType,
+    title,
+    color: color || '#e3f2fd',
+    startMin,
+    endMin,
+    ...(pomoCells ? { pomoCells } : {})
+  };
+  await saveCellDataNew(colIndex, startMin, endMin, cellRecord);
+}
+
+// ════════════════════════════════════════
+// 自由記録
+  async function applyDayPreset(dayOfWeek) {
+  const colIndex = colIndexOfDayOfWeek(dayOfWeek);
+  if (colIndex === -1) { alert('今週にその曜日がありません'); return; }
+  const dayNames = ['日','月','火','水','木','金','土'];
+  if (!confirm(`${dayNames[dayOfWeek]}曜日のスケジュールを新グリッドに設定しますか？`)) return;
+  await buildAndSaveScheduleForDay(dayOfWeek, colIndex);
+  closeModal();
+  await loadWeekNew();
+  renderNewGrid();
+  alert('設定しました！');
+}
+
+async function applyAllDayPresets() {
+  if (!confirm('月〜金すべての曜日を一括設定しますか？')) return;
+  for (const dow of [1, 2, 3, 4, 5]) {
+    const colIndex = colIndexOfDayOfWeek(dow);
+    if (colIndex === -1) continue;
+    await buildAndSaveScheduleForDay(dow, colIndex);
+  }
+  closeModal();
+  await loadWeekNew();
+  renderNewGrid();
+  alert('月〜金を設定しました！');
+}
+
+// ════════════════════════════════════════
+// 自由記録
+// ════════════════════════════════════════
+function openFreeRecordModal() {
+  // 今日の日付をデフォルトにセット
+  const today = new Date();
+  const yyyy = today.getFullYear();
+  const mm   = String(today.getMonth()+1).padStart(2,'0');
+  const dd   = String(today.getDate()).padStart(2,'0');
+  document.getElementById('fr-date').value = `${yyyy}-${mm}-${dd}`;
+  document.getElementById('fr-name').value = '';
+  document.getElementById('fr-hours').value = '0';
+  document.getElementById('fr-minutes').value = '0';
+  document.getElementById('fr-page-from').value = '';
+  document.getElementById('fr-page-to').value = '';
+  document.getElementById('fr-memo').value = '';
+  document.getElementById('free-record-overlay').classList.remove('hidden');
+}
+function closeFreeRecordModal() {
+  document.getElementById('free-record-overlay').classList.add('hidden');
+}
+
+async function saveFreeRecord() {
+  const name = document.getElementById('fr-name').value.trim();
+  const date = document.getElementById('fr-date').value;
+  if (!name) { alert('教材名を入力してください'); return; }
+  if (!date) { alert('日付を入力してください'); return; }
+
+  const hours   = parseInt(document.getElementById('fr-hours').value)   || 0;
+  const minutes = parseInt(document.getElementById('fr-minutes').value) || 0;
+  const totalMinutes = hours * 60 + minutes;
+  if (totalMinutes <= 0) { alert('勉強時間を入力してください'); return; }
+
+  const record = {
+    name,
+    date,                          // "YYYY-MM-DD"
+    hours:   parseFloat((totalMinutes / 60).toFixed(2)),
+    minutes: totalMinutes,
+    pageFrom: parseInt(document.getElementById('fr-page-from').value) || null,
+    pageTo:   parseInt(document.getElementById('fr-page-to').value)   || null,
+    memo:     document.getElementById('fr-memo').value,
+    uid:      auth.currentUser?.uid || 'unknown',
+    createdAt: new Date().toISOString()
+  };
+
+  const id = "fr_" + Date.now() + "_" + Math.random().toString(36).slice(2, 6);
+  const recordWithId = { ...record, id };
+
+  // IDBに即座に保存
+  await idbSet("freeRec", recordWithId);
+  closeFreeRecordModal();
+
+  // Firestoreへはバックグラウンド同期
+  if (navigator.onLine) {
+    db.collection('freeStudyRecords').doc(id).set(record)
+      .catch(e => console.warn('[saveFreeRecord sync]', e));
+  }
+
+  // 今週分なら集計を再描画
+  const start = getStartOfWeek();
+  const end   = new Date(start); end.setDate(start.getDate() + 6);
+  const recDate = new Date(date);
+  if (recDate >= start && recDate <= end) {
+    await loadFreeRecordsForWeek();
+    renderSummary(start);
+  }
+  alert('記録しました！');
+}
+
+// ════════════════════════════════════════
+// 祝日データ（内閣府APIキャッシュ）
+// ════════════════════════════════════════
+let _holidayCache = null;
+async function getHolidays() {
+  if (_holidayCache) return _holidayCache;
+  try {
+    const res = await fetch("https://holidays-jp.github.io/api/v1/date.json");
+    _holidayCache = await res.json(); // { "2025-01-01": "元日", ... }
+  } catch(e) { _holidayCache = {}; }
+  return _holidayCache;
+}
+function isHoliday(dateKey, holidays) {
+  return !!holidays[dateKey];
+}
+  
+// 今週の自由記録をIDBから取得（Firestoreはバックグラウンド同期）
+let currentFreeRecords = [];
+async function loadFreeRecordsForWeek() {
+  const start = getStartOfWeek();
+  const end   = new Date(start); end.setDate(start.getDate() + 6);
+  const startKey = getDateKey(start);
+  const endKey   = getDateKey(end);
+  const uid = auth.currentUser?.uid || 'unknown';
+
+  // IDBから読み込む
+  const all = await idbGetAll("freeRec");
+  currentFreeRecords = all.filter(r =>
+    (r.uid === uid || !r.uid) && r.date >= startKey && r.date <= endKey
+  );
+
+  // バックグラウンドでFirestoreと同期
+  if (navigator.onLine) {
+    db.collection('freeStudyRecords')
+      .where('uid', '==', uid)
+      .where('date', '>=', startKey)
+      .where('date', '<=', endKey)
+      .get()
+      .then(async snap => {
+        const records = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+        await Promise.all(records.map(r => idbSet("freeRec", r)));
+        currentFreeRecords = records;
+        renderSummary(start);
+      }).catch(() => {});
+  }
+}
+  
+// ════════════════════════════════════════
+// ポモドーロ連携
+// ════════════════════════════════════════
+let pomCellId = null, pomCellCol = null, pomCellHour = null;
+let pomCellData = null;
+
+function openPomodoroModal(cellId, colIndex, hour, cellData) {
+  pomCellId = cellId; pomCellCol = colIndex; pomCellHour = hour;
+  pomCellData = cellData;
+  const matName = cellData.materialId ? cellData.materialName : "（教材なし）";
+  document.getElementById("pom-subject").innerText = "📚 " + matName;
+  const from = cellData.pageFrom, to = cellData.pageTo;
+  document.getElementById("pom-pages").innerText = (from || to) ? `p${from||"?"}〜${to||"?"} ページ` : "";
+  document.getElementById("pomodoro-modal-overlay").classList.remove("hidden");
+}
+
+function closePomodoroModal() {
+  document.getElementById("pomodoro-modal-overlay").classList.add("hidden");
+}
+
+function openCellModalFromPom() {
+  closePomodoroModal();
+  // 新グリッド：pomCellDataの_ngKeyがあればopenCellModalNewへ
+  if (pomCellData && pomCellData._ngKey) {
+    openCellModalNew(pomCellData._ngKey, pomCellCol, pomCellData._startMin, pomCellData._endMin);
+  }
+}
+
+function pomGoToTimer() {
+  if (!pomCellData) return;
+  const params = new URLSearchParams();
+  if (pomCellData.materialId)    params.set("matId",    pomCellData.materialId);
+  if (pomCellData.materialName)  params.set("matName",  pomCellData.materialName);
+  if (pomCellData.materialColor) params.set("matColor", pomCellData.materialColor);
+  if (pomCellData.pageFrom)      params.set("from",     pomCellData.pageFrom);
+  if (pomCellData.pageTo)        params.set("to",       pomCellData.pageTo);
+
+  // ── 次の勉強予約ブロックを探してURLに追加 ──
+  const nextCell = findNextStudyCell(pomCellCol, pomCellData._startMin || 0);
+  if (nextCell) {
+    if (nextCell.materialId)    params.set("nextMatId",    nextCell.materialId);
+    if (nextCell.materialName)  params.set("nextMatName",  nextCell.materialName);
+    if (nextCell.materialColor) params.set("nextMatColor", nextCell.materialColor);
+    if (nextCell.pageFrom)      params.set("nextFrom",     nextCell.pageFrom);
+    if (nextCell.pageTo)        params.set("nextTo",       nextCell.pageTo);
+  }
+
+  window.location.href = "pomodoro.html?" + params.toString();
+}
+
+// 指定ブロックより後で、最も近い勉強予約ブロックを探す（新キー形式）
+function findNextStudyCell(colIndex, startMin) {
+  const start = getStartOfWeek();
+  // 同じ日以降のブロックを時刻順に検索
+  for (let j = colIndex; j < 7; j++) {
+    const d = new Date(start); d.setDate(start.getDate() + j);
+    const dateStr = getDateKey(d);
+    const candidates = Object.entries(currentWeekDataNew)
+      .filter(([k]) => k.startsWith(dateStr + '-'))
+      .sort(([a], [b]) => parseInt(a.split('-')[3]) - parseInt(b.split('-')[3]));
+    for (const [key, val] of candidates) {
+      const parts = key.split('-');
+      const sMin = parseInt(parts[3]);
+      if (j === colIndex && sMin <= startMin) continue; // 同じ日は現ブロック以前をスキップ
+      if (val.cell && val.cell.mode === 'study' && val.cell.materialId) {
+        return val.cell;
+      }
     }
-    // そうでなければshowApp()から_initNavが呼ばれるのを待つ
-    // （index.htmlのshowApp関数内で _initNav() を呼ぶこと）
+  }
+  return null;
+}
+
+// ════════════════════════════════════════
+// マンスリー memo 同期
+// ════════════════════════════════════════
+
+// マンスリーmemo → Firestore の monthly コレクションに保存
+async function syncMonthlyToWeekly(dayKey, memo) {
+  // 新グリッドでは備考行がないため、monthlyへの書き戻しのみ行う
+  const d = new Date(dayKey); if (isNaN(d)) return;
+  const monthDocId = `monthly-${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
+  const u = {}; u[dayKey] = { memo };
+  db.collection("monthly").doc(monthDocId).set(u, { merge: true }).catch(e => console.error(e));
+}
+
+// ════════════════════════════════════════
+// パスワード認証（シンプル版）
+// ★ここを自分のパスワードに変更してください★
+// ════════════════════════════════════════
+const APP_PASSWORD = "korohyo";
+
+function showApp() {
+  document.getElementById('auth-container').style.display = 'none';
+  document.getElementById('app-content').style.display = 'block';
+  initTopbarClock();
+  _initNav();
+  // 祝日を起動時に先読みしてキャッシュを温める（以降はawaitなしで参照可能）
+  getHolidays().then(() => {
+    updateHeaders();
+    renderNewGrid(); // ヘッダー色も含めて再描画
+  });
+  loadMaterials().then(() => {
+    const newGrid = document.getElementById('weekly-view-new');
+    if (newGrid) {
+      newGrid.style.display = 'block';
+      loadWeekNew().then(() => renderNewGrid());
+    }
+  });
+  loadExams().then(() => refreshDeadlinePanel());
+}
+function showLogin() {
+  document.getElementById('auth-container').style.display = 'flex';
+  document.getElementById('app-content').style.display = 'none';
+}
+function logout() {
+  localStorage.removeItem("auth_ok");
+  location.reload();
+}
+function setupAuth() {
+  // 既に認証済みならそのまま起動
+  if (localStorage.getItem("auth_ok") === "1") {
+    auth.signInAnonymously()
+      .then(() => showApp())
+      .catch(() => showApp()); // 匿名認証失敗してもオフラインで起動
+    return;
+  }
+
+  const loginBtn = document.getElementById('auth-login');
+  const pwInput  = document.getElementById('auth-password');
+  const errorEl  = document.getElementById('auth-error');
+
+  function tryLogin() {
+    const pw = pwInput.value;
+    if (!pw) {
+      errorEl.textContent = 'パスワードを入力してください';
+      errorEl.style.display = 'block'; return;
+    }
+    if (pw !== APP_PASSWORD) {
+      errorEl.textContent = 'パスワードが違います';
+      errorEl.style.display = 'block';
+      pwInput.value = '';
+      pwInput.focus();
+      return;
+    }
+    localStorage.setItem("auth_ok", "1");
+    errorEl.style.display = 'none';
+    auth.signInAnonymously()
+      .then(() => showApp())
+      .catch(() => showApp());
+  }
+
+  loginBtn.addEventListener('click', tryLogin);
+  pwInput.addEventListener('keydown', e => { if (e.key === 'Enter') tryLogin(); });
+}
+
+async function init() {
+  setupAuth();
+  window.addEventListener("resize", adjustHeaderTop);
+  setTimeout(adjustHeaderTop,100);
+}
+// ════════════════════════════════════════
+// Phase 2: 新グリッド（10分スロット）
+// ════════════════════════════════════════
+
+// 現在のグリッド表示モード（'old' or 'new'）
+let currentGridMode = 'old';
+  // Phase 3: 新グリッド用のデータキャッシュ
+let currentWeekDataNew = {}; // 新キー形式のデータ { '2025-04-21-480-510': {...} }
+
+// switchGridView: 旧グリッド削除のため不要
+
+// ── 新グリッド描画 ────────────────────────────
+// 1日の範囲: 4:00〜24:00 = 120スロット（1スロット=10分）
+const NG_START_HOUR = 4;   // 開始時刻
+const NG_END_HOUR   = 24;  // 終了時刻
+const NG_TOTAL_SLOTS = (NG_END_HOUR - NG_START_HOUR) * 6; // 120スロット
+
+// スロット高さを分数から計算
+// 〜30分: var(--slot-short)=18px × スロット数
+// 31分〜: var(--slot-long)=28px × スロット数
+function ngSlotHeight(durationMin) {
+  return durationMin <= 30 ? 18 : 28;
+}
+
+// 分→grid-row の変換（4:00=slot1）
+function ngStartSlot(startMin) {
+  return (startMin - NG_START_HOUR * 60) / 10 + 1;
+}
+function ngEndSlot(endMin) {
+  return (endMin - NG_START_HOUR * 60) / 10 + 1;
+}
+
+// 分→px位置（上端からの距離）
+function ngMinToPx(minutes, durationMin) {
+  const slotH = ngSlotHeight(durationMin);
+  const slotsFromTop = (minutes - NG_START_HOUR * 60) / 10;
+  return slotsFromTop * slotH;
+}
+
+// 時刻文字列
+function ngFormatTime(minutes) {
+  const h = Math.floor(minutes / 60);
+  const m = minutes % 60;
+  return `${h}:${String(m).padStart(2,'0')}`;
+}
+
+// グリッド骨格の構築済みフラグ
+let _gridBuilt = false;
+
+function renderNewGrid() {
+  const container = document.getElementById('weekly-view-new');
+  const SLOT_H_SHORT = 18;
+  const SLOT_H_LONG  = 28;
+  const TOTAL_HEIGHT = NG_TOTAL_SLOTS * SLOT_H_SHORT;
+  const start = getStartOfWeek();
+  const today = new Date();
+
+  // ── ① 骨格が未構築なら初回のみ全体を構築 ──
+  if (!_gridBuilt) {
+    container.innerHTML = '';
+
+    // ヘッダー行
+    const headerRow = document.createElement('div');
+    headerRow.id = 'ng-header-row';
+    headerRow.style.cssText = 'display:grid; grid-template-columns:44px repeat(7,1fr); min-width:520px; position:sticky; top:0; z-index:6; background:#fff; border-bottom:2px solid #d0d8e8;';
+    const emptyH = document.createElement('div');
+    emptyH.style.cssText = 'border-right:1px solid #e0e0e0; background:#f5f7fa;';
+    headerRow.appendChild(emptyH);
+    for (let j = 0; j < 7; j++) {
+      const cell = document.createElement('div');
+      cell.className = 'ng-day-header';
+      cell.id = 'ng-header-' + j;
+      headerRow.appendChild(cell);
+    }
+    container.appendChild(headerRow);
+
+    // グリッド本体
+    const gridBody = document.createElement('div');
+    gridBody.id = 'ng-grid-body';
+    gridBody.style.cssText = `display:grid; grid-template-columns:44px repeat(7,1fr); min-width:520px; position:relative;`;
+
+    // 時刻ラベル列
+    const timeLabelCol = document.createElement('div');
+    timeLabelCol.style.cssText = `position:relative; border-right:1px solid #e0e0e0; height:${TOTAL_HEIGHT}px;`;
+    for (let h = NG_START_HOUR; h <= NG_END_HOUR; h++) {
+      const top = (h - NG_START_HOUR) * 6 * SLOT_H_SHORT;
+      const label = document.createElement('div');
+      label.style.cssText = `position:absolute; top:${top}px; right:4px; font-size:10px; color:#999; transform:translateY(-50%); white-space:nowrap; user-select:none;`;
+      label.textContent = `${h}:00`;
+      timeLabelCol.appendChild(label);
+    }
+    gridBody.appendChild(timeLabelCol);
+
+    // 曜日ごとのカラム（骨格のみ）
+    for (let j = 0; j < 7; j++) {
+      const colDiv = document.createElement('div');
+      colDiv.id = 'ng-col-' + j;
+      colDiv.style.cssText = `position:relative; height:${TOTAL_HEIGHT}px; border-right:1px solid #eee; box-sizing:border-box; cursor:pointer;`;
+      // 横罫線
+      for (let h = NG_START_HOUR; h <= NG_END_HOUR; h++) {
+        const top = (h - NG_START_HOUR) * 6 * SLOT_H_SHORT;
+        const line = document.createElement('div');
+        line.style.cssText = `position:absolute; top:${top}px; left:0; right:0; border-top:${h % 6 === 0 ? '1px solid #c8cdd8' : '1px solid #eef0f4'}; pointer-events:none;`;
+        colDiv.appendChild(line);
+      }
+      // ブロックコンテナ
+      const blockContainer = document.createElement('div');
+      blockContainer.id = 'ng-blocks-' + j;
+      blockContainer.style.cssText = 'position:absolute; inset:0; pointer-events:none;';
+      colDiv.appendChild(blockContainer);
+
+      // 空白クリック判定用のdata属性を付与
+      colDiv.setAttribute('data-ng-col-index', j);
+
+      gridBody.appendChild(colDiv);
+    }
+    container.appendChild(gridBody);
+
+    // バナー
+    const banner = document.createElement('div');
+    banner.id = 'ng-banner';
+    banner.style.cssText = 'padding:8px 12px; font-size:11px; color:#888; background:#e8f5e9; border-top:1px solid #a5d6a7; margin:0;';
+    container.appendChild(banner);
+
+    _gridBuilt = true;
+  }
+
+  // ── ② 毎回：ヘッダーの日付・色を更新 ──
+  // 祝日は同期キャッシュから取得（awaitなし）
+  const holidays = _holidayCache || {};
+  for (let j = 0; j < 7; j++) {
+    const d = new Date(start); d.setDate(start.getDate() + j);
+    const isToday = d.getFullYear()===today.getFullYear() && d.getMonth()===today.getMonth() && d.getDate()===today.getDate();
+    const dow = d.getDay();
+    const dayKey = getDateKey(d);
+    const cell = document.getElementById('ng-header-' + j);
+    cell.textContent = `${d.getMonth()+1}/${d.getDate()} ${allDayNames[dow]}`;
+    cell.style.cssText = '';
+    if (isToday) cell.style.cssText = 'background:#fffde7; color:#f9a825;';
+    else if (dow === 0 || isHoliday(dayKey, holidays)) cell.style.color = '#c0392b';
+    else if (dow === 6) cell.style.color = '#1a6bbf';
+  }
+
+  // ── ③ 毎回：ブロックのみ差し替え（requestAnimationFrameで分割） ──
+  requestAnimationFrame(() => {
+    // 各カラムをクリア
+    for (let j = 0; j < 7; j++) {
+      const bc = document.getElementById('ng-blocks-' + j);
+      bc.innerHTML = '';
+      bc.style.pointerEvents = 'auto';
+    }
+
+    const DAY_END_MIN = NG_END_HOUR * 60; // グリッド終端（分）
+
+    Object.entries(currentWeekDataNew).forEach(([key, val]) => {
+      const parts = key.split('-');
+      if (parts.length < 5) return;
+      const keyDateStr = `${parts[0]}-${parts[1]}-${parts[2]}`;
+      const startMin   = parseInt(parts[3]);
+      const endMin     = parseInt(parts[4]);
+      if (isNaN(startMin) || isNaN(endMin)) return;
+
+      // 開始カラムを特定
+      let startCol = -1;
+      for (let j = 0; j < 7; j++) {
+        const dj = new Date(start); dj.setDate(start.getDate() + j);
+        if (getDateKey(dj) === keyDateStr) { startCol = j; break; }
+      }
+      if (startCol === -1) return; // 今週に含まれない
+
+      const cellRecord = val.cell || null;
+      const blockType  = cellRecord ? (cellRecord.blockType || (cellRecord.mode === 'study' ? 'study' : 'event')) : 'event';
+      const title      = cellRecord ? (cellRecord.title || cellRecord.materialName || '予定') : (val.text || '予定');
+      const bgColor    = cellRecord ? (cellRecord.color || cellRecord.materialColor || '#a0c4ff') : '#a0c4ff';
+      const isMultiDay = !!(cellRecord?.multiDay && cellRecord?.endColIndex > startCol);
+      const endCol     = isMultiDay ? Math.min(cellRecord.endColIndex, 6) : startCol;
+
+      // カラムごとにブロック断片を生成
+      for (let j = startCol; j <= endCol; j++) {
+        const blockContainer = document.getElementById('ng-blocks-' + j);
+        if (!blockContainer) continue;
+
+        const isFirst = (j === startCol);
+        const isLast  = (j === endCol);
+
+        // このカラム内でのtop/height計算
+        const colStartMin = isFirst ? startMin : NG_START_HOUR * 60;
+        const colEndMin   = isLast  ? endMin   : DAY_END_MIN;
+        const dur         = colEndMin - colStartMin;
+        const slotH       = (!isMultiDay && dur <= 30) ? SLOT_H_SHORT : SLOT_H_LONG;
+        const top         = (colStartMin - NG_START_HOUR * 60) / 10 * SLOT_H_SHORT;
+        const height      = isMultiDay
+          ? Math.round((dur / 10) * SLOT_H_SHORT) // 日またぎは統一スロット高
+          : Math.round((dur / 10) * slotH);
+
+        // 角丸：開始カラム上端・終了カラム下端のみ丸める
+        const borderRadius = isMultiDay
+          ? `${isFirst ? '4px 4px' : '0 0'} ${isLast ? '4px 4px' : '0 0'}`
+          : '4px';
+
+        const blockEl = document.createElement('div');
+        blockEl.className = `ng-block ng-block-${blockType}${isMultiDay ? ' ng-block-multiday' : ''}`;
+        blockEl.style.cssText = `top:${top}px; height:${height}px; position:absolute; left:1px; right:1px; overflow:hidden; border-radius:${borderRadius}; cursor:pointer; box-sizing:border-box;`;
+        blockEl.setAttribute('data-duration', (!isMultiDay && dur <= 30) ? 'short' : 'long');
+        blockEl.setAttribute('data-start-min', startMin);
+        blockEl.setAttribute('data-end-min', endMin);
+        if (cellRecord?.color || cellRecord?.materialColor) {
+          blockEl.style.background = bgColor;
+          blockEl.style.color = getTextColor(bgColor);
+          blockEl.style.border = 'none';
+        }
+        // 日またぎ：継続カラムは薄い斜線ストライプで区別
+        if (isMultiDay && !isFirst) {
+          blockEl.style.opacity = '0.82';
+          blockEl.style.backgroundImage = `repeating-linear-gradient(135deg, transparent, transparent 6px, rgba(255,255,255,0.18) 6px, rgba(255,255,255,0.18) 12px)`;
+        }
+        blockEl.id = `block-${key}-col${j}`;
+        blockEl.setAttribute('data-ng-key',   key);
+        blockEl.setAttribute('data-ng-col',   startCol);
+        blockEl.setAttribute('data-ng-start', startMin);
+        blockEl.setAttribute('data-ng-end',   endMin);
+
+        // 表示内容：先頭カラムのみフルHTML、継続カラムは継続バッジのみ
+        if (isFirst) {
+          const badge = isMultiDay ? `<span style="font-size:9px; background:rgba(255,255,255,0.35); border-radius:3px; padding:0 3px; margin-left:3px;">→${cellRecord.endColIndex - startCol}日</span>` : '';
+          blockEl.innerHTML = makeBlockInnerHTML(title + badge, startMin, endMin, cellRecord, `block-${key}`);
+        } else {
+          const contLabel = isLast ? `↙ ${title}` : `↕ ${title}`;
+          blockEl.innerHTML = `<div style="font-size:10px; padding:2px 4px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${contLabel}</div>`;
+        }
+
+        blockEl.onclick = (e) => { e.stopPropagation(); openBlockAction(key, startCol, startMin, endMin); };
+        blockContainer.appendChild(blockEl);
+      }
+    });
+
+    // バナー更新
+    const banner = document.getElementById('ng-banner');
+    if (banner) {
+      const blockCount = Object.keys(currentWeekDataNew).length;
+      banner.innerHTML = `✅ <b>Phase 3 実データ表示</b>：今週のブロック数：${blockCount}件`;
+    }
+  });
+}
+// ════════════════════════════════════════
+// Phase 3: 新キー形式のFirebase保存・読み込み
+// ════════════════════════════════════════
+
+// 新キー生成: '2025-04-21-480-510'
+// トースト通知（軽量・alert不使用）
+function showToast(msg, duration = 2500) {
+  let el = document.getElementById('_toast_msg');
+  if (!el) {
+    el = document.createElement('div');
+    el.id = '_toast_msg';
+    el.style.cssText = [
+      'position:fixed','bottom:72px','left:50%','transform:translateX(-50%)',
+      'background:rgba(40,40,40,0.88)','color:#fff','padding:8px 18px',
+      'border-radius:20px','font-size:13px','z-index:99999',
+      'pointer-events:none','transition:opacity 0.3s','white-space:nowrap'
+    ].join(';');
+    document.body.appendChild(el);
+  }
+  el.textContent = msg;
+  el.style.opacity = '1';
+  clearTimeout(el._timer);
+  el._timer = setTimeout(() => { el.style.opacity = '0'; }, duration);
+}
+
+function getCellDateKeyNew(colIndex, startMin, endMin) {
+  const s = getStartOfWeek();
+  const d = new Date(s); d.setDate(s.getDate() + colIndex); d.setHours(0,0,0,0);
+  return `${getDateKey(d)}-${startMin}-${endMin}`;
+}
+
+// 新グリッド用週DocId（旧グリッドと同じMonday基準）
+function getWeekDocIdNew() {
+  return getWeekDocId(); // 旧グリッドと同じドキュメントIDを共用
+}
+
+// 新グリッド用: セル保存
+async function saveCellDataNew(colIndex, startMin, endMin, cellRecord) {
+  if (!currentWeekDocId) return;
+  const key   = getCellDateKeyNew(colIndex, startMin, endMin);
+  const entry = {
+    id: currentWeekDocId + '__' + key,
+    docId: currentWeekDocId,
+    key,
+    startMin,
+    endMin,
+    text: cellRecord?.title || '',
+    color: cellRecord?.color || '',
+    mode: cellRecord?.mode || 'schedule',
+    title: cellRecord?.title || '',
+    cell: cellRecord
+  };
+  // IDBに即座に保存
+  await idbSet('cells', entry);
+  currentWeekDataNew[key] = entry;
+
+  // マンスリーキャッシュの該当日を無効化して即時反映
+  const _cellDate = getStartOfWeek();
+  _cellDate.setDate(_cellDate.getDate() + colIndex);
+  const _cellDayKey = getDateKey(_cellDate);
+  const _cellMonthKey = _cellDayKey.slice(0, 7); // "YYYY-MM"
+  if (_monthlyBlockCache[_cellMonthKey]) {
+    delete _monthlyBlockCache[_cellMonthKey][_cellDayKey];
+  }
+
+  // Firestoreへはバックグラウンド同期
+  if (navigator.onLine) {
+    syncToFirestore('schedules2', entry.docId,
+      { [key]: { text: entry.text, color: entry.color, cell: entry.cell, startMin, endMin, mode: entry.mode, title: entry.title } });
   } else {
-    // pomodoro.html / review.html / record.html など：そのまま初期化
-    _initNav();
+    await idbSet('pending', entry);
+  }
+}
+
+// 新グリッド用: 週データ読み込み（IDBメイン・Firestore差分同期）
+async function loadWeekNew() {
+  currentWeekDocId = getWeekDocId();
+  const start = getStartOfWeek(), end = new Date(start); end.setDate(start.getDate() + 6);
+  document.getElementById("week-label").innerText = formatDate(start) + " 〜 " + formatDate(end);
+  updateHeaders();
+
+  // ① まずIDBから即座に読み込んで表示
+  const idbData = await loadFromIDBNew();
+  currentWeekDataNew = idbData;
+  await loadFreeRecordsForWeek();
+  renderSummary(start);
+
+  // ② バックグラウンドでFirestoreと差分同期（表示は①で完了済み）
+  if (navigator.onLine) {
+    try {
+      const doc = await db.collection('schedules2').doc(currentWeekDocId).get();
+      if (!doc.exists) return;
+      const fsData = doc.data();
+      let updated = false;
+      await Promise.all(
+        Object.entries(fsData)
+          .filter(([k]) => isNewKey(k))
+          .map(async ([k, v]) => {
+            const entry = { id: currentWeekDocId + '__' + k, docId: currentWeekDocId, key: k, ...v };
+            await idbSet('cells', entry);
+            // IDBと差分がある場合のみ画面を更新
+            const existing = JSON.stringify(currentWeekDataNew[k]);
+            if (existing !== JSON.stringify(v)) {
+              currentWeekDataNew[k] = v;
+              updated = true;
+            }
+          })
+      );
+      // 差分があれば再描画
+      if (updated) { renderNewGrid(); renderSummary(start); }
+    } catch(e) { console.warn('[loadWeekNew sync]', e); }
+  }
+}
+
+// 新キー判定: '2025-04-21-480-510' 形式かどうか
+// 旧キー: '2025-04-21-08'（時刻2桁）
+// 新キー: '2025-04-21-480-510'（分表記、ハイフン5個）
+function isNewKey(key) {
+  const parts = key.split('-');
+  return parts.length === 5 && parseInt(parts[3]) >= 240;
+}
+
+// IndexedDBから新キーのみ読み込み
+async function loadFromIDBNew() {
+  const all = await idbGetAll('cells');
+  const data = {};
+  all.filter(e => e.docId === currentWeekDocId && isNewKey(e.key))
+     .forEach(e => { data[e.key] = { text: e.text, color: e.color, cell: e.cell || null, startMin: e.startMin, endMin: e.endMin }; });
+  return data;
+}
+
+// ════════════════════════════════════════
+// Phase 6: 勉強予約・復習・AI問題を新グリッドに対応
+// ════════════════════════════════════════
+
+// 新グリッドブロックのタップ処理（分岐ロジック）
+function openBlockAction(key, colIndex, startMin, endMin) {
+  const val = currentWeekDataNew[key];
+  const cellRecord = val?.cell || null;
+  const blockType = cellRecord?.blockType || '';
+
+  // ① 復習モード中 → そのブロックに復習予約を紐付けて保存
+  if (reviewModeSub) {
+    scheduleReviewToBlock(key, colIndex, startMin, endMin);
+    return;
+  }
+
+  // ② ポモドーロブロック → pomo-boxのクリックで処理（ここには到達しない想定だがfallthrough防止）
+  if (blockType === 'pomo') {
+    openCellModalNew(key, colIndex, startMin, endMin);
+    return;
+  }
+
+  // ③ studyブロック（教材紐付け済み・非ポモ）→ ポモドーロモーダルを起動
+  if (cellRecord && cellRecord.mode === 'study' && cellRecord.materialId) {
+    openPomodoroModalNew(key, colIndex, startMin, endMin, cellRecord);
+    return;
+  }
+
+  // ④ classブロック → 教材紐付け＋復習予約＋AI問題の複合モーダル
+  if (blockType === 'class') {
+    openClassBlockModal(key, colIndex, startMin, endMin, cellRecord);
+    return;
+  }
+
+  // ⑤ それ以外 → 通常のセル編集モーダル
+  openCellModalNew(key, colIndex, startMin, endMin);
+}
+
+// ── 新グリッド用ポモドーロ起動モーダル ──
+function openPomodoroModalNew(key, colIndex, startMin, endMin, cellRecord) {
+  pomCellId   = 'ng-' + key;
+  pomCellCol  = colIndex;
+  pomCellHour = Math.floor(startMin / 60);
+  pomCellData = { ...cellRecord, _ngKey: key, _startMin: startMin, _endMin: endMin };
+
+  const matName = cellRecord.materialName || '（教材なし）';
+  document.getElementById('pom-subject').innerText = '📚 ' + matName;
+  const from = cellRecord.pageFrom, to = cellRecord.pageTo;
+  document.getElementById('pom-pages').innerText =
+    (from || to) ? `p${from||'?'}〜${to||'?'} ページ` : '';
+  document.getElementById('pomodoro-modal-overlay').style.display = 'flex';
+
+  // タイマーボタンに新グリッド用のdata属性をセット（デリゲーションで参照）
+  const timerBtn = document.getElementById('pom-go-btn');
+  if (timerBtn) {
+    timerBtn.setAttribute('data-ng-key', key);
+    timerBtn.setAttribute('data-ng-block', JSON.stringify(cellRecord));
+  }
+}
+
+function pomGoToTimerNew(key, cellRecord) {
+  const params = new URLSearchParams();
+  if (cellRecord.materialId)    params.set('matId',    cellRecord.materialId);
+  if (cellRecord.materialName)  params.set('matName',  cellRecord.materialName);
+  if (cellRecord.materialColor) params.set('matColor', cellRecord.materialColor);
+  if (cellRecord.pageFrom)      params.set('from',     cellRecord.pageFrom);
+  if (cellRecord.pageTo)        params.set('to',       cellRecord.pageTo);
+  params.set('blockKey', key);
+  window.location.href = 'pomodoro.html?' + params.toString();
+}
+
+// ── 復習予約を新グリッドブロックに紐付ける ──
+async function scheduleReviewToBlock(key, colIndex, startMin, endMin) {
+  const sub = reviewModeSub;
+  const val = currentWeekDataNew[key];
+  const existing = val?.cell || {};
+  const cellRecord = {
+    ...existing,
+    mode: existing.mode || 'study',
+    startMin,
+    endMin,
+    reviewId:    sub.id,
+    reviewName:  sub.name,
+    reviewColor: sub.color,
+    reviewScheduledAt: new Date().toISOString()
+  };
+  await saveCellDataNew(colIndex, startMin, endMin, cellRecord);
+  cancelReviewMode();
+  renderNewGrid();
+  alert(`「${sub.name}」をこのブロックに復習予約しました`);
+}
+
+// ── 授業ブロックタップ時の複合モーダル（教材紐付け＋復習予約＋AI問題） ──
+function openClassBlockModal(key, colIndex, startMin, endMin, cellRecord) {
+  // 既存のcell-modal-overlayを流用して教材紐付け可能にする
+  openCellModalNew(key, colIndex, startMin, endMin);
+
+  // 既存のAI復習ボタンがあれば除去してから追加
+  const existingBtn = document.getElementById('class-block-action-btns');
+  if (existingBtn) existingBtn.remove();
+
+  const box = document.querySelector('#cell-modal-overlay .modal-box');
+  if (!box) return;
+
+  const actionWrap = document.createElement('div');
+  actionWrap.id = 'class-block-action-btns';
+  actionWrap.style.cssText = 'margin-top:10px; display:flex; gap:8px; flex-wrap:wrap;';
+
+  const reviewBtn = document.createElement('button');
+  reviewBtn.textContent = '📚 復習予約モードへ';
+  reviewBtn.style.cssText = 'flex:1; min-width:120px; padding:9px 0; border-radius:8px; border:1.5px solid #9c27b0; background:#f3e5f5; color:#6a1b9a; font-size:13px; font-weight:bold; cursor:pointer;';
+  reviewBtn.onclick = () => {
+    closeMatModal();
+    reviewModeSub = {
+      id:    'block-' + key,
+      name:  cellRecord?.title || '授業',
+      color: '#9c27b0'
+    };
+    showReviewToast();
+  };
+
+  const aiBtn = document.createElement('button');
+  aiBtn.textContent = '🤖 AI復習問題';
+  aiBtn.style.cssText = 'flex:1; min-width:120px; padding:9px 0; border-radius:8px; border:1.5px solid #4a90e2; background:#e8f0fe; color:#1565c0; font-size:13px; font-weight:bold; cursor:pointer;';
+  aiBtn.onclick = () => {
+    closeMatModal();
+    openAiReviewFromBlock(key, colIndex, startMin, endMin, cellRecord);
+  };
+
+  actionWrap.appendChild(reviewBtn);
+  actionWrap.appendChild(aiBtn);
+  box.appendChild(actionWrap);
+}
+
+// ── AI復習問題をブロックから起動 ──
+function openAiReviewFromBlock(key, colIndex, startMin, endMin, cellRecord) {
+  const params = new URLSearchParams();
+  params.set('blockKey',   key);
+  params.set('blockTitle', cellRecord?.title || '授業');
+  if (cellRecord?.materialId)    params.set('matId',    cellRecord.materialId);
+  if (cellRecord?.materialName)  params.set('matName',  cellRecord.materialName);
+  if (cellRecord?.materialColor) params.set('matColor', cellRecord.materialColor);
+  params.set('startMin', startMin);
+  params.set('endMin',   endMin);
+  window.location.href = 'review.html?' + params.toString();
+}
+
+// ── 復習バッジHTML（ブロック内に表示） ──
+function buildReviewBadgeHTML(cellRecord) {
+  if (!cellRecord?.reviewId) return '';
+  return `<span class="js-review-badge">🔁 ${cellRecord.reviewName || '復習予約'}</span>`;
+}
+
+// ── 空白クリック時の新規予約モーダルを開く ──
+function openNewBlockModal(colIndex, startMin, endMin) {
+  const s = getStartOfWeek();
+  const d = new Date(s); d.setDate(s.getDate() + colIndex);
+  const key = `${getDateKey(d)}-${startMin}-${endMin}`;
+  openCellModalNew(key, colIndex, startMin, endMin, true);
+}
+
+// 新グリッド用: セル編集モーダル
+// isNew=true のとき新規作成（時刻セレクトを表示）
+function openCellModalNew(key, colIndex, startMin, endMin, isNew) {
+  cellModalId  = 'ng-' + key;
+  cellModalCol = colIndex;
+  cellModalHour = Math.floor(startMin / 60);
+
+  const s = getStartOfWeek();
+  const d = new Date(s); d.setDate(s.getDate() + colIndex);
+  document.getElementById('cell-modal-title').innerText =
+    `${d.getMonth()+1}/${d.getDate()}（${allDayNames[d.getDay()]}）`;
+
+  const timeEl     = document.getElementById('cell-modal-time');
+  const timeSelRow = document.getElementById('cell-modal-time-selects');
+  const fromSel    = document.getElementById('ng-new-time-from');
+  const toSel      = document.getElementById('ng-new-time-to');
+
+  if (isNew) {
+    // 時刻ラベルを非表示、セレクト行を表示
+    timeEl.style.display     = 'none';
+    timeSelRow.style.display = 'flex';
+
+    // セレクトの選択肢を再構築（1分刻み）
+    fromSel.innerHTML = '';
+    toSel.innerHTML   = '';
+    for (let m = NG_START_HOUR * 60; m <= NG_END_HOUR * 60; m += 1) {
+      const o1 = document.createElement('option');
+      o1.value = m; o1.textContent = ngFormatTime(m);
+      if (m === startMin) o1.selected = true;
+      fromSel.appendChild(o1);
+      const o2 = document.createElement('option');
+      o2.value = m; o2.textContent = ngFormatTime(m);
+      if (m === endMin) o2.selected = true;
+      toSel.appendChild(o2);
+    }
+
+    // 終了日セレクトを構築（当日〜+6日）
+    const endDateSel = document.getElementById('ng-new-end-date');
+    endDateSel.innerHTML = '';
+    const weekStart = getStartOfWeek();
+    for (let di = 0; di < 7; di++) {
+      const dd = new Date(weekStart); dd.setDate(weekStart.getDate() + di);
+      const opt = document.createElement('option');
+      opt.value = di;
+      opt.textContent = `${dd.getMonth()+1}/${dd.getDate()}(${allDayNames[dd.getDay()]})`;
+      if (di === colIndex) opt.selected = true;
+      endDateSel.appendChild(opt);
+    }
+
+    // fromを変えたら toを+60分に自動更新（changeイベントも発火してボタン表示を同期）
+    fromSel.onchange = () => {
+      const ns = parseInt(fromSel.value);
+      toSel.value = Math.min(ns + 60, NG_END_HOUR * 60);
+      toSel.dispatchEvent(new Event('change', { bubbles: true }));
+    };
+  } else {
+    // 既存ブロック編集：ラベルを非表示にしてセレクト行で時刻変更できるようにする
+    timeEl.style.display     = 'none';
+    timeSelRow.style.display = 'flex';
+
+    // 終了日セレクトは非表示（日またぎ変更は既存ブロックでは対応しない）
+    const endDateSel = document.getElementById('ng-new-end-date');
+    if (endDateSel) endDateSel.style.display = 'none';
+
+    // セレクトの選択肢を再構築（1分刻み・現在値を選択状態に）
+    fromSel.innerHTML = '';
+    toSel.innerHTML   = '';
+    for (let m = NG_START_HOUR * 60; m <= NG_END_HOUR * 60; m += 1) {
+      const o1 = document.createElement('option');
+      o1.value = m; o1.textContent = ngFormatTime(m);
+      if (m === startMin) o1.selected = true;
+      fromSel.appendChild(o1);
+      const o2 = document.createElement('option');
+      o2.value = m; o2.textContent = ngFormatTime(m);
+      if (m === endMin) o2.selected = true;
+      toSel.appendChild(o2);
+    }
+
+    // fromを変えたら toを+60分に自動更新
+    fromSel.onchange = () => {
+      const ns = parseInt(fromSel.value);
+      toSel.value = Math.min(ns + 60, NG_END_HOUR * 60);
+      toSel.dispatchEvent(new Event('change', { bubbles: true }));
+    };
+  }
+
+  const saved = (currentWeekDataNew[key] || {}).cell || null;
+  const mode  = saved ? (saved.mode || 'event') : 'event';
+  switchCellMode(mode, saved);
+
+  const saveBtn = document.getElementById('cell-save-btn');
+  if (saveBtn) {
+    saveBtn.setAttribute('data-ng-key',   key);
+    saveBtn.setAttribute('data-ng-col',   colIndex);
+    saveBtn.setAttribute('data-ng-start', startMin);
+    saveBtn.setAttribute('data-ng-end',   endMin);
+    saveBtn.setAttribute('data-ng-isnew', isNew ? '1' : '');
+  }
+  // overlay は hidden クラスで制御
+  const overlay = document.getElementById('cell-modal-overlay');
+  overlay.classList.remove('hidden');
+  overlay.style.display = '';
+}
+
+async function saveCellModalNew(key, colIndex, startMin, endMin) {
+  // 新規作成モード時は時刻セレクトから実際の時刻を取得
+  const saveBtn = document.getElementById('cell-save-btn');
+  const isNew   = saveBtn && saveBtn.getAttribute('data-ng-isnew') === '1';
+  let endColIndex = colIndex; // 終了日のカラムインデックス
+  const oldKey = key; // 旧キーを保持（時刻変更時に削除するため）
+
+  if (isNew) {
+    // ── 新規ブロック：ng-new-time-from/to から時刻取得 ──
+    const fromSel    = document.getElementById('ng-new-time-from');
+    const toSel      = document.getElementById('ng-new-time-to');
+    const endDateSel = document.getElementById('ng-new-end-date');
+    if (fromSel && toSel) {
+      const newStart   = parseInt(fromSel.value);
+      const newEnd     = parseInt(toSel.value);
+      const newEndCol  = endDateSel ? parseInt(endDateSel.value) : colIndex;
+      const isMultiDay = newEndCol > colIndex;
+      const timeOk = isMultiDay ? (!isNaN(newStart) && !isNaN(newEnd)) : (!isNaN(newStart) && !isNaN(newEnd) && newEnd > newStart);
+      if (timeOk) {
+        startMin    = newStart;
+        endMin      = newEnd;
+        endColIndex = newEndCol;
+        const s2 = getStartOfWeek();
+        const d2 = new Date(s2); d2.setDate(s2.getDate() + colIndex);
+        key = `${getDateKey(d2)}-${startMin}-${endMin}`;
+      }
+    }
+  } else {
+    // ── 既存ブロック編集：ng-new-time-from/to（統一セレクト）から時刻取得 ──
+    const fromSel = document.getElementById('ng-new-time-from');
+    const toSel   = document.getElementById('ng-new-time-to');
+    if (fromSel && toSel) {
+      const newStart = parseInt(fromSel.value);
+      const newEnd   = parseInt(toSel.value);
+      if (!isNaN(newStart) && !isNaN(newEnd) && newEnd > newStart) {
+        startMin = newStart;
+        endMin   = newEnd;
+        // キーを新しい時刻で再生成
+        const s2 = getStartOfWeek();
+        const d2 = new Date(s2); d2.setDate(s2.getDate() + colIndex);
+        key = `${getDateKey(d2)}-${startMin}-${endMin}`;
+        // 時刻が変わった場合は旧キーを削除
+        if (key !== oldKey) {
+          delete currentWeekDataNew[oldKey];
+          const idbOldId = currentWeekDocId + '__' + oldKey;
+          try { await idbDelete('cells', idbOldId); } catch(e) { console.warn('[saveCellModalNew] idbDelete old key:', e); }
+          if (navigator.onLine && currentWeekDocId) {
+            try {
+              await db.collection('schedules2').doc(currentWeekDocId).update({ [oldKey]: firebase.firestore.FieldValue.delete() });
+            } catch(e) { console.warn('[saveCellModalNew] Firestore delete old key:', e); }
+          }
+        }
+      }
+    }
+  }
+
+  // 終了日のdateKeyを算出
+  const weekStart = getStartOfWeek();
+  const endDate   = new Date(weekStart); endDate.setDate(weekStart.getDate() + endColIndex);
+  const endDateKey = getDateKey(endDate);
+  const isMultiDay = endColIndex > colIndex;
+
+  let cellRecord = null;
+  if (cellModalMode === 'study') {
+    const mat = matSelectedId ? materials.find(m => m.id === matSelectedId) : null;
+    cellRecord = {
+      mode: 'study',
+      materialId: mat ? mat.id : null,
+      materialName: mat ? mat.name : null,
+      materialColor: mat ? mat.color : null,
+      pageFrom: parseInt(document.getElementById('mat-page-from').value) || null,
+      pageTo: parseInt(document.getElementById('mat-page-to').value) || null,
+      startMin, endMin,
+      ...(isMultiDay ? { multiDay: true, endDateKey, endColIndex } : {})
+    };
+  } else {
+    cellRecord = {
+      mode: 'event',
+      title: document.getElementById('event-title').value.trim() || '予定',
+      color: eventSelColor,
+      memo: document.getElementById('event-memo').value,
+      startMin, endMin,
+      ...(isMultiDay ? { multiDay: true, endDateKey, endColIndex } : {})
+    };
+  }
+  await saveCellDataNew(colIndex, startMin, endMin, cellRecord);
+  closeMatModal();
+  renderNewGrid();
+}
+
+// セル削除：引数があればそのキーを、なければcell-save-btnのdata属性を使う
+async function clearCellRecord(directKey, directCol) {
+  let key      = directKey;
+  let colIndex = directCol;
+
+  if (!key) {
+    const saveBtn = document.getElementById('cell-save-btn');
+    if (!saveBtn) { closeMatModal(); return; }
+    key      = saveBtn.getAttribute('data-ng-key');
+    colIndex = parseInt(saveBtn.getAttribute('data-ng-col'));
+  }
+  if (!key || colIndex === undefined || isNaN(colIndex)) { closeMatModal(); return; }
+
+  // メモリから削除
+  delete currentWeekDataNew[key];
+
+  // IDBから削除
+  const idbId = currentWeekDocId + '__' + key;
+  try { await idbDelete('cells', idbId); } catch(e) { console.warn('[clearCellRecord] idbDelete:', e); }
+
+  // Firestoreから削除（フィールド削除）
+  if (navigator.onLine && currentWeekDocId) {
+    try {
+      await db.collection('schedules2').doc(currentWeekDocId).update({
+        [key]: firebase.firestore.FieldValue.delete()
+      });
+    } catch(e) { console.warn('[clearCellRecord] Firestore delete:', e); }
+  }
+
+  closeMatModal();
+  closePomodoroModal();
+  renderNewGrid();
+}
+
+// ════════════════════════════════════════
+// Phase 3: 移行スクリプト
+// ブラウザのコンソールから migrateSchedules() を実行してください
+// 実行前に必ずFirebaseのデータをバックアップしてください！
+// ════════════════════════════════════════
+async function migrateSchedules() {
+  if (!confirm('⚠️ 旧キー形式のデータを新キー形式に移行します。\nFirebaseのバックアップは取りましたか？\n\n「OK」で移行を開始します。')) return;
+
+  let migratedCount = 0;
+  let skippedCount  = 0;
+
+  try {
+    // schedules2コレクションの全ドキュメントを取得
+    const snapshot = await db.collection('schedules2').get();
+
+    for (const docSnap of snapshot.docs) {
+      const docId = docSnap.id;
+      const data  = docSnap.data();
+      const updates = {};
+      let hasOldKey = false;
+
+      for (const [key, val] of Object.entries(data)) {
+        // 旧キー判定: '2025-04-21-08' 形式（末尾が2桁の時刻）
+        const oldKeyMatch = key.match(/^(\d{4}-\d{2}-\d{2})-(\d{2})$/);
+        if (!oldKeyMatch) { skippedCount++; continue; }
+
+        const dateStr = oldKeyMatch[1];
+        const hour    = parseInt(oldKeyMatch[2]);
+        if (hour < 4 || hour >= 24) { skippedCount++; continue; }
+
+        // 新キー: 1時間スロットなので startMin〜endMin は hour*60〜(hour+1)*60
+        const startMin = hour * 60;
+        const endMin   = (hour + 1) * 60;
+        const newKey   = `${dateStr}-${startMin}-${endMin}`;
+
+        updates[newKey] = {
+          text: val.text || '',
+          color: val.color || '',
+          cell: val.cell ? { ...val.cell, startMin, endMin } : null,
+          startMin,
+          endMin
+        };
+        hasOldKey = true;
+        migratedCount++;
+      }
+
+      if (hasOldKey) {
+        // 新キーで上書き保存（既存の旧キーデータは残る→手動削除推奨）
+        await db.collection('schedules2').doc(docId).set(updates, { merge: true });
+      }
+    }
+
+    alert(`✅ 移行完了！\n変換したキー: ${migratedCount}件\nスキップ: ${skippedCount}件\n\n⚠️ 旧キーはFirebaseコンソールから手動削除することをお勧めします。`);
+    console.log(`migrateSchedules: 完了 変換=${migratedCount} スキップ=${skippedCount}`);
+  } catch (e) {
+    console.error('migrateSchedules エラー:', e);
+    alert('❌ 移行中にエラーが発生しました。コンソールを確認してください。\n' + e.message);
+  }
+}
+  
+// ════════════════════════════════════════
+// Phase 5: ポモドーロブロック・後入力・編集機能
+// ════════════════════════════════════════
+
+// ════════════════════════════════════════
+// ブロック時間カスタム設定
+// ════════════════════════════════════════
+
+// デフォルトのブロック定義（localStorageで上書き可能）
+const DEFAULT_BLOCK_TIMES = [
+  { id:'asagaku', label:'朝学習',   type:'pomo',  startMin:480,  endMin:510  },
+  { id:'class1',  label:'①授業',   type:'class', startMin:510,  endMin:570  },
+  { id:'class2',  label:'②授業',   type:'class', startMin:570,  endMin:630  },
+  { id:'class3',  label:'③授業',   type:'class', startMin:630,  endMin:690  },
+  { id:'class4',  label:'④授業',   type:'class', startMin:690,  endMin:750  },
+  { id:'lunch',   label:'昼休み',   type:'break', startMin:750,  endMin:780  },
+  { id:'class5',  label:'⑤授業',   type:'class', startMin:780,  endMin:840  },
+  { id:'class6',  label:'⑥授業',   type:'class', startMin:840,  endMin:900  },
+  { id:'class7',  label:'⑦授業',   type:'class', startMin:900,  endMin:960  },
+  { id:'club',    label:'部活',     type:'event', startMin:960,  endMin:1080 },
+  { id:'v1',      label:'V1',       type:'pomo',  startMin:1080, endMin:1140 },
+  { id:'move1',   label:'移動①',   type:'move',  startMin:1140, endMin:1160 },
+  { id:'v2',      label:'V2',       type:'pomo',  startMin:1160, endMin:1200 },
+  { id:'rest',    label:'休憩',     type:'break', startMin:1200, endMin:1210 },
+  { id:'move2',   label:'移動②',   type:'move',  startMin:1210, endMin:1230 },
+  { id:'v3',      label:'V3',       type:'pomo',  startMin:1230, endMin:1320 },
+];
+
+function getBlockTimes() {
+  try {
+    const saved = localStorage.getItem('blockTimePreset');
+    return saved ? JSON.parse(saved) : DEFAULT_BLOCK_TIMES;
+  } catch(e) { return DEFAULT_BLOCK_TIMES; }
+}
+
+function minToTimeStr(min) {
+  const h = String(Math.floor(min / 60)).padStart(2,'0');
+  const m = String(min % 60).padStart(2,'0');
+  return `${h}:${m}`;
+}
+
+function timeStrToMin(str) {
+  const [h, m] = str.split(':').map(Number);
+  return h * 60 + m;
+}
+
+function renderBlockTimeEditor() {
+  const container = document.getElementById('block-time-editor');
+  if (!container) return;
+  const blocks = getBlockTimes();
+  container.innerHTML = blocks.map(b => `
+    <div class="js-block-time-row">
+      <span class="js-block-time-label">${b.label}</span>
+      <input type="time" id="bt-start-${b.id}" value="${minToTimeStr(b.startMin)}" class="input-sm" style="width:90px;">
+      <span class="js-block-time-sep">〜</span>
+      <input type="time" id="bt-end-${b.id}" value="${minToTimeStr(b.endMin)}" class="input-sm" style="width:90px;">
+    </div>
+  `).join('');
+}
+
+function saveBlockTimePreset() {
+  const blocks = getBlockTimes();
+  const updated = blocks.map(b => {
+    const startEl = document.getElementById(`bt-start-${b.id}`);
+    const endEl   = document.getElementById(`bt-end-${b.id}`);
+    return {
+      ...b,
+      startMin: startEl ? timeStrToMin(startEl.value) : b.startMin,
+      endMin:   endEl   ? timeStrToMin(endEl.value)   : b.endMin,
+    };
+  });
+  localStorage.setItem('blockTimePreset', JSON.stringify(updated));
+  alert('⏱ 時間設定を保存しました！\n次回のワンタッチ設定から反映されます。');
+}
+
+// ブロック時間エディタをパネル表示時に描画
+document.addEventListener('DOMContentLoaded', () => {
+  renderBlockTimeEditor();
+});
+async function buildAndSaveScheduleForDay(dayOfWeek, colIndex) {
+  const is7class = (dayOfWeek === 1 || dayOfWeek === 2 || dayOfWeek === 5);
+  const clubName = dayOfWeek === 2 ? '執行部' : '演劇部';
+  const bt = {};
+  getBlockTimes().forEach(b => { bt[b.id] = b; });
+
+  const blocks = [];
+  const g = id => bt[id] || DEFAULT_BLOCK_TIMES.find(d => d.id === id);
+
+  blocks.push({ ...g('asagaku'), title: '朝学習', color: '#e8f5e9' });
+  blocks.push({ ...g('class1'), title: getClassName(dayOfWeek,1), color: '#fce4ec' });
+  blocks.push({ ...g('class2'), title: getClassName(dayOfWeek,2), color: '#fce4ec' });
+  blocks.push({ ...g('class3'), title: getClassName(dayOfWeek,3), color: '#fce4ec' });
+  blocks.push({ ...g('class4'), title: getClassName(dayOfWeek,4), color: '#fce4ec' });
+  blocks.push({ ...g('lunch'),  title: '昼休み', color: '#fff9c4' });
+  blocks.push({ ...g('class5'), title: getClassName(dayOfWeek,5), color: '#fce4ec' });
+  blocks.push({ ...g('class6'), title: getClassName(dayOfWeek,6), color: '#fce4ec' });
+
+  if (is7class) {
+    blocks.push({ ...g('class7'), title: getClassName(dayOfWeek,7), color: '#fce4ec' });
+    blocks.push({ ...g('club'),   title: clubName, color: '#f3e5f5' });
+  } else {
+    const clubBlock = { ...g('club'), title: clubName, color: '#f3e5f5' };
+    // 水木は⑦授業なしで部活開始時刻を class7 の startMin に合わせる
+    clubBlock.startMin = g('class7').startMin;
+    blocks.push(clubBlock);
+  }
+
+  blocks.push({ ...g('v1'),    title: 'V1',   color: '#e8f5e9' });
+  blocks.push({ ...g('move1'), title: '移動', color: '#fff3e0' });
+  blocks.push({ ...g('v2'),    title: 'V2',   color: '#e8f5e9' });
+  blocks.push({ ...g('rest'),  title: '休憩', color: '#f5f5f5' });
+  blocks.push({ ...g('move2'), title: '移動', color: '#fff3e0' });
+  blocks.push({ ...g('v3'),    title: 'V3',   color: '#e8f5e9' });
+
+  for (const b of blocks) {
+    await saveNewBlock(colIndex, b.startMin, b.endMin, b.type, b.title, b.color);
+  }
+}
+
+// ════════════════════════════════════════════
+// Phase 5+: 予約内容をグリッド上に表示
+// ════════════════════════════════════════════
+
+// makeBlockInnerHTML を上書きして予約内容も表示
+function buildPomoBoxesHTML(pomoCells, blockId) {
+  if (!pomoCells || pomoCells.length === 0) return '';
+  return pomoCells.map((box, i) => {
+    const statusClass = box.status === 'done'    ? 'pomo-done'
+                      : box.status === 'manual'   ? 'pomo-manual'
+                      : box.status === 'reserved' ? 'pomo-reserved'
+                      : 'pomo-pending';
+    const manualMark = box.isManual ? '<span class="pomo-manual-mark">✏️</span>' : '';
+    return `<span class="pomo-box ${statusClass}"
+      data-block-id="${blockId}"
+      data-box-index="${i}"
+      data-pomo-click="1"
+      data-pomo-context="1"
+      title="${box.content || '未予約'}"
+    >🍅${manualMark}</span>`;
+  }).join('');
+}
+
+function makeBlockInnerHTML(title, startMin, endMin, cellRecord, blockId) {
+  const dur       = endMin - startMin;
+  const isPomo    = cellRecord?.blockType === 'pomo';
+  const pomoCells = cellRecord?.pomoCells || [];
+
+  // 予約内容サマリーを生成（reservedまたはdone/manualの箱の内容を表示）
+  let reserveSummaryHTML = '';
+  if (isPomo && pomoCells.length > 0) {
+    const reserved = pomoCells.filter(b => b.status !== 'pending' && b.content);
+    if (reserved.length > 0) {
+      reserveSummaryHTML = `<div class="ng-block-reserve-summary">${
+        reserved.map(b => {
+          const icon = b.status === 'done' ? '✅' : b.status === 'manual' ? '✏️' : '📌';
+          return `<span>${icon} ${b.content}</span>`;
+        }).join('')
+      }</div>`;
+    }
+  }
+
+  const pomoHTML = isPomo
+    ? `<div class="pomo-boxes">${buildPomoBoxesHTML(pomoCells, blockId)}</div>`
+    : '';
+
+  return `
+    <span style="font-size:11px;font-weight:bold;">${title}</span>
+    <span class="ng-block-time">${ngFormatTime(startMin)}〜${ngFormatTime(endMin)}（${dur}分）</span>
+    ${pomoHTML}
+    ${reserveSummaryHTML}
+    ${buildReviewBadgeHTML(cellRecord)}
+  `;
+}
+
+function openPomoBoxAction(blockId, boxIndex) {
+  const key = blockId.replace(/^block-/, '');
+  const val = currentWeekDataNew[key];
+  if (!val || !val.cell) return;
+  const pomoCells = val.cell.pomoCells || [];
+  const box = pomoCells[boxIndex];
+  if (!box) return;
+
+  if (box.status === 'pending') {
+    openPomoReserveModal(blockId, boxIndex, val);
+  } else if (box.status === 'done') {
+    openPomoDoneModal(blockId, boxIndex, val);
+  } else if (box.status === 'manual') {
+    openPomoManualInput(blockId, boxIndex);
+  } else {
+    // reserved（予約済み未実施）→ タイマー起動
+    const params = new URLSearchParams();
+    if (val.cell.materialId)    params.set('matId',    val.cell.materialId);
+    if (val.cell.materialName)  params.set('matName',  val.cell.materialName);
+    if (val.cell.materialColor) params.set('matColor', val.cell.materialColor);
+    if (box.content)            params.set('subject',  box.content);
+    window.location.href = 'pomodoro.html?' + params.toString();
+  }
+}
+
+function openPomoReserveModal(blockId, boxIndex, val) {
+  const el = document.getElementById('pomo5-reserve-overlay');
+  el.style.display = 'flex';
+  el.dataset.blockId  = blockId;
+  el.dataset.boxIndex = boxIndex;
+  const matName = val.cell?.materialName || '';
+  const inp = document.getElementById('pomo5-reserve-content');
+  inp.value = '';
+  inp.placeholder = matName ? `例：${matName} p.30〜` : '例：数学演習 p.30〜40';
+}
+
+async function savePomoReserve() {
+  const el       = document.getElementById('pomo5-reserve-overlay');
+  const blockId  = el.dataset.blockId;
+  const boxIndex = parseInt(el.dataset.boxIndex);
+  const content  = document.getElementById('pomo5-reserve-content').value.trim();
+  if (!content) { alert('勉強内容を入力してください'); return; }
+
+  const key = blockId.replace(/^block-/, '');
+  const val = currentWeekDataNew[key];
+  if (!val?.cell) return;
+
+  const pomoCells = val.cell.pomoCells || [];
+  pomoCells[boxIndex] = { ...pomoCells[boxIndex], status: 'reserved', content };
+  val.cell.pomoCells = pomoCells;
+
+  const parts    = key.split('-');
+  const colIndex = getColIndexFromDateKey(key);
+  await saveCellDataNew(colIndex, parseInt(parts[3]), parseInt(parts[4]), val.cell);
+
+  el.style.display = 'none';
+  renderNewGrid();
+}
+
+function openPomoDoneModal(blockId, boxIndex, val) {
+  const pomoCells = val.cell.pomoCells || [];
+  const box = pomoCells[boxIndex];
+  const el  = document.getElementById('pomo5-done-overlay');
+  el.style.display = 'flex';
+  el.dataset.blockId  = blockId;
+  el.dataset.boxIndex = boxIndex;
+  document.getElementById('pomo5-done-content').textContent = box.content || '（内容なし）';
+  document.getElementById('pomo5-done-time').textContent =
+    box.startedAt && box.endedAt
+      ? `${box.startedAt.slice(11,16)} 〜 ${box.endedAt.slice(11,16)}`
+      : '時刻記録なし';
+  document.getElementById('pomo5-done-manual-mark').style.display = box.isManual ? 'inline' : 'none';
+}
+
+function openPomoManualInput(blockId, boxIndex) {
+  const key = blockId.replace(/^block-/, '');
+  const val = currentWeekDataNew[key];
+  if (!val?.cell) return;
+  const pomoCells = val.cell.pomoCells || [];
+  const box   = pomoCells[boxIndex] || {};
+  const parts = key.split('-');
+  const startMin = parseInt(parts[3]);
+
+  const el = document.getElementById('pomo5-manual-overlay');
+  el.style.display = 'flex';
+  el.dataset.blockId  = blockId;
+  el.dataset.boxIndex = boxIndex;
+
+  document.getElementById('pomo5-manual-content').value = box.content || '';
+  document.getElementById('pomo5-manual-memo').value    = box.memo    || '';
+  const defTime = box.startedAt
+    ? box.startedAt.slice(11,16)
+    : ngFormatTime(startMin + boxIndex * 30);
+  document.getElementById('pomo5-manual-time').value = defTime;
+}
+
+async function savePomoManual() {
+  const el       = document.getElementById('pomo5-manual-overlay');
+  const blockId  = el.dataset.blockId;
+  const boxIndex = parseInt(el.dataset.boxIndex);
+  const content  = document.getElementById('pomo5-manual-content').value.trim();
+  if (!content) { alert('勉強内容を入力してください'); return; }
+
+  const key = blockId.replace(/^block-/, '');
+  const val = currentWeekDataNew[key];
+  if (!val?.cell) return;
+
+  const pomoCells = val.cell.pomoCells || [];
+  const timeVal   = document.getElementById('pomo5-manual-time').value;
+  const now       = new Date().toISOString();
+  const parts     = key.split('-');
+  const dateStr   = parts.slice(0,3).join('-');
+
+  pomoCells[boxIndex] = {
+    ...pomoCells[boxIndex],
+    status:    'manual',
+    content,
+    memo:      document.getElementById('pomo5-manual-memo').value,
+    startedAt: timeVal ? `${dateStr}T${timeVal}:00` : now,
+    endedAt:   now,
+    editedAt:  now,
+    isManual:  true
+  };
+  val.cell.pomoCells = pomoCells;
+
+  const colIndex = getColIndexFromDateKey(key);
+  await saveCellDataNew(colIndex, parseInt(parts[3]), parseInt(parts[4]), val.cell);
+
+  el.style.display = 'none';
+  renderNewGrid();
+}
+
+function getColIndexFromDateKey(key) {
+  const parts   = key.split('-');
+  const dateStr = parts.slice(0,3).join('-');
+  const start   = getStartOfWeek();
+  for (let j = 0; j < 7; j++) {
+    const d = new Date(start); d.setDate(start.getDate() + j);
+    if (getDateKey(d) === dateStr) return j;
+  }
+  return 0;
+}
+
+init(); // 実行
+
+if ("serviceWorker" in navigator){
+  navigator.serviceWorker.register("./sw.js").then(()=>console.log("SW OK")).catch(e=>console.error(e));
+}
+
+// ════════════════════════════════════════
+// イベントデリゲーション（nav.js設計に準拠）
+// onclick属性を使わず、クラス・IDで一括管理
+// ════════════════════════════════════════
+document.addEventListener('click', function(e) {
+  const t = e.target;
+
+  // ログイン画面のクリックはデリゲーションで処理しない
+  if (t.closest('#auth-container')) return;
+
+  // ── トップバー ──
+  // ⋮メニューボタン：開閉トグル（外クリックで閉じる処理も含む）
+  const _dd = document.getElementById('topbar-menu-dropdown');
+  if (_dd) {
+    if (t.matches('#topbar-menu-btn')) {
+      _dd.classList.toggle('hidden');
+      return;
+    }
+    // ドロップダウン外クリックで閉じる
+    if (!t.closest('#topbar-menu-wrap')) {
+      _dd.classList.add('hidden');
+    }
+  }
+  if (t.matches('#btn-weekly'))          { switchView('weekly'); return; }
+  if (t.matches('#btn-monthly'))         { switchView('monthly'); return; }
+  if (t.closest('#week-nav') && t.tagName === 'BUTTON') {
+    const nav = document.getElementById('week-nav');
+    const btns = nav.querySelectorAll('button');
+    if (t === btns[0]) { changeWeek(-1); return; }
+    if (t === btns[btns.length - 1]) { changeWeek(1); return; }
+  }
+  if (t.closest('#month-nav') && t.tagName === 'BUTTON') {
+    const nav = document.getElementById('month-nav');
+    const btns = nav.querySelectorAll('button');
+    if (t === btns[0]) { changeMonth(-1); return; }
+    if (t === btns[btns.length - 1]) { changeMonth(1); return; }
+  }
+  if (t.matches('#btn-settings'))        { openModal(); return; }
+  if (t.matches('#btn-preset'))          { openPresetModal(); return; }
+  if (t.matches('.btn-topbar-material')) { openMatManage(); return; }
+  if (t.matches('#btn-logout'))          { logout(); return; }
+  if (t.matches('#btn-print'))           { window.print(); return; }
+  if (t.matches('.btn-topbar-record'))   { openFreeRecordModal(); return; }
+  if (t.matches('.btn-topbar-exam'))     { openExamModal(); return; }
+
+  // ── 設定モーダル ──
+  if (t.closest('#modal-overlay') && t.classList.contains('btn-close'))  { closeModal(); return; }
+
+  // ── プリセットモーダル ──
+  if (t.closest('#preset-modal-overlay') && t.classList.contains('btn-close')) { closePresetModal(); return; }
+  // プリセットボタン（ID判定）
+  if (t.matches('#btn-preset-mon') || t.closest('#btn-preset-mon')) { applyDayPreset(1); return; }
+  if (t.matches('#btn-preset-tue') || t.closest('#btn-preset-tue')) { applyDayPreset(2); return; }
+  if (t.matches('#btn-preset-wed') || t.closest('#btn-preset-wed')) { applyDayPreset(3); return; }
+  if (t.matches('#btn-preset-thu') || t.closest('#btn-preset-thu')) { applyDayPreset(4); return; }
+  if (t.matches('#btn-preset-fri') || t.closest('#btn-preset-fri')) { applyDayPreset(5); return; }
+  if (t.matches('#btn-preset-all') || t.closest('#btn-preset-all')) { applyAllDayPresets(); return; }
+  if (t.matches('#btn-save-block-time')) { saveBlockTimePreset(); return; }
+  if (t.matches('#btn-save-timetable'))  { saveTimetablePreset(); return; }
+
+  // ── 日メモモーダル（マンスリー） ──
+  if (t.closest('#day-modal-overlay') && t.classList.contains('btn-save'))  { saveDayModal(); return; }
+  if (t.closest('#day-modal-overlay') && t.classList.contains('btn-close')) { closeDayModal(); return; }
+  if (t.matches('#day-modal-clear')) { clearDayModal(); return; }
+  if (t.matches('#tab-memo')) { switchDayTab('memo'); return; }
+  if (t.matches('#tab-file')) { switchDayTab('file'); return; }
+  if (t.matches('#day-modal-goto-weekly')) { gotoWeeklyFromMonthly(); return; }
+
+  // ── ウィークリーグリッド空白タップ（新規予約） ──
+  {
+    const colDiv = t.closest('[data-ng-col-index]');
+    if (colDiv && !t.closest('.ng-block') && !t.closest('[data-pomo-click]') && !t.closest('[data-pomo-context]')) {
+      const colIndex = parseInt(colDiv.getAttribute('data-ng-col-index'));
+      const rect     = colDiv.getBoundingClientRect();
+      const SLOT_H   = 18; // SLOT_H_SHORT
+      const relY     = e.clientY - rect.top;
+      const slotsFromTop = Math.floor(relY / SLOT_H);
+      const rawMin   = NG_START_HOUR * 60 + slotsFromTop * 10;
+      const startMin = Math.round(rawMin / 30) * 30;
+      const endMin   = Math.min(startMin + 60, NG_END_HOUR * 60);
+      if (startMin >= NG_START_HOUR * 60 && endMin <= NG_END_HOUR * 60 && endMin > startMin) {
+        openNewBlockModal(colIndex, startMin, endMin);
+      }
+      return;
+    }
+  }
+
+  // ── セル編集モーダル ──
+  if (t.matches('#mode-tab-study'))      { switchCellMode('study', null); return; }
+  if (t.matches('#mode-tab-event'))      { switchCellMode('event', null); return; }
+  if (t.matches('#new-mat-toggle'))      { toggleNewMatForm(); return; }
+  if (t.closest('#new-mat-form') && t.classList.contains('btn-add-sm')) { addMaterialInline(); return; }
+  if (t.matches('#cell-save-btn')) {
+    const ngKey = t.getAttribute('data-ng-key');
+    if (ngKey) {
+      // 新グリッド用
+      saveCellModalNew(
+        ngKey,
+        parseInt(t.getAttribute('data-ng-col')),
+        parseInt(t.getAttribute('data-ng-start')),
+        parseInt(t.getAttribute('data-ng-end'))
+      );
+    } else {
+      saveCellModal();
+    }
+    return;
+  }
+  if (t.closest('#cell-modal-overlay') && t.classList.contains('btn-delete')) { clearCellRecord(); return; }
+  if (t.closest('#cell-modal-overlay') && t.classList.contains('btn-close'))  { closeMatModal(); return; }
+
+  // ── 自由記録モーダル ──
+  if (t.closest('#free-record-overlay') && t.classList.contains('btn-save-green')) { saveFreeRecord(); return; }
+  if (t.closest('#free-record-overlay') && t.classList.contains('btn-close'))      { closeFreeRecordModal(); return; }
+
+  // ── 教材管理モーダル ──
+  if (t.closest('#mat-manage-overlay') && t.closest('.new-mat-form') && t.classList.contains('btn-add-sm')) { addMaterialFromManage(); return; }
+  if (t.closest('#mat-manage-overlay') && t.classList.contains('btn-close')) { closeMatManage(); return; }
+
+  // ── 進捗管理モーダル ──
+  if (t.closest('#progress-overlay') && t.classList.contains('btn-icon-close')) { document.getElementById('progress-overlay').classList.add('hidden'); return; }
+  if (t.closest('#progress-overlay') && t.classList.contains('btn-save-lg'))    { saveProgress(); return; }
+  if (t.closest('#progress-overlay') && t.classList.contains('btn-close-lg'))   { document.getElementById('progress-overlay').classList.add('hidden'); return; }
+  if (t.closest('#progress-overlay') && t.classList.contains('btn-round-add'))   { addRound(); return; }
+  if (t.closest('#progress-overlay') && t.classList.contains('btn-chapter-add')) { addChapter(); return; }
+  if (t.closest('#progress-overlay') && t.classList.contains('btn-apply-sm'))    { applyTotalQuestions(); return; }
+  if (t.closest('#progress-overlay') && t.classList.contains('btn-delete-sm'))   { deleteChapter(); return; }
+
+  // ── 考査管理モーダル ──
+  if (t.closest('#exam-overlay') && t.classList.contains('btn-icon-close')) { closeExamModal(); return; }
+  if (t.closest('#exam-overlay') && t.classList.contains('btn-close-lg'))   { closeExamModal(); return; }
+  if (t.closest('#exam-overlay') && t.classList.contains('btn-text-back')) {
+    if (currentExamStep === 3) { goExamStep(2); } else { goExamStep(1); }
+    return;
+  }
+  if (t.closest('#exam-overlay') && t.classList.contains('btn-add-purple'))    { addExam(); return; }
+  if (t.closest('#exam-overlay') && t.classList.contains('btn-add-purple-sm')) { addSubmission(); return; }
+
+  // ── ポモドーロ起動モーダル（旧グリッド） ──
+  if (t.matches('#pom-go-btn')) {
+    const ngKey = t.getAttribute('data-ng-key');
+    if (ngKey) {
+      try {
+        const cellRecord = JSON.parse(t.getAttribute('data-ng-block') || '{}');
+        pomGoToTimerNew(ngKey, cellRecord);
+      } catch(e) { pomGoToTimer(); }
+    } else {
+      pomGoToTimer();
+    }
+    return;
+  }
+  if (t.closest('#pomodoro-modal-overlay') && t.textContent.includes('予約を編集')) { openCellModalFromPom(); return; }
+  if (t.matches('#pom-delete-btn')) {
+    if (pomCellData && pomCellData._ngKey && confirm('このブロックを削除しますか？')) {
+      clearCellRecord(pomCellData._ngKey, pomCellCol);
+    }
+    return;
+  }
+  if (t.closest('#pomodoro-modal-overlay') && t.textContent.includes('閉じる'))     { closePomodoroModal(); return; }
+
+  // ── Phase5: ポモドーロ予約モーダル ──
+  if (t.closest('#pomo5-reserve-overlay') && t.classList.contains('pomo5-btn-cancel'))  { document.getElementById('pomo5-reserve-overlay').style.display = 'none'; return; }
+  if (t.closest('#pomo5-reserve-overlay') && t.classList.contains('pomo5-btn-primary')) { savePomoReserve(); return; }
+
+  // ── Phase5: 完了確認モーダル ──
+  if (t.closest('#pomo5-done-overlay') && t.classList.contains('pomo5-btn-cancel')) { document.getElementById('pomo5-done-overlay').style.display = 'none'; return; }
+  if (t.closest('#pomo5-done-overlay') && t.classList.contains('pomo5-btn-edit')) {
+    const el = document.getElementById('pomo5-done-overlay');
+    openPomoManualInput(el.dataset.blockId, parseInt(el.dataset.boxIndex));
+    el.style.display = 'none';
+    return;
+  }
+
+  // ── Phase5: 後入力モーダル ──
+  if (t.closest('#pomo5-manual-overlay') && t.classList.contains('pomo5-btn-cancel'))  { document.getElementById('pomo5-manual-overlay').style.display = 'none'; return; }
+  if (t.closest('#pomo5-manual-overlay') && t.classList.contains('pomo5-btn-primary')) { savePomoManual(); return; }
+
+  // ── 復習トースト ──
+  if (t.matches('.btn-toast-cancel')) { cancelReviewMode(); return; }
+
+  // ── ポモドーロボックス（クリック） ──
+  if (t.closest('[data-pomo-click]')) {
+    const box = t.closest('[data-pomo-click]');
+    e.stopPropagation();
+    openPomoBoxAction(box.dataset.blockId, parseInt(box.dataset.boxIndex));
+    return;
+  }
+});
+
+// ── ポモドーロボックス（右クリック／長押し） ──
+document.addEventListener('contextmenu', function(e) {
+  // ポモドーロボックスの右クリック
+  const pomoBox = e.target.closest('[data-pomo-context]');
+  if (pomoBox) {
+    e.preventDefault();
+    e.stopPropagation();
+    openPomoManualInput(pomoBox.dataset.blockId, parseInt(pomoBox.dataset.boxIndex));
+    return;
+  }
+  // ウィークリーブロックの右クリック → 削除確認
+  const ngBlock = e.target.closest('.ng-block[data-ng-key]');
+  if (ngBlock) {
+    e.preventDefault();
+    e.stopPropagation();
+    const key      = ngBlock.getAttribute('data-ng-key');
+    const colIndex = parseInt(ngBlock.getAttribute('data-ng-col'));
+    if (key && !isNaN(colIndex) && confirm('このブロックを削除しますか？')) {
+      clearCellRecord(key, colIndex);
+    }
+    return;
+  }
+});
+
+// ── ウィークリーブロック長押し（タッチ）で削除 ──
+(function() {
+  let _longPressTimer = null;
+  let _longPressBlock = null;
+
+  document.addEventListener('touchstart', function(e) {
+    const ngBlock = e.target.closest('.ng-block[data-ng-key]');
+    if (!ngBlock || e.target.closest('[data-pomo-click]')) return;
+    _longPressBlock = ngBlock;
+    _longPressTimer = setTimeout(() => {
+      if (!_longPressBlock) return;
+      const key      = _longPressBlock.getAttribute('data-ng-key');
+      const colIndex = parseInt(_longPressBlock.getAttribute('data-ng-col'));
+      _longPressBlock = null;
+      if (key && !isNaN(colIndex) && confirm('このブロックを削除しますか？')) {
+        clearCellRecord(key, colIndex);
+      }
+    }, 600);
+  }, { passive: true });
+
+  document.addEventListener('touchmove',  () => { clearTimeout(_longPressTimer); _longPressBlock = null; }, { passive: true });
+  document.addEventListener('touchend',   () => { clearTimeout(_longPressTimer); _longPressBlock = null; }, { passive: true });
+  document.addEventListener('touchcancel',() => { clearTimeout(_longPressTimer); _longPressBlock = null; }, { passive: true });
+})();
+
+// ── 新材料フォームの表示切り替え（セル編集モーダル内）──
+// ※ toggleNewMatForm() は既存関数を使用（1900行付近に定義済み）
+
+// ── セル編集モーダル内の教材インライン追加 ──
+async function addMaterialInline() {
+  const name  = document.getElementById('new-mat-name').value.trim();
+  const color = document.getElementById('new-mat-color').value;
+  const cat   = document.getElementById('new-mat-category').value.trim();
+  if (!name) { alert('教材名を入力してください'); return; }
+  const mat = { id: genMatId(), name, color, category: cat };
+  materials.push(mat);
+  await saveMaterials();
+  matSelectedId = mat.id;
+  document.getElementById('new-mat-name').value     = '';
+  document.getElementById('new-mat-category').value = '';
+  document.getElementById('new-mat-form').classList.add('hidden');
+  document.getElementById('new-mat-toggle').innerText = '＋ 新しい教材を追加';
+  renderMatList();
+}
+
+</script>
+
+<!-- ══ Phase 5: ポモドーロ予約モーダル ══ -->
+<div id="pomo5-reserve-overlay" style="display:none;">
+  <div class="pomo5-box">
+    <h3>🍅 ポモドーロ予約</h3>
+    <label class="form-label" style="color:#888;">勉強内容（必須）</label>
+    <input type="text" id="pomo5-reserve-content" placeholder="例：数学演習 p.30〜40">
+    <div class="pomo5-btn-row">
+      <button class="pomo5-btn pomo5-btn-cancel">キャンセル</button>
+      <button class="pomo5-btn pomo5-btn-primary">予約する</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══ Phase 5: 完了確認モーダル ══ -->
+<div id="pomo5-done-overlay" style="display:none;">
+  <div class="pomo5-box">
+    <h3>✅ 完了済み <span id="pomo5-done-manual-mark" class="hidden" style="font-size:13px;">✏️後入力</span></h3>
+    <div style="font-size:13px;margin-bottom:6px;">📖 <b id="pomo5-done-content"></b></div>
+    <div class="form-label" style="color:#888;margin-bottom:14px;">🕐 <span id="pomo5-done-time"></span></div>
+    <div class="pomo5-btn-row">
+      <button class="pomo5-btn pomo5-btn-cancel">閉じる</button>
+      <button class="pomo5-btn pomo5-btn-edit">✏️ 編集</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══ Phase 5: 後入力モーダル ══ -->
+<div id="pomo5-manual-overlay" style="display:none;">
+  <div class="pomo5-box">
+    <h3>✏️ 後から記録する</h3>
+    <label class="form-label" style="color:#888;">勉強内容（必須）</label>
+    <input type="text" id="pomo5-manual-content" placeholder="例：数学演習 p.30〜40">
+    <label class="form-label" style="color:#888;">実施時刻</label>
+    <input type="time" id="pomo5-manual-time">
+    <label class="form-label" style="color:#888;">メモ（任意）</label>
+    <textarea id="pomo5-manual-memo" placeholder="気づきや反省点など"></textarea>
+    <div class="pomo5-btn-row">
+      <button class="pomo5-btn pomo5-btn-cancel">キャンセル</button>
+      <button class="pomo5-btn pomo5-btn-primary">保存する</button>
+    </div>
+  </div>
+</div>
+
+<div id="review-toast" class="hidden">📚 セルをタップして復習を予約してください　<button class="btn-toast-cancel">キャンセル</button></div>
+
+<script src="nav.js"></script>
+<script src="guide.js"></script>
+
+<!-- ══ クロックピッカーポップアップ ══ -->
+<div id="cp-overlay">
+  <div id="cp-backdrop"></div>
+  <div id="cp-popup">
+    <div id="cp-title">時刻を選択</div>
+    <div id="cp-mode-row">
+      <button class="cp-mode-btn active" id="cp-mode-hour">時</button>
+      <button class="cp-mode-btn" id="cp-mode-min">分</button>
+    </div>
+    <div id="cp-digital">--:--</div>
+    <div id="cp-clock-wrap">
+      <svg id="cp-svg" viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg"></svg>
+    </div>
+    <div id="cp-btn-row">
+      <button id="cp-btn-cancel">キャンセル</button>
+      <button id="cp-btn-ok">決定</button>
+    </div>
+  </div>
+</div>
+
+<script>
+
+// ════════════════════════════════════════
+// クロックピッカー
+// 対象: .select-time クラスのすべての <select>
+// ════════════════════════════════════════
+(function() {
+  const CP_START = 4;   // 4:00
+  const CP_END   = 24;  // 24:00
+
+  let _sel       = null;  // 現在操作中の <select>
+  let _cbAfter   = null;  // 決定後に呼ぶコールバック
+  let _mode      = 'hour'; // 'hour' | 'min'
+  let _hour      = 9;
+  let _min       = 0;
+
+  // ── SVG要素を毎回取得（DOM生成後に参照） ──
+  function getSvg()    { return document.getElementById('cp-svg'); }
+  function getOverlay(){ return document.getElementById('cp-overlay'); }
+
+  // ── 時計盤を描画 ──
+  function drawClock() {
+    const svg = getSvg();
+    if (!svg) return;
+    svg.innerHTML = '';
+    const cx = 100, cy = 100, R = 88, rOuter = 88, rInner = 58;
+
+    // 外円
+    const bg = document.createElementNS('http://www.w3.org/2000/svg','circle');
+    bg.setAttribute('cx',cx); bg.setAttribute('cy',cy); bg.setAttribute('r',R);
+    bg.setAttribute('fill','#f0f5ff'); bg.setAttribute('stroke','#c5d0f0'); bg.setAttribute('stroke-width','2');
+    svg.appendChild(bg);
+
+    if (_mode === 'hour') {
+      // 4〜24時を円形配置（内外2列）
+      // 外輪: 13〜24 (12個)  内輪: 4〜12 (9個) → 実際は 外12〜23, 内4〜11, 24は0時位置
+      // シンプルに: 外輪 = 12,13,...23  内輪 = 0(=24),1,...11 相当
+      // 実装: 外輪に12〜23(=AM/PM外), 内輪に4〜11+24
+      // UI的に使いやすいよう: 外輪12個=13〜24, 内輪=4〜12
+
+      // 外輪 (13〜24)
+      for (let i = 0; i < 12; i++) {
+        const h = 13 + i;
+        const angle = (i / 12) * 2 * Math.PI - Math.PI / 2;
+        const x = cx + rOuter * Math.cos(angle);
+        const y = cy + rOuter * Math.sin(angle);
+        const isSelected = (h === _hour);
+        drawHourMark(svg, x, y, h === 24 ? '24' : String(h), isSelected);
+      }
+      // 内輪 (4〜12)
+      for (let i = 0; i < 9; i++) {
+        const h = 4 + i;
+        const angle = (i / 9) * 2 * Math.PI - Math.PI / 2;
+        const x = cx + rInner * Math.cos(angle);
+        const y = cy + rInner * Math.sin(angle);
+        const isSelected = (h === _hour);
+        drawHourMark(svg, x, y, String(h), isSelected);
+      }
+      // 時針（内輪4〜12:9分割、外輪13〜24:12分割）
+      let hAngle, rHand;
+      if (_hour >= 13) {
+        const idx = _hour - 13; // 0〜11
+        hAngle = (idx / 12) * 2 * Math.PI - Math.PI / 2;
+        rHand  = rOuter - 14;
+      } else {
+        const idx = _hour - 4; // 0〜8
+        hAngle = (idx / 9) * 2 * Math.PI - Math.PI / 2;
+        rHand  = rInner - 14;
+      }
+      drawHand(svg, cx, cy, hAngle, rHand, '#3a5aad');
+
+    } else {
+      // 分: 0〜59 (5分刻みのラベル、1分単位で動径)
+      for (let i = 0; i < 12; i++) {
+        const m = i * 5;
+        const angle = (i / 12) * 2 * Math.PI - Math.PI / 2;
+        const x = cx + rOuter * Math.cos(angle);
+        const y = cy + rOuter * Math.sin(angle);
+        const isSelected = (_min >= m && _min < m + 5) || (m === 55 && _min === 59) || (m === _min);
+        drawHourMark(svg, x, y, String(m).padStart(2,'0'), _min === m);
+      }
+      // 分針
+      const mAngle = (_min / 60) * 2 * Math.PI - Math.PI / 2;
+      drawHand(svg, cx, cy, mAngle, rOuter - 14, '#e05a2b');
+    }
+
+    // 中心
+    const dot = document.createElementNS('http://www.w3.org/2000/svg','circle');
+    dot.setAttribute('cx',cx); dot.setAttribute('cy',cy); dot.setAttribute('r','5');
+    dot.setAttribute('fill','#3a5aad');
+    svg.appendChild(dot);
+  }
+
+  function drawHourMark(svg, x, y, label, isSelected) {
+    const r = 14;
+    if (isSelected) {
+      const sel = document.createElementNS('http://www.w3.org/2000/svg','circle');
+      sel.setAttribute('cx', x); sel.setAttribute('cy', y); sel.setAttribute('r', r);
+      sel.setAttribute('fill','#3a5aad');
+      svg.appendChild(sel);
+    }
+    const t = document.createElementNS('http://www.w3.org/2000/svg','text');
+    t.setAttribute('x', x); t.setAttribute('y', y);
+    t.setAttribute('text-anchor','middle'); t.setAttribute('dominant-baseline','central');
+    t.setAttribute('font-size','11'); t.setAttribute('font-weight', isSelected ? 'bold' : 'normal');
+    t.setAttribute('fill', isSelected ? '#fff' : '#444');
+    t.textContent = label;
+    svg.appendChild(t);
+  }
+
+  function drawHand(svg, cx, cy, angle, len, color) {
+    const x2 = cx + len * Math.cos(angle);
+    const y2 = cy + len * Math.sin(angle);
+    const line = document.createElementNS('http://www.w3.org/2000/svg','line');
+    line.setAttribute('x1',cx); line.setAttribute('y1',cy);
+    line.setAttribute('x2',x2); line.setAttribute('y2',y2);
+    line.setAttribute('stroke',color); line.setAttribute('stroke-width','3');
+    line.setAttribute('stroke-linecap','round');
+    svg.appendChild(line);
+    // 先端の丸
+    const tip = document.createElementNS('http://www.w3.org/2000/svg','circle');
+    tip.setAttribute('cx',x2); tip.setAttribute('cy',y2); tip.setAttribute('r','6');
+    tip.setAttribute('fill',color);
+    svg.appendChild(tip);
+  }
+
+  function updateDigital() {
+    const el = document.getElementById('cp-digital');
+    if (!el) return;
+    const hStr = String(_hour).padStart(2,'0');
+    const mStr = String(_min).padStart(2,'0');
+    el.innerHTML =
+      `<span id="cp-dig-h" title="クリックして時を編集" style="color:${_mode==='hour'?'#2a4a9a':'#888'};cursor:pointer;">${hStr}</span>` +
+      `<span style="color:#aaa">:</span>` +
+      `<span id="cp-dig-m" title="クリックして分を編集" style="color:${_mode==='min'?'#e05a2b':'#888'};cursor:pointer;">${mStr}</span>`;
+    // クリックでモード切替 + インライン編集
+    const dh = document.getElementById('cp-dig-h');
+    const dm = document.getElementById('cp-dig-m');
+    if (dh) dh.addEventListener('click', () => { setMode('hour'); startInlineEdit('hour'); });
+    if (dm) dm.addEventListener('click', () => { setMode('min');  startInlineEdit('min');  });
+  }
+
+  // インライン数値編集（スピン入力を一時表示）
+  function startInlineEdit(which) {
+    const el = document.getElementById('cp-digital');
+    if (!el) return;
+    const isHour = which === 'hour';
+    const curVal = isHour ? _hour : _min;
+    const inp = document.createElement('input');
+    inp.type = 'number';
+    inp.value = curVal;
+    inp.min = isHour ? 4 : 0;
+    inp.max = isHour ? 24 : 59;
+    inp.style.cssText = 'width:52px;font-size:24px;font-weight:bold;text-align:center;border:2px solid ' +
+      (isHour ? '#3a5aad' : '#e05a2b') + ';border-radius:6px;padding:2px 0;background:#f5f8ff;color:' +
+      (isHour ? '#2a4a9a' : '#e05a2b') + ';outline:none;';
+    el.innerHTML = '';
+    el.appendChild(inp);
+    inp.focus(); inp.select();
+    function commit() {
+      let v = parseInt(inp.value);
+      if (isNaN(v)) v = curVal;
+      if (isHour) { v = Math.max(4, Math.min(24, v)); _hour = v; }
+      else        { v = Math.max(0, Math.min(59, v)); _min  = v; }
+      drawClock(); updateDigital();
+    }
+    inp.addEventListener('blur',  commit);
+    inp.addEventListener('keydown', e => {
+      if (e.key === 'Enter') { commit(); }
+      if (e.key === 'Escape') { updateDigital(); }
+    });
+  }
+
+  function setupNumInputs() {
+    // インライン編集方式に移行したため不要
+  }
+
+  function setMode(m) {
+    _mode = m;
+    document.getElementById('cp-mode-hour').classList.toggle('active', m === 'hour');
+    document.getElementById('cp-mode-min').classList.toggle('active', m === 'min');
+    updateDigital();
+    drawClock();
+  }
+
+  // ── SVGクリック/ドラッグで時刻を設定 ──
+  function handleSvgPointer(e) {
+    const svg = getSvg();
+    if (!svg) return;
+    const rect = svg.getBoundingClientRect();
+    const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+    const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+    const dx = clientX - (rect.left + rect.width / 2);
+    const dy = clientY - (rect.top  + rect.height / 2);
+    const angle = Math.atan2(dy, dx) + Math.PI / 2; // 12時=0
+    const norm  = ((angle % (2 * Math.PI)) + 2 * Math.PI) % (2 * Math.PI);
+    const dist  = Math.sqrt(dx * dx + dy * dy);
+    const scale = rect.width / 200;
+
+    if (_mode === 'hour') {
+      // 外輪/内輪の判定（スケール補正）
+      const outerR = 88 * scale, innerR = 58 * scale;
+      const useInner = dist < (outerR + innerR) / 2;
+      if (useInner) {
+        // 内輪: 4〜12 (9時間)
+        const idx = Math.round(norm / (2 * Math.PI / 9)) % 9;
+        _hour = CP_START + idx;
+      } else {
+        // 外輪: 13〜24 (12時間)
+        const idx = Math.round(norm / (2 * Math.PI / 12)) % 12;
+        _hour = 13 + idx;
+      }
+      _hour = Math.max(CP_START, Math.min(CP_END, _hour));
+    } else {
+      // 分: 0〜59
+      const idx = Math.round(norm / (2 * Math.PI) * 60) % 60;
+      _min = idx;
+    }
+    updateDigital();
+    drawClock();
+  }
+
+  // ── 数値入力の変更 ──
+  function setupNumInputs() {
+    const hi = document.getElementById('cp-hour-input');
+    const mi = document.getElementById('cp-min-input');
+    if (hi) hi.addEventListener('input', () => {
+      let v = parseInt(hi.value);
+      if (isNaN(v)) return;
+      v = Math.max(CP_START, Math.min(CP_END, v));
+      _hour = v; drawClock(); updateDigital();
+    });
+    if (mi) mi.addEventListener('input', () => {
+      let v = parseInt(mi.value);
+      if (isNaN(v)) return;
+      v = Math.max(0, Math.min(59, v));
+      _min = v; drawClock(); updateDigital();
+    });
+  }
+
+  // ── ポップアップを開く ──
+  // sel: <select> 要素, cbAfter: 決定後コールバック(任意)
+  function openClock(sel, cbAfter) {
+    _sel     = sel;
+    _cbAfter = cbAfter || null;
+    const curVal = parseInt(sel.value) || (CP_START * 60);
+    _hour = Math.floor(curVal / 60);
+    _min  = curVal % 60;
+    _hour = Math.max(CP_START, Math.min(CP_END, _hour));
+
+    // タイトル更新
+    const title = document.getElementById('cp-title');
+    if (title) {
+      const label = sel.dataset.cpLabel || '時刻を選択';
+      title.textContent = label;
+    }
+
+    setMode('hour');
+    drawClock();
+    updateDigital();
+    getOverlay().classList.add('cp-open');
+  }
+
+  // ── 決定 ──
+  function confirmClock() {
+    if (!_sel) { closeClock(); return; }
+    const val = _hour * 60 + _min;
+    // <select>の選択肢に val が存在すれば選択、なければ最近傍を選択
+    let best = null, bestDiff = Infinity;
+    for (const opt of _sel.options) {
+      const ov = parseInt(opt.value);
+      const diff = Math.abs(ov - val);
+      if (diff < bestDiff) { bestDiff = diff; best = opt; }
+    }
+    if (best) best.selected = true;
+    // changeイベントを発火（既存のonchangeハンドラを動かす）
+    _sel.dispatchEvent(new Event('change', { bubbles: true }));
+    closeClock();
+    if (_cbAfter) _cbAfter(val);
+  }
+
+  function closeClock() {
+    getOverlay().classList.remove('cp-open');
+    _sel = null; _cbAfter = null;
+  }
+
+  // ── グローバル公開 ──
+  window.cpOpen  = openClock;
+  window.cpClose = closeClock;
+
+  // ── DOM構築後に初期化 ──
+  function init() {
+    const overlay = getOverlay();
+    if (!overlay) return;
+
+    // バックドロップクリックで閉じる
+    document.getElementById('cp-backdrop').addEventListener('click', closeClock);
+
+    // モードボタン
+    document.getElementById('cp-mode-hour').addEventListener('click', () => setMode('hour'));
+    document.getElementById('cp-mode-min').addEventListener('click',  () => setMode('min'));
+
+    // SVGイベント
+    const svg = getSvg();
+    let dragging = false;
+    svg.addEventListener('mousedown',  e => { dragging = true; handleSvgPointer(e); });
+    svg.addEventListener('mousemove',  e => { if (dragging) handleSvgPointer(e); });
+    svg.addEventListener('mouseup',    () => {
+      if (!dragging) return;
+      dragging = false;
+      if (_mode === 'hour') setTimeout(() => setMode('min'), 120);
+    });
+    svg.addEventListener('touchstart', e => { e.preventDefault(); handleSvgPointer(e); }, { passive: false });
+    svg.addEventListener('touchmove',  e => { e.preventDefault(); handleSvgPointer(e); }, { passive: false });
+    svg.addEventListener('touchend',   e => { e.preventDefault(); if (_mode === 'hour') setTimeout(() => setMode('min'), 120); });
+    document.addEventListener('mouseup', () => { dragging = false; });
+
+    // ボタン
+    document.getElementById('cp-btn-cancel').addEventListener('click', closeClock);
+    document.getElementById('cp-btn-ok').addEventListener('click', confirmClock);
+
+    // 数値入力
+    setupNumInputs();
+
+    // ── .select-time を全てクロックピッカー化 ──
+    function replaceSel(sel) {
+      if (sel.dataset.cpDone) return;
+      sel.dataset.cpDone = '1';
+      // selectを非表示にしてトリガーボタンを隣に挿入
+      sel.style.display = 'none';
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'cp-trigger';
+      btn.dataset.cpLabel = sel.dataset.cpLabel || '時刻を選択';
+      // 初期テキストを設定
+      function syncBtn() {
+        const v = parseInt(sel.value);
+        if (!isNaN(v)) {
+          const h = Math.floor(v/60), m = v%60;
+          btn.innerHTML = `<span class="cp-icon">🕐</span> ${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}`;
+        } else {
+          btn.innerHTML = `<span class="cp-icon">🕐</span> --:--`;
+        }
+      }
+      syncBtn();
+      sel.addEventListener('change', syncBtn);
+      btn.addEventListener('click', (e) => {
+        e.preventDefault(); e.stopPropagation();
+        cpOpen(sel, () => syncBtn());
+      });
+      sel.parentNode.insertBefore(btn, sel.nextSibling);
+    }
+
+    // 既存のselectを変換
+    document.querySelectorAll('select.select-time').forEach(replaceSel);
+
+    // 動的に追加されるselectも監視
+    const observer = new MutationObserver(mutations => {
+      for (const m of mutations) {
+        for (const node of m.addedNodes) {
+          if (node.nodeType !== 1) continue;
+          if (node.matches && node.matches('select.select-time')) replaceSel(node);
+          node.querySelectorAll && node.querySelectorAll('select.select-time').forEach(replaceSel);
+        }
+      }
+    });
+    observer.observe(document.body, { childList: true, subtree: true });
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', init);
+  } else {
+    init();
   }
 })();
+
+
+<script>
+// ════════════════════════════════
+// トップバー：時計
+// ════════════════════════════════
+const TOPBAR_WEEKDAYS = ['日','月','火','水','木','金','土'];
+
+function updateTopbarClock() {
+  const now = new Date();
+  const elDate    = document.getElementById('topbar-date');
+  const elWeekday = document.getElementById('topbar-weekday');
+  const elTime    = document.getElementById('topbar-time');
+  if (!elDate) return;
+  const mm  = String(now.getMonth()+1).padStart(2,'0');
+  const dd  = String(now.getDate()).padStart(2,'0');
+  const wd  = TOPBAR_WEEKDAYS[now.getDay()];
+  const hh  = String(now.getHours()).padStart(2,'0');
+  const min = String(now.getMinutes()).padStart(2,'0');
+  elDate.textContent    = now.getFullYear() + '/' + mm + '/' + dd;
+  elWeekday.textContent = wd + '曜日';
+  elTime.textContent    = hh + ':' + min;
+  elWeekday.style.color = now.getDay()===0 ? '#c0392b' : now.getDay()===6 ? '#1a6bbf' : '#7ab4f5';
+}
+
+// showApp() から呼ばれる（_initNavのフェードイン完了後に実行）
+function initTopbarClock() {
+  updateTopbarClock();
+  setInterval(updateTopbarClock, 10000);
+}
+</script>
+
+</body>
+</html>
