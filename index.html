@@ -448,12 +448,12 @@
       <button id="btn-monthly" class="topbar-view-tab">マンスリー</button>
     </div>
     <div id="topbar-nav-row">
-      <div id="week-nav" style="display:flex; align-items:center; gap:6px;">
+      <div id="week-nav" style="align-items:center; gap:6px; display:flex;">
         <button class="topbar-nav-btn">‹</button>
         <span id="week-label" class="topbar-nav-label"></span>
         <button class="topbar-nav-btn">›</button>
       </div>
-      <div id="month-nav" class="hidden" style="display:none; align-items:center; gap:6px;">
+      <div id="month-nav" class="hidden" style="align-items:center; gap:6px;">
         <button class="topbar-nav-btn">‹</button>
         <span id="month-label" class="topbar-nav-label"></span>
         <button class="topbar-nav-btn">›</button>
@@ -1048,15 +1048,8 @@ function switchView(view) {
   document.getElementById("monthly-view").classList.toggle("hidden", view !== "monthly");
   const newGrid = document.getElementById("weekly-view-new");
   if (newGrid) newGrid.style.display = view === "weekly" ? "block" : "none";
-  const wNav = document.getElementById("week-nav");
-  const mNav = document.getElementById("month-nav");
-  if (view === "weekly") {
-    wNav.classList.remove("hidden"); wNav.style.display = "flex";
-    mNav.classList.add("hidden");    mNav.style.display = "none";
-  } else {
-    wNav.classList.add("hidden");    wNav.style.display = "none";
-    mNav.classList.remove("hidden"); mNav.style.display = "flex";
-  }
+  document.getElementById("week-nav").classList.toggle("hidden", view !== "weekly");
+  document.getElementById("month-nav").classList.toggle("hidden", view !== "monthly");
   document.getElementById("btn-weekly").classList.toggle("active-tab",  view === "weekly");
   document.getElementById("btn-monthly").classList.toggle("active-tab", view === "monthly");
   if (view==="monthly") { showLoading(); loadMonthly().finally(() => hideLoading()); }
@@ -2854,8 +2847,9 @@ const APP_PASSWORD = "korohyo";
 function showApp() {
   document.getElementById('auth-container').style.display = 'none';
   document.getElementById('app-content').style.display = 'block';
-  initTopbarClock();
   _initNav();
+  // _initNavのフェードイン（260ms）完了後に時計を起動
+  setTimeout(initTopbarClock, 280);
   // 祝日を起動時に先読みしてキャッシュを温める（以降はawaitなしで参照可能）
   getHolidays().then(() => {
     updateHeaders();
@@ -4078,6 +4072,22 @@ document.addEventListener('click', function(e) {
   if (t.closest('#auth-container')) return;
 
   // ── トップバー ──
+  // ⋮メニューボタン：開閉トグル（外クリックで閉じる処理も含む）
+  const _dd = document.getElementById('topbar-menu-dropdown');
+  if (_dd) {
+    if (t.matches('#topbar-menu-btn')) {
+      _dd.classList.toggle('hidden');
+      return;
+    }
+    // ドロップダウン内のアイテムをクリックした場合は閉じてから処理を続行
+    if (t.closest('#topbar-menu-dropdown')) {
+      _dd.classList.add('hidden');
+      // 以降のデリゲートへfall-through（returnしない）
+    } else if (!t.closest('#topbar-menu-wrap')) {
+      // ドロップダウン外クリックで閉じる
+      _dd.classList.add('hidden');
+    }
+  }
   if (t.matches('#btn-weekly'))          { switchView('weekly'); return; }
   if (t.matches('#btn-monthly'))         { switchView('monthly'); return; }
   if (t.closest('#week-nav') && t.tagName === 'BUTTON') {
@@ -4761,10 +4771,9 @@ async function addMaterialInline() {
 
 <script>
 // ════════════════════════════════
-// トップバー：時計・ドロップダウン
+// トップバー：時計
 // ════════════════════════════════
 const TOPBAR_WEEKDAYS = ['日','月','火','水','木','金','土'];
-let _topbarClockStarted = false;
 
 function updateTopbarClock() {
   const now = new Date();
@@ -4783,40 +4792,14 @@ function updateTopbarClock() {
   elWeekday.style.color = now.getDay()===0 ? '#c0392b' : now.getDay()===6 ? '#1a6bbf' : '#7ab4f5';
 }
 
-// showApp()から呼ばれる
+// showApp() から呼ばれる（_initNavのフェードイン完了後に実行）
+let _clockStarted = false;
 function initTopbarClock() {
-  if (_topbarClockStarted) return;
-  _topbarClockStarted = true;
+  if (_clockStarted) return;
+  _clockStarted = true;
   updateTopbarClock();
   setInterval(updateTopbarClock, 10000);
 }
-
-// メニューは DOM 確定後に一度だけ初期化
-document.addEventListener('DOMContentLoaded', () => {
-  const btn      = document.getElementById('topbar-menu-btn');
-  const dropdown = document.getElementById('topbar-menu-dropdown');
-  if (!btn || !dropdown) return;
-
-  // ⋮ボタン：開閉トグル
-  btn.addEventListener('click', e => {
-    e.stopPropagation();
-    dropdown.classList.toggle('hidden');
-  });
-
-  // ドロップダウン内ボタン：クリックを document へ伝播させてから閉じる
-  dropdown.addEventListener('click', e => {
-    // stopPropagation はしない → document の既存デリゲートが動く
-    // 少し遅らせて閉じることで、既存ハンドラが先に実行される
-    setTimeout(() => dropdown.classList.add('hidden'), 0);
-  });
-
-  // メニュー外クリックで閉じる
-  document.addEventListener('click', e => {
-    if (!dropdown.contains(e.target) && e.target !== btn) {
-      dropdown.classList.add('hidden');
-    }
-  });
-});
 </script>
 
 </body>
