@@ -117,6 +117,85 @@
   </div>
 </div>
 
+<!-- ══ メモモーダル ══ -->
+<div id="memo-modal-overlay" class="overlay hidden" style="z-index:210;">
+  <div class="modal-box" style="min-width:300px; max-width:400px; padding:18px 18px 14px;">
+
+    <!-- 画面1：メモ一覧 -->
+    <div id="memo-screen-list">
+      <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:14px;">
+        <div style="font-size:15px; font-weight:bold;">🗒 メモ</div>
+        <button class="btn-icon-close" id="memo-close-list">✕</button>
+      </div>
+      <button id="memo-btn-new" style="width:100%; padding:10px; background:#e3f2fd; color:#1565c0; border:1.5px solid #90caf9; border-radius:8px; font-size:13px; font-weight:bold; cursor:pointer; display:flex; align-items:center; justify-content:center; gap:6px;">
+        <span style="font-size:16px;">＋</span> 新規作成
+      </button>
+      <div style="font-size:11px; color:#888; margin:14px 0 6px;">最近のメモ</div>
+      <div id="memo-list-container" style="max-height:260px; overflow-y:auto; display:flex; flex-direction:column; gap:6px;">
+        <div style="font-size:12px; color:#bbb; text-align:center; padding:20px 0;">メモはまだありません</div>
+      </div>
+    </div>
+
+    <!-- 画面2：新規作成 -->
+    <div id="memo-screen-new" class="hidden">
+      <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:14px;">
+        <div style="font-size:15px; font-weight:bold;">🗒 新規作成</div>
+        <button class="btn-icon-close" id="memo-close-new">✕</button>
+      </div>
+      <button id="memo-back-to-list" style="background:none; border:none; color:#888; font-size:12px; cursor:pointer; padding:0; margin-bottom:10px; display:flex; align-items:center; gap:3px;">← 一覧に戻る</button>
+      <div style="display:flex; gap:8px; margin-top:4px;">
+        <button id="memo-btn-go-genre" style="flex:1; padding:10px 6px; border:1.5px dashed #90caf9; background:#e3f2fd; color:#1565c0; border-radius:8px; font-size:12px; font-weight:bold; cursor:pointer; display:flex; flex-direction:column; align-items:center; gap:4px;">
+          <span style="font-size:18px;">🏷</span>ジャンルを追加
+        </button>
+        <button id="memo-btn-go-write" style="flex:1; padding:10px 6px; border:1.5px dashed #a5d6a7; background:#e8f5e9; color:#2e7d32; border-radius:8px; font-size:12px; font-weight:bold; cursor:pointer; display:flex; flex-direction:column; align-items:center; gap:4px;">
+          <span style="font-size:18px;">✏️</span>メモを追加
+        </button>
+      </div>
+      <div style="font-size:11px; color:#888; margin:14px 0 6px;">現在のジャンル</div>
+      <div id="memo-genre-chips-new" style="display:flex; flex-wrap:wrap; gap:6px;"></div>
+    </div>
+
+    <!-- 画面3：ジャンルを追加 -->
+    <div id="memo-screen-genre" class="hidden">
+      <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:14px;">
+        <div style="font-size:15px; font-weight:bold;">🏷 ジャンルを追加</div>
+        <button class="btn-icon-close" id="memo-close-genre">✕</button>
+      </div>
+      <button id="memo-back-from-genre" style="background:none; border:none; color:#888; font-size:12px; cursor:pointer; padding:0; margin-bottom:10px; display:flex; align-items:center; gap:3px;">← 戻る</button>
+      <div style="font-size:11px; color:#888; margin-bottom:6px;">ジャンル名</div>
+      <input type="text" id="memo-genre-name-input" placeholder="例：勉強、部活、その他" style="width:100%; padding:8px 10px; border:1px solid #d0d8e8; border-radius:8px; font-size:13px; margin-bottom:12px;">
+      <div style="font-size:11px; color:#888; margin-bottom:8px;">色</div>
+      <div id="memo-genre-color-picker" style="display:flex; gap:8px; margin-bottom:16px;">
+        <div class="memo-color-dot selected" data-color="#e3f2fd" data-text="#1565c0" style="width:26px; height:26px; border-radius:50%; background:#e3f2fd; border:2px solid #1565c0; cursor:pointer;"></div>
+        <div class="memo-color-dot" data-color="#fce4ec" data-text="#880e4f" style="width:26px; height:26px; border-radius:50%; background:#fce4ec; border:2px solid transparent; cursor:pointer;"></div>
+        <div class="memo-color-dot" data-color="#f3e5f5" data-text="#6a1b9a" style="width:26px; height:26px; border-radius:50%; background:#f3e5f5; border:2px solid transparent; cursor:pointer;"></div>
+        <div class="memo-color-dot" data-color="#e8f5e9" data-text="#2e7d32" style="width:26px; height:26px; border-radius:50%; background:#e8f5e9; border:2px solid transparent; cursor:pointer;"></div>
+        <div class="memo-color-dot" data-color="#fff8e1" data-text="#f57f17" style="width:26px; height:26px; border-radius:50%; background:#fff8e1; border:2px solid transparent; cursor:pointer;"></div>
+        <div class="memo-color-dot" data-color="#fbe9e7" data-text="#bf360c" style="width:26px; height:26px; border-radius:50%; background:#fbe9e7; border:2px solid transparent; cursor:pointer;"></div>
+      </div>
+      <button id="memo-genre-save-btn" style="width:100%; padding:10px; background:#1565c0; color:#fff; border:none; border-radius:8px; font-size:13px; font-weight:bold; cursor:pointer;">追加する</button>
+    </div>
+
+    <!-- 画面4：メモを追加 -->
+    <div id="memo-screen-write" class="hidden">
+      <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:14px;">
+        <div style="font-size:15px; font-weight:bold;">✏️ メモを追加</div>
+        <button class="btn-icon-close" id="memo-close-write">✕</button>
+      </div>
+      <button id="memo-back-from-write" style="background:none; border:none; color:#888; font-size:12px; cursor:pointer; padding:0; margin-bottom:10px; display:flex; align-items:center; gap:3px;">← 戻る</button>
+      <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:6px;">
+        <div style="font-size:11px; color:#888;">ジャンルを選択</div>
+        <button id="memo-btn-add-genre-from-write" style="font-size:11px; padding:3px 10px; border:1px dashed #90caf9; background:none; color:#1565c0; border-radius:20px; cursor:pointer;">＋ ジャンルを追加</button>
+      </div>
+      <div id="memo-genre-chips-write" style="display:flex; flex-wrap:wrap; gap:6px; margin-bottom:12px;"></div>
+      <div style="font-size:11px; color:#888; margin-bottom:6px;">メモ</div>
+      <textarea id="memo-write-textarea" rows="5" placeholder="メモを入力..." style="width:100%; resize:none; padding:8px 10px; border:1px solid #d0d8e8; border-radius:8px; font-size:13px; font-family:sans-serif;"></textarea>
+      <button id="memo-write-save-btn" style="width:100%; padding:10px; background:#1565c0; color:#fff; border:none; border-radius:8px; font-size:13px; font-weight:bold; cursor:pointer; margin-top:10px;">保存する</button>
+    </div>
+
+  </div>
+</div>
+
 <!-- ══ 日メモモーダル（マンスリー用） ══ -->
 <div id="day-modal-overlay" class="overlay hidden" style="z-index:200;">
   <div class="modal-box" style="min-width:300px; max-width:440px;">
@@ -462,7 +541,7 @@
   </div>
 
   <!-- 右：締切カウントダウン -->
-  <div id="memo-area">
+  <div id="memo-area" style="flex:0 0 180px;">
     <div id="memo-label">📅 締切カウントダウン</div>
     <div id="deadline-panel" style="display:flex; height:90px; border:0.5px solid #ddd; border-radius:8px; overflow:hidden; background:#fff; font-size:12px;">
       <div id="dl-counter" style="flex:0 0 33.333%; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:2px; border-right:0.5px solid #ddd;">
@@ -475,9 +554,10 @@
     </div>
   </div>
 
-  <!-- メニューボタン（⋮） -->
-  <div id="topbar-menu-wrap">
+  <!-- メニューボタン（⋮）＋ メモボタン -->
+  <div id="topbar-menu-wrap" style="margin-left:6px;">
     <button id="topbar-menu-btn" title="メニュー">⋮</button>
+    <button id="topbar-memo-btn" title="メモ" style="margin-top:5px; width:30px; height:30px; border-radius:7px; border:1.5px solid #90caf9; background:#e3f2fd; font-size:18px; cursor:pointer; display:flex; align-items:center; justify-content:center;">🗒</button>
     <div id="topbar-menu-dropdown" class="hidden">
       <button id="btn-settings"         class="topbar-menu-item">⚙️ 設定</button>
       <button id="btn-preset"           class="topbar-menu-item">📅 プリセット</button>
@@ -649,18 +729,21 @@ let _idb = null;
 function openIDB() {
   if (_idb) return Promise.resolve(_idb);
   return new Promise((res, rej) => {
-    const r = indexedDB.open("scheduleDB", 5);
+    const r = indexedDB.open("scheduleDB", 6);
     r.onupgradeneeded = e => {
       const db = e.target.result;
       // 既存
-      if (!db.objectStoreNames.contains("cells"))     db.createObjectStore("cells",     { keyPath:"id" });
-      if (!db.objectStoreNames.contains("pending"))   db.createObjectStore("pending",   { keyPath:"id" });
-      if (!db.objectStoreNames.contains("materials")) db.createObjectStore("materials", { keyPath:"id" });
+      if (!db.objectStoreNames.contains("cells"))      db.createObjectStore("cells",      { keyPath:"id" });
+      if (!db.objectStoreNames.contains("pending"))    db.createObjectStore("pending",    { keyPath:"id" });
+      if (!db.objectStoreNames.contains("materials"))  db.createObjectStore("materials",  { keyPath:"id" });
       // 新規追加（v3）
-      if (!db.objectStoreNames.contains("monthly"))   db.createObjectStore("monthly",   { keyPath:"id" });
-      if (!db.objectStoreNames.contains("config"))    db.createObjectStore("config",    { keyPath:"id" });
-      if (!db.objectStoreNames.contains("progress"))  db.createObjectStore("progress",  { keyPath:"id" });
-      if (!db.objectStoreNames.contains("freeRec"))   db.createObjectStore("freeRec",   { keyPath:"id" });
+      if (!db.objectStoreNames.contains("monthly"))    db.createObjectStore("monthly",    { keyPath:"id" });
+      if (!db.objectStoreNames.contains("config"))     db.createObjectStore("config",     { keyPath:"id" });
+      if (!db.objectStoreNames.contains("progress"))   db.createObjectStore("progress",   { keyPath:"id" });
+      if (!db.objectStoreNames.contains("freeRec"))    db.createObjectStore("freeRec",    { keyPath:"id" });
+      // 新規追加（v6）メモ機能
+      if (!db.objectStoreNames.contains("memoGenres")) db.createObjectStore("memoGenres", { keyPath:"id" });
+      if (!db.objectStoreNames.contains("memos"))      db.createObjectStore("memos",      { keyPath:"id" });
     };
     r.onsuccess = e => { _idb = e.target.result; res(_idb); };
     r.onerror   = e => rej(e.target.error);
@@ -4587,3 +4670,193 @@ document.addEventListener('DOMContentLoaded', function() {
 
 </body>
 </html>
+<script>
+// ════════════════════════════════
+// メモ機能
+// ════════════════════════════════
+(function() {
+  var _genres = [];
+  var _memos  = [];
+  var _selectedGenreId   = null;
+  var _selectedColor     = '#e3f2fd';
+  var _selectedTextColor = '#1565c0';
+  var _genreReturnTo     = 'new';
+
+  var SCREENS = ['list','new','genre','write'];
+  function showScreen(name) {
+    SCREENS.forEach(function(s) {
+      document.getElementById('memo-screen-' + s).classList.toggle('hidden', s !== name);
+    });
+  }
+
+  function openMemoModal() {
+    loadGenres().then(function() {
+      return loadMemos();
+    }).then(function() {
+      renderList();
+      showScreen('list');
+      document.getElementById('memo-modal-overlay').classList.remove('hidden');
+    });
+  }
+  function closeMemoModal() {
+    document.getElementById('memo-modal-overlay').classList.add('hidden');
+  }
+
+  function loadGenres() {
+    return idbGetAll('memoGenres').then(function(rows) {
+      _genres = rows;
+      _genres.sort(function(a,b){ return a.createdAt - b.createdAt; });
+    });
+  }
+  function loadMemos() {
+    return idbGetAll('memos').then(function(rows) {
+      _memos = rows;
+      _memos.sort(function(a,b){ return b.createdAt - a.createdAt; });
+    });
+  }
+
+  function renderList() {
+    var container = document.getElementById('memo-list-container');
+    if (_memos.length === 0) {
+      container.innerHTML = '<div style="font-size:12px; color:#bbb; text-align:center; padding:20px 0;">メモはまだありません</div>';
+      return;
+    }
+    container.innerHTML = _memos.map(function(m) {
+      var genre = _genres.find(function(g){ return g.id === m.genreId; });
+      var badge = genre
+        ? '<span style="font-size:10px; font-weight:bold; padding:2px 7px; border-radius:20px; background:' + genre.color + '; color:' + genre.textColor + '; display:inline-block; margin-bottom:4px;">' + escHtml(genre.name) + '</span>'
+        : '';
+      var d = new Date(m.createdAt);
+      var dateStr = d.getFullYear() + '/' + String(d.getMonth()+1).padStart(2,'0') + '/' + String(d.getDate()).padStart(2,'0');
+      return '<div style="background:#f8f9fb; border:0.5px solid #e0e8f0; border-radius:8px; padding:10px 12px;">'
+        + badge
+        + '<div style="font-size:12px; color:#333; line-height:1.5; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">' + escHtml(m.text) + '</div>'
+        + '<div style="font-size:10px; color:#aaa; margin-top:3px;">' + dateStr + '</div>'
+        + '</div>';
+    }).join('');
+  }
+
+  function renderGenreChips(containerId, selectable) {
+    var container = document.getElementById(containerId);
+    if (_genres.length === 0) {
+      container.innerHTML = '<div style="font-size:11px; color:#bbb;">ジャンルがまだありません</div>';
+      return;
+    }
+    container.innerHTML = _genres.map(function(g) {
+      var isSel = selectable && g.id === _selectedGenreId;
+      return '<span class="memo-genre-chip" data-id="' + g.id + '"'
+        + ' style="padding:5px 12px; border-radius:20px; font-size:12px; font-weight:bold; cursor:pointer;'
+        + ' background:' + g.color + '; color:' + g.textColor + ';'
+        + ' border:1.5px solid ' + (isSel ? g.textColor : 'transparent') + ';">'
+        + escHtml(g.name) + '</span>';
+    }).join('');
+    if (selectable) {
+      container.querySelectorAll('.memo-genre-chip').forEach(function(chip) {
+        chip.addEventListener('click', function() {
+          _selectedGenreId = chip.dataset.id;
+          renderGenreChips(containerId, true);
+        });
+      });
+    }
+  }
+
+  function initColorPicker() {
+    _selectedColor     = '#e3f2fd';
+    _selectedTextColor = '#1565c0';
+    document.querySelectorAll('.memo-color-dot').forEach(function(dot) {
+      dot.style.border = '2px solid transparent';
+      dot.addEventListener('click', function() {
+        document.querySelectorAll('.memo-color-dot').forEach(function(d){ d.style.border = '2px solid transparent'; });
+        dot.style.border = '2px solid ' + dot.dataset.text;
+        _selectedColor     = dot.dataset.color;
+        _selectedTextColor = dot.dataset.text;
+      });
+    });
+    var first = document.querySelector('.memo-color-dot');
+    if (first) first.style.border = '2px solid ' + first.dataset.text;
+  }
+
+  function openScreenNew() {
+    renderGenreChips('memo-genre-chips-new', false);
+    showScreen('new');
+  }
+
+  function openScreenGenre(returnTo) {
+    _genreReturnTo = returnTo;
+    document.getElementById('memo-genre-name-input').value = '';
+    document.getElementById('memo-back-from-genre').textContent =
+      returnTo === 'write' ? '← メモに戻る' : '← 戻る';
+    initColorPicker();
+    showScreen('genre');
+  }
+
+  function openScreenWrite() {
+    _selectedGenreId = _genres.length > 0 ? _genres[0].id : null;
+    document.getElementById('memo-write-textarea').value = '';
+    renderGenreChips('memo-genre-chips-write', true);
+    showScreen('write');
+  }
+
+  function handleSaveGenre() {
+    var name = document.getElementById('memo-genre-name-input').value.trim();
+    if (!name) { alert('ジャンル名を入力してください'); return; }
+    var genre = { id: 'genre_' + Date.now(), name: name, color: _selectedColor, textColor: _selectedTextColor, createdAt: Date.now() };
+    idbSet('memoGenres', genre).then(function() {
+      return loadGenres();
+    }).then(function() {
+      if (_genreReturnTo === 'write') {
+        _selectedGenreId = genre.id;
+        renderGenreChips('memo-genre-chips-write', true);
+        showScreen('write');
+      } else {
+        renderGenreChips('memo-genre-chips-new', false);
+        showScreen('new');
+      }
+    });
+  }
+
+  function handleSaveMemo() {
+    var text = document.getElementById('memo-write-textarea').value.trim();
+    if (!text) { alert('メモを入力してください'); return; }
+    var memo = { id: 'memo_' + Date.now(), genreId: _selectedGenreId || null, text: text, createdAt: Date.now() };
+    idbSet('memos', memo).then(function() {
+      return loadMemos();
+    }).then(function() {
+      renderList();
+      showScreen('list');
+    });
+  }
+
+  document.addEventListener('DOMContentLoaded', function() {
+    document.getElementById('topbar-memo-btn').addEventListener('click', openMemoModal);
+
+    ['memo-close-list','memo-close-new','memo-close-genre','memo-close-write'].forEach(function(id) {
+      document.getElementById(id).addEventListener('click', closeMemoModal);
+    });
+
+    document.getElementById('memo-btn-new').addEventListener('click', openScreenNew);
+    document.getElementById('memo-back-to-list').addEventListener('click', function(){ showScreen('list'); });
+    document.getElementById('memo-btn-go-genre').addEventListener('click', function(){ openScreenGenre('new'); });
+    document.getElementById('memo-btn-go-write').addEventListener('click', openScreenWrite);
+
+    document.getElementById('memo-back-from-genre').addEventListener('click', function() {
+      if (_genreReturnTo === 'write') {
+        renderGenreChips('memo-genre-chips-write', true);
+        showScreen('write');
+      } else {
+        renderGenreChips('memo-genre-chips-new', false);
+        showScreen('new');
+      }
+    });
+
+    document.getElementById('memo-genre-save-btn').addEventListener('click', handleSaveGenre);
+    document.getElementById('memo-back-from-write').addEventListener('click', function(){ showScreen('new'); });
+    document.getElementById('memo-btn-add-genre-from-write').addEventListener('click', function(){ openScreenGenre('write'); });
+    document.getElementById('memo-write-save-btn').addEventListener('click', handleSaveMemo);
+
+    document.getElementById('memo-modal-overlay').addEventListener('click', function(e) {
+      if (e.target === this) closeMemoModal();
+    });
+  });
+})();
+</script>
