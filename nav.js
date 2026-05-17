@@ -89,7 +89,10 @@ function _initNav() {
     bar.appendChild(tab);
   });
   document.body.appendChild(bar);
-
+  var padStyle = document.createElement('style');
+  padStyle.textContent = 'main, #app-content { padding-bottom: calc(58px + env(safe-area-inset-bottom, 0px)) !important; }';
+  document.head.appendChild(padStyle);
+  
   /* フェードイン */
   var prevIdx = parseInt(sessionStorage.getItem('_nav_prev') || '-1');
   var fromRight = _NAV_CURRENT_IDX > prevIdx;
