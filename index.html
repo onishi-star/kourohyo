@@ -933,19 +933,33 @@ let _monthlyBlockCache = {}; // { 'YYYY-MM': { 'YYYY-MM-DD': [...blocks] } }
 // 月の全ブロックをIDBから一括取得してキャッシュ
 async function preloadMonthlyBlocks(year, month) {
   const monthKey = `${year}-${String(month+1).padStart(2,'0')}`;
-  const all = await idbGetAll('cells');
+  // cellsのkeyPath(id)はYYYY-MM-DD-start-end形式なので
+  // IDBKeyRangeでその月のidだけ取得してフルスキャンを回避する
+  const db = await openIDB();
+  const entriesFiltered = await new Promise((resolve) => {
+    const results = [];
+    const range = IDBKeyRange.bound(monthKey, monthKey + '\uffff');
+    const req = db.transaction('cells', 'readonly').objectStore('cells').openCursor(range);
+    req.onsuccess = e => {
+      const cursor = e.target.result;
+      if (cursor) { results.push(cursor.value); cursor.continue(); }
+      else resolve(results);
+    };
+    req.onerror = () => resolve([]);
+  });
+
   const byDay = {};
-  for (const entry of all) {
-    if (!entry.key) continue;
-    const match = entry.key.match(/^(\d{4}-\d{2}-\d{2})-(\d+)-(\d+)$/);
+  for (const entry of entriesFiltered) {
+    const id = entry.id || entry.key;
+    if (!id) continue;
+    const match = id.match(/^(\d{4}-\d{2}-\d{2})-(\d+)-(\d+)$/);
     if (!match) continue;
     const dateStr = match[1];
-    if (!dateStr.startsWith(monthKey)) continue;
     const startMin = parseInt(match[2]);
     const endMin   = parseInt(match[3]);
     if (!byDay[dateStr]) byDay[dateStr] = [];
     byDay[dateStr].push({
-      key: entry.key, startMin, endMin,
+      key: id, startMin, endMin,
       title: entry.title || entry.text || '(無題)',
       timeStr: `${ngFormatTime(startMin)}〜${ngFormatTime(endMin)}`,
       duration: endMin - startMin,
@@ -954,7 +968,6 @@ async function preloadMonthlyBlocks(year, month) {
       mode: entry.mode || 'schedule'
     });
   }
-  // 時刻でソート
   for (const d of Object.keys(byDay)) byDay[d].sort((a,b) => a.startMin - b.startMin);
   _monthlyBlockCache[monthKey] = byDay;
   return byDay;
@@ -4704,13 +4717,13 @@ document.addEventListener('DOMContentLoaded', function() {
 
   function loadGenres() {
     return idbGetAll('memoGenres').then(function(rows) {
-      _genres = rows;
+      _genres = rows || [];
       _genres.sort(function(a,b){ return a.createdAt - b.createdAt; });
     });
   }
   function loadMemos() {
     return idbGetAll('memos').then(function(rows) {
-      _memos = rows;
+      _memos = rows || [];
       _memos.sort(function(a,b){ return b.createdAt - a.createdAt; });
     });
   }
@@ -4828,10 +4841,12 @@ document.addEventListener('DOMContentLoaded', function() {
   }
 
   document.addEventListener('DOMContentLoaded', function() {
-    document.getElementById('topbar-memo-btn').addEventListener('click', openMemoModal);
+    var memoBtnEl = document.getElementById('topbar-memo-btn');
+    if (memoBtnEl) memoBtnEl.addEventListener('click', openMemoModal);
 
     ['memo-close-list','memo-close-new','memo-close-genre','memo-close-write'].forEach(function(id) {
-      document.getElementById(id).addEventListener('click', closeMemoModal);
+      var el = document.getElementById(id);
+      if (el) el.addEventListener('click', closeMemoModal);
     });
 
     document.getElementById('memo-btn-new').addEventListener('click', openScreenNew);
