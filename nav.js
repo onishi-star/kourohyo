@@ -45,6 +45,7 @@ function navigateTo(target) {
 var _NAV_CURRENT_IDX = -1;
 
 function _initNav() {
+  if (document.getElementById('_nav_bar')) return; // 二重実行防止
   var filename = location.pathname.split('/').pop() || 'index.html';
   _NAV_CURRENT_IDX = NAV_PAGES.findIndex(function(p) { return p.file === filename; });
   if (_NAV_CURRENT_IDX === -1) return;
