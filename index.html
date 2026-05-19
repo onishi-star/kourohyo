@@ -4838,38 +4838,36 @@ document.addEventListener('DOMContentLoaded', function() {
     });
   }
 
-  document.addEventListener('DOMContentLoaded', function() {
-    var memoBtnEl = document.getElementById('topbar-memo-btn');
-    if (memoBtnEl) memoBtnEl.addEventListener('click', openMemoModal);
+  var memoBtnEl = document.getElementById('topbar-memo-btn');
+  if (memoBtnEl) memoBtnEl.addEventListener('click', openMemoModal);
 
-    ['memo-close-list','memo-close-new','memo-close-genre','memo-close-write'].forEach(function(id) {
-      var el = document.getElementById(id);
-      if (el) el.addEventListener('click', closeMemoModal);
-    });
+  ['memo-close-list','memo-close-new','memo-close-genre','memo-close-write'].forEach(function(id) {
+    var el = document.getElementById(id);
+    if (el) el.addEventListener('click', closeMemoModal);
+  });
 
-    document.getElementById('memo-btn-new').addEventListener('click', openScreenNew);
-    document.getElementById('memo-back-to-list').addEventListener('click', function(){ showScreen('list'); });
-    document.getElementById('memo-btn-go-genre').addEventListener('click', function(){ openScreenGenre('new'); });
-    document.getElementById('memo-btn-go-write').addEventListener('click', openScreenWrite);
+  document.getElementById('memo-btn-new').addEventListener('click', openScreenNew);
+  document.getElementById('memo-back-to-list').addEventListener('click', function(){ showScreen('list'); });
+  document.getElementById('memo-btn-go-genre').addEventListener('click', function(){ openScreenGenre('new'); });
+  document.getElementById('memo-btn-go-write').addEventListener('click', openScreenWrite);
 
-    document.getElementById('memo-back-from-genre').addEventListener('click', function() {
-      if (_genreReturnTo === 'write') {
-        renderGenreChips('memo-genre-chips-write', true);
-        showScreen('write');
-      } else {
-        renderGenreChips('memo-genre-chips-new', false);
-        showScreen('new');
-      }
-    });
+  document.getElementById('memo-back-from-genre').addEventListener('click', function() {
+    if (_genreReturnTo === 'write') {
+      renderGenreChips('memo-genre-chips-write', true);
+      showScreen('write');
+    } else {
+      renderGenreChips('memo-genre-chips-new', false);
+      showScreen('new');
+    }
+  });
 
-    document.getElementById('memo-genre-save-btn').addEventListener('click', handleSaveGenre);
-    document.getElementById('memo-back-from-write').addEventListener('click', function(){ showScreen('new'); });
-    document.getElementById('memo-btn-add-genre-from-write').addEventListener('click', function(){ openScreenGenre('write'); });
-    document.getElementById('memo-write-save-btn').addEventListener('click', handleSaveMemo);
+  document.getElementById('memo-genre-save-btn').addEventListener('click', handleSaveGenre);
+  document.getElementById('memo-back-from-write').addEventListener('click', function(){ showScreen('new'); });
+  document.getElementById('memo-btn-add-genre-from-write').addEventListener('click', function(){ openScreenGenre('write'); });
+  document.getElementById('memo-write-save-btn').addEventListener('click', handleSaveMemo);
 
-    document.getElementById('memo-modal-overlay').addEventListener('click', function(e) {
-      if (e.target === this) closeMemoModal();
-    });
+  document.getElementById('memo-modal-overlay').addEventListener('click', function(e) {
+    if (e.target === this) closeMemoModal();
   });
 })();
 </script>
