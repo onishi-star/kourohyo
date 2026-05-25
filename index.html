@@ -1019,7 +1019,7 @@ async function loadMonthly(){
   }
 
   // ③ 祝日取得と並行してセルを描画
-  Promise.all([
+  return Promise.all([
     Promise.resolve(md),
     getHolidays()
   ]).then(async ([mdData, holidays]) => {
