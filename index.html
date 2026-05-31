@@ -541,7 +541,7 @@
   </div>
 
   <!-- 右：締切カウントダウン -->
-  <div id="memo-area">
+  <div id="memo-area" style="flex:0 0 180px;">
     <div id="memo-label">📅 締切カウントダウン</div>
     <div id="deadline-panel" style="display:flex; height:90px; border:0.5px solid #ddd; border-radius:8px; overflow:hidden; background:#fff; font-size:12px;">
       <div id="dl-counter" style="flex:0 0 33.333%; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:2px; border-right:0.5px solid #ddd;">
@@ -557,7 +557,7 @@
   <!-- メニューボタン（⋮）＋ メモボタン -->
   <div id="topbar-menu-wrap" style="margin-left:6px;">
     <button id="topbar-menu-btn" title="メニュー">⋮</button>
-    <button id="topbar-memo-btn" title="メモ" style="margin-top:5px; width:36px; height:36px; border-radius:50%; border:1.5px solid rgba(255,255,255,0.25); background:rgba(255,255,255,0.08); color:#fff; font-size:18px; cursor:pointer; display:flex; align-items:center; justify-content:center; transition:background 0.15s;">🗒</button>
+    <button id="topbar-memo-btn" title="メモ" style="margin-top:5px; width:30px; height:30px; border-radius:7px; border:1.5px solid #90caf9; background:#e3f2fd; font-size:18px; cursor:pointer; display:flex; align-items:center; justify-content:center;">🗒</button>
     <div id="topbar-menu-dropdown" class="hidden">
       <button id="btn-settings"         class="topbar-menu-item">⚙️ 設定</button>
       <button id="btn-preset"           class="topbar-menu-item">📅 プリセット</button>
@@ -1055,13 +1055,20 @@ async function loadMonthly(){
         const bg = saved.color ? getColorStyle(saved.color) : (isToday ? "#fffde7" : "");
         const tc = bg ? getTextColor(bg) : "#333";
         if (bg) cell.style.background = bg;
+        // 考査ハイライト（ユーザーが色設定していない場合のみ適用）
+        const examHL = !saved.color ? getExamHighlight(dateObj) : null;
+        if (examHL) {
+          cell.style.background = examHL.bg;
+          cell.style.outline = examHL.border;
+        }
         const dayOfWeek = dateObj.getDay();
         const isHol = isHoliday(dayKey, holidays);
         if (dayOfWeek === 6) { cell.classList.add("monthly-sat"); }
         else if (dayOfWeek === 0 || isHol) { cell.classList.add(dayOfWeek === 0 ? "monthly-sun" : "monthly-hol"); }
         const dl = document.createElement("div");
         dl.className = "monthly-day-num";
-        dl.style.cssText = `font-weight:bold;color:${isToday?'#f9a825':tc};margin-bottom:2px;`;
+        const numColor = isToday ? '#f9a825' : (examHL ? examHL.numColor : tc);
+        dl.style.cssText = `font-weight:bold;color:${numColor};margin-bottom:2px;`;
         dl.innerText = dayNum;
         if (saved.checked) { const ck = document.createElement("span"); ck.innerText = " ✓"; ck.style.cssText = "color:#4caf50;font-weight:bold;"; dl.appendChild(ck); }
         cell.appendChild(dl);
@@ -2835,6 +2842,36 @@ function ngFormatTime(minutes) {
 // グリッド骨格の構築済みフラグ
 let _gridBuilt = false;
 
+// ── 考査ハイライト色を返すヘルパー ──
+// 戻り値: { bg, border, numColor } or null
+function getExamHighlight(dateObj) {
+  if (!exams || !exams.length) return null;
+  let resultPriority = 0; // 1=黄, 2=オレンジ, 3=赤
+  for (const exam of exams) {
+    if (!exam.dateFrom && !exam.date) continue;
+    const examStart = exam.dateFrom ? parseLocalDate(exam.dateFrom) : parseLocalDate(exam.date);
+    const examEnd   = exam.date     ? parseLocalDate(exam.date)     : examStart;
+    // 時刻除去して日単位比較
+    const d = new Date(dateObj.getFullYear(), dateObj.getMonth(), dateObj.getDate());
+    const s = new Date(examStart.getFullYear(), examStart.getMonth(), examStart.getDate());
+    const e = new Date(examEnd.getFullYear(),   examEnd.getMonth(),   examEnd.getDate());
+    if (d >= s && d <= e) {
+      resultPriority = Math.max(resultPriority, 3);
+    } else {
+      const diffDays = Math.round((s - d) / 86400000);
+      if (diffDays >= 1 && diffDays <= 7) {
+        resultPriority = Math.max(resultPriority, 2);
+      } else if (diffDays >= 8 && diffDays <= 14) {
+        resultPriority = Math.max(resultPriority, 1);
+      }
+    }
+  }
+  if (resultPriority === 3) return { bg: '#ffcdd2', border: '2px solid #e53935', numColor: '#c62828' };
+  if (resultPriority === 2) return { bg: '#ffe0b2', border: '2px solid #fb8c00', numColor: '#e65100' };
+  if (resultPriority === 1) return { bg: '#fff9c4', border: '2px solid #fdd835', numColor: '#f57f17' };
+  return null;
+}
+
 function renderNewGrid() {
   const container = document.getElementById('weekly-view-new');
   const SLOT_H_SHORT = 18;
@@ -2924,9 +2961,16 @@ function renderNewGrid() {
     const cell = document.getElementById('ng-header-' + j);
     cell.textContent = `${d.getMonth()+1}/${d.getDate()} ${allDayNames[dow]}`;
     cell.style.cssText = '';
-    if (isToday) cell.style.cssText = 'background:#fffde7; color:#f9a825;';
-    else if (dow === 0 || isHoliday(dayKey, holidays)) cell.style.color = '#c0392b';
-    else if (dow === 6) cell.style.color = '#1a6bbf';
+    const examHL = getExamHighlight(d);
+    if (examHL) {
+      cell.style.cssText = `background:${examHL.bg}; color:${examHL.numColor}; border-bottom:${examHL.border};`;
+    } else if (isToday) {
+      cell.style.cssText = 'background:#fffde7; color:#f9a825;';
+    } else if (dow === 0 || isHoliday(dayKey, holidays)) {
+      cell.style.color = '#c0392b';
+    } else if (dow === 6) {
+      cell.style.color = '#1a6bbf';
+    }
   }
 
   // ── ③ 毎回：ブロックのみ差し替え（requestAnimationFrameで分割） ──
