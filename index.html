@@ -371,6 +371,9 @@
 
     <!-- STEP1: 考査一覧 -->
     <div id="exam-step1" class="exam-step active">
+      <button id="btn-quiz-mode" onclick="openQuizMode()" style="width:100%; margin-bottom:12px; padding:10px 0; background:#e8f5e9; color:#2e7d32; border:1.5px solid #81c784; border-radius:8px; font-size:13px; font-weight:bold; cursor:pointer; display:flex; align-items:center; justify-content:center; gap:6px;">
+        📝 小テスト・週末課題
+      </button>
       <div id="exam-list" style="max-height:240px; overflow-y:auto; margin-bottom:12px;"></div>
       <div style="border:1.5px dashed #ce93d8; border-radius:10px; padding:12px; background:#fdf5ff;">
         <div style="font-size:12px; font-weight:bold; color:#6a1b9a; margin-bottom:8px;">＋ 考査・模試を追加</div>
@@ -484,21 +487,103 @@
 
 <!-- ══ 教材管理モーダル ══ -->
 <div id="mat-manage-overlay" class="overlay hidden" style="z-index:200;">
-  <div class="modal-box" style="max-width:460px;">
-    <h2 class="modal-title-sm">📚 教材管理</h2>
-    <div id="mat-manage-list" style="max-height:300px; overflow-y:auto; margin-bottom:14px;"></div>
-    <div class="new-mat-form">
-      <div style="font-size:12px; font-weight:bold; color:#555; margin-bottom:8px;">新しい教材を追加</div>
-      <input type="text" id="manage-mat-name" placeholder="教材名（例：古文単語、物理基礎）">
-      <div class="form-row">
-        <label class="form-label-color">色：</label>
-        <input type="color" id="manage-mat-color" value="#e07b54" class="input-color-picker">
-        <label class="form-label-color">カテゴリ：</label>
-        <input type="text" id="manage-mat-category" placeholder="例：英語、数学" class="input-sm" style="flex:1;">
-        <button class="btn-add-sm">追加</button>
+  <div class="modal-box" style="max-width:500px;">
+    <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:12px;">
+      <h2 class="modal-title-sm" style="margin:0;">📚 教材管理</h2>
+      <button class="btn-icon-close btn-close">✕</button>
+    </div>
+
+    <!-- 教科タブ -->
+    <div id="mat-category-tabs" style="display:flex; flex-wrap:wrap; gap:6px; margin-bottom:12px;"></div>
+
+    <!-- 教材リスト -->
+    <div id="mat-manage-list" style="max-height:260px; overflow-y:auto; margin-bottom:14px;"></div>
+
+    <!-- 追加フォーム（折りたたみ） -->
+    <button id="mat-add-toggle-btn" onclick="toggleMatAddForm()" style="width:100%; text-align:left; padding:9px 14px; background:#f0f4ff; border:1.5px solid #c5d0f0; border-radius:8px; font-size:13px; font-weight:bold; color:#3a5aad; cursor:pointer; display:flex; justify-content:space-between; align-items:center; margin-bottom:4px;">
+      <span>＋ 新しい教材を追加</span><span id="mat-add-toggle-icon">▼</span>
+    </button>
+    <div id="mat-add-form" style="display:none; background:#f8f9fb; border:1px solid #e0e8f0; border-radius:8px; padding:12px; margin-bottom:10px;">
+
+      <!-- 教材名（候補サジェスト付き） -->
+      <div style="margin-bottom:8px; position:relative;">
+        <div style="font-size:11px; color:#888; margin-bottom:4px;">教材名</div>
+        <input type="text" id="manage-mat-name" placeholder="教材名（例：古文単語、物理基礎）" autocomplete="off"
+          style="width:100%; padding:7px 10px; border:1px solid #d0d8e8; border-radius:7px; font-size:13px;"
+          oninput="showMatNameSuggestions(this.value)">
+        <div id="mat-name-suggestions" style="display:none; position:absolute; top:100%; left:0; right:0; background:#fff; border:1px solid #d0d8e8; border-radius:0 0 8px 8px; z-index:20; max-height:160px; overflow-y:auto; box-shadow:0 4px 12px rgba(0,0,0,0.10);"></div>
+      </div>
+
+      <!-- 色 -->
+      <div style="display:flex; align-items:center; gap:8px; margin-bottom:8px;">
+        <div style="font-size:11px; color:#888; white-space:nowrap;">色：</div>
+        <input type="color" id="manage-mat-color" value="#4a90e2" class="input-color-picker">
+        <div id="manage-mat-color-presets" style="display:flex; gap:4px; flex-wrap:wrap;"></div>
+      </div>
+
+      <!-- カテゴリ（教科） -->
+      <div style="margin-bottom:8px;">
+        <div style="font-size:11px; color:#888; margin-bottom:4px;">教科</div>
+        <input type="text" id="manage-mat-category" placeholder="例：英語、数学、理科" autocomplete="off"
+          style="width:100%; padding:7px 10px; border:1px solid #d0d8e8; border-radius:7px; font-size:13px;"
+          oninput="showMatCategorySuggestions(this.value)">
+        <div id="mat-category-suggestions" style="display:none; background:#f0f4ff; border:1px solid #c5d0f0; border-radius:6px; margin-top:4px; padding:4px 6px; display:flex; flex-wrap:wrap; gap:4px;"></div>
+      </div>
+
+      <!-- 学校課題 / 塾課題 区分 -->
+      <div style="margin-bottom:10px;">
+        <div style="font-size:11px; color:#888; margin-bottom:5px;">区分</div>
+        <div style="display:flex; gap:8px;">
+          <label style="flex:1; display:flex; align-items:center; gap:6px; padding:7px 10px; border:1.5px solid #d0d8e8; border-radius:8px; cursor:pointer; font-size:13px; background:#fff;" id="mat-src-school-label">
+            <input type="radio" name="manage-mat-source" id="manage-mat-src-school" value="school" checked style="accent-color:#1565c0;">
+            🏫 学校課題
+          </label>
+          <label style="flex:1; display:flex; align-items:center; gap:6px; padding:7px 10px; border:1.5px solid #d0d8e8; border-radius:8px; cursor:pointer; font-size:13px; background:#fff;" id="mat-src-juku-label">
+            <input type="radio" name="manage-mat-source" id="manage-mat-src-juku" value="juku" style="accent-color:#6a1b9a;">
+            🎓 塾課題
+          </label>
+        </div>
+      </div>
+
+      <button onclick="addMaterialFromManage()" style="width:100%; padding:9px 0; background:#1565c0; color:#fff; border:none; border-radius:8px; font-size:13px; font-weight:bold; cursor:pointer;">追加する</button>
+    </div>
+
+    <!-- 編集フォーム（動的表示） -->
+    <div id="mat-edit-form" style="display:none; background:#fff8e1; border:1.5px solid #ffe082; border-radius:8px; padding:12px; margin-bottom:10px;">
+      <div style="font-size:12px; font-weight:bold; color:#f57f17; margin-bottom:10px;">✏️ 教材を編集</div>
+      <input type="hidden" id="edit-mat-id">
+      <div style="margin-bottom:8px;">
+        <div style="font-size:11px; color:#888; margin-bottom:4px;">教材名</div>
+        <input type="text" id="edit-mat-name" style="width:100%; padding:7px 10px; border:1px solid #ffe082; border-radius:7px; font-size:13px;">
+      </div>
+      <div style="display:flex; align-items:center; gap:8px; margin-bottom:8px;">
+        <div style="font-size:11px; color:#888; white-space:nowrap;">色：</div>
+        <input type="color" id="edit-mat-color" class="input-color-picker">
+      </div>
+      <div style="margin-bottom:8px;">
+        <div style="font-size:11px; color:#888; margin-bottom:4px;">教科</div>
+        <input type="text" id="edit-mat-category" style="width:100%; padding:7px 10px; border:1px solid #ffe082; border-radius:7px; font-size:13px;">
+      </div>
+      <div style="margin-bottom:10px;">
+        <div style="font-size:11px; color:#888; margin-bottom:5px;">区分</div>
+        <div style="display:flex; gap:8px;">
+          <label style="flex:1; display:flex; align-items:center; gap:6px; padding:7px 10px; border:1.5px solid #ffe082; border-radius:8px; cursor:pointer; font-size:13px; background:#fff;">
+            <input type="radio" name="edit-mat-source" id="edit-mat-src-school" value="school" style="accent-color:#1565c0;">
+            🏫 学校課題
+          </label>
+          <label style="flex:1; display:flex; align-items:center; gap:6px; padding:7px 10px; border:1.5px solid #ffe082; border-radius:8px; cursor:pointer; font-size:13px; background:#fff;">
+            <input type="radio" name="edit-mat-source" id="edit-mat-src-juku" value="juku" style="accent-color:#6a1b9a;">
+            🎓 塾課題
+          </label>
+        </div>
+      </div>
+      <div style="display:flex; gap:8px;">
+        <button onclick="saveMatEdit()" style="flex:1; padding:8px 0; background:#f57f17; color:#fff; border:none; border-radius:8px; font-size:13px; font-weight:bold; cursor:pointer;">💾 保存</button>
+        <button onclick="cancelMatEdit()" style="flex:1; padding:8px 0; background:#fff; color:#888; border:1px solid #ddd; border-radius:8px; font-size:13px; cursor:pointer;">キャンセル</button>
       </div>
     </div>
-    <div style="display:flex; justify-content:flex-end; margin-top:16px;">
+
+    <div style="display:flex; justify-content:flex-end; margin-top:4px;">
       <button class="btn-close">閉じる</button>
     </div>
   </div>
@@ -1055,7 +1140,6 @@ async function loadMonthly(){
         const bg = saved.color ? getColorStyle(saved.color) : (isToday ? "#fffde7" : "");
         const tc = bg ? getTextColor(bg) : "#333";
         if (bg) cell.style.background = bg;
-        // 考査ハイライト（ユーザーが色設定していない場合のみ適用）
         const examHL = !saved.color ? getExamHighlight(dateObj) : null;
         if (examHL) {
           cell.style.background = examHL.bg;
@@ -1085,7 +1169,10 @@ async function loadMonthly(){
           cell.appendChild(blockPreview);
         }
         if (saved.memo) { const mv = document.createElement("div"); mv.style.cssText = `font-size:11px;color:${tc};overflow:hidden;max-height:48px;${saved.checked?'text-decoration:line-through;opacity:0.5;':''}`; mv.innerText = saved.memo; cell.appendChild(mv); }
-        cell.onclick = () => openDayModal(dayKey, year, month, dayNum, mdData);
+        cell.onclick = () => {
+          if (_quizMode) { selectQuizDate(dayKey); return; }
+          openDayModal(dayKey, year, month, dayNum, mdData);
+        };
       } else { cell.style.background = "#f5f5f5"; cell.style.cursor = "default"; }
       cal.appendChild(cell);
     }
@@ -2058,6 +2145,39 @@ function startReviewMode(examIdx, subIdx) {
   showReviewToast();
 }
 
+// ════════════════════════════════════════
+// 小テスト・週末課題モード
+// ════════════════════════════════════════
+let _quizMode = false;
+
+function openQuizMode() {
+  _quizMode = true;
+  closeExamModal();
+  document.getElementById('quiz-toast').classList.remove('hidden');
+}
+
+function cancelQuizMode() {
+  _quizMode = false;
+  document.getElementById('quiz-toast').classList.add('hidden');
+}
+
+async function selectQuizDate(dateStr) {
+  if (!_quizMode) return;
+  cancelQuizMode();
+  const name = window.prompt(`📝 小テスト・週末課題の名前を入力してください\n（日付：${dateStr}）`, '');
+  if (name === null) return;
+  const finalName = name.trim() || '小テスト・週末課題';
+  exams.push({ id: genExamId(), name: finalName, dateFrom: dateStr, date: dateStr, submissions: [], isQuiz: true });
+  await saveExams();
+  const toast = document.createElement('div');
+  toast.style.cssText = 'position:fixed;bottom:70px;left:50%;transform:translateX(-50%);background:#1b5e20;color:#fff;padding:10px 22px;border-radius:20px;font-size:13px;font-weight:bold;z-index:9999;box-shadow:0 4px 16px rgba(0,0,0,0.18);';
+  toast.textContent = `✅ 「${finalName}」を ${dateStr} に登録しました`;
+  document.body.appendChild(toast);
+  setTimeout(() => toast.remove(), 2800);
+  if (!document.getElementById('weekly-view-new').classList.contains('hidden')) renderNewGrid();
+  if (!document.getElementById('monthly-view').classList.contains('hidden')) loadMonthly();
+}
+
 function showReviewToast() {
   document.getElementById("review-toast").classList.remove("hidden");
 }
@@ -2109,10 +2229,8 @@ function togglePresetSection(key) {
 // 教材マスタ管理
 // ════════════════════════════════════════
 async function loadMaterials() {
-  // IDBから即座に読み込む
   const cached = await idbGet("materials", "materials");
   materials = cached ? (cached.list || []) : [];
-  // バックグラウンドでFirestoreと同期
   if (navigator.onLine) {
     db.collection("app_config").doc("materials").get()
       .then(async doc => {
@@ -2129,30 +2247,266 @@ async function saveMaterials() {
 }
 function genMatId(){ return "mat_"+Date.now()+"_"+Math.random().toString(36).slice(2,6); }
 
-function openMatManage(){  renderMatManageList(); document.getElementById("mat-manage-overlay").classList.remove("hidden"); }
-function closeMatManage(){ document.getElementById("mat-manage-overlay").classList.add("hidden"); }
-function renderMatManageList() {
-  const el=document.getElementById("mat-manage-list"); el.innerHTML="";
-  if (!materials.length){ el.innerHTML='<div class="js-empty-msg">教材が登録されていません</div>'; return; }
-  materials.forEach((mat,idx)=>{
-    const row=document.createElement("div");
-    row.className = "mat-list-item";
-    const dot=document.createElement("div"); dot.className="mat-color-dot"; dot.style.background=mat.color;
-    const info=document.createElement("div"); info.className="js-mat-info"; info.innerHTML=`<b>${mat.name}</b>${mat.category?` <span class="js-mat-category">${mat.category}</span>`:""}`;
-   const del=document.createElement("button"); del.innerText="削除"; del.className="btn-delete-sm";
-    del.onclick=async()=>{ if(!confirm(`「${mat.name}」を削除しますか？`))return; materials.splice(idx,1); await saveMaterials(); renderMatManageList(); };
-    const prog=document.createElement("button"); prog.innerText="📊"; prog.title="進捗管理";
-    prog.className = "btn-exam-progress";
-    prog.onclick=()=>{ closeMatManage(); openProgressModal(mat); };
-    row.appendChild(dot); row.appendChild(info); row.appendChild(prog); row.appendChild(del); el.appendChild(row);
+// ── 教科タブ描画 ──
+let _matActiveCat = '__all__'; // '__all__' | '__school__' | '__juku__' | カテゴリ文字列
+
+function renderMatCategoryTabs() {
+  const el = document.getElementById('mat-category-tabs');
+  if (!el) return;
+
+  // 全教科リストを収集（重複除去）
+  const cats = [...new Set(materials.map(m => m.category).filter(Boolean))];
+
+  el.innerHTML = '';
+  const tabs = [
+    { key: '__all__',    label: 'すべて' },
+    { key: '__school__', label: '🏫 学校' },
+    { key: '__juku__',   label: '🎓 塾' },
+    ...cats.map(c => ({ key: c, label: c }))
+  ];
+
+  tabs.forEach(tab => {
+    const btn = document.createElement('button');
+    btn.textContent = tab.label;
+    const isActive = _matActiveCat === tab.key;
+    btn.style.cssText = `padding:5px 12px; border-radius:20px; font-size:12px; font-weight:bold; cursor:pointer; border:1.5px solid ${isActive ? '#1565c0' : '#d0d8e8'}; background:${isActive ? '#1565c0' : '#f5f7fa'}; color:${isActive ? '#fff' : '#555'};`;
+    btn.onclick = () => { _matActiveCat = tab.key; renderMatCategoryTabs(); renderMatManageList(); };
+    el.appendChild(btn);
   });
 }
-async function addMaterialFromManage() {
-  const name=document.getElementById("manage-mat-name").value.trim(); if(!name){alert("教材名を入力してください");return;}
-  materials.push({id:genMatId(),name,color:document.getElementById("manage-mat-color").value,category:document.getElementById("manage-mat-category").value.trim()});
-  await saveMaterials();
-  document.getElementById("manage-mat-name").value=""; document.getElementById("manage-mat-category").value="";
+
+// ── 色プリセット描画 ──
+const MAT_COLOR_PRESETS = ['#4a90e2','#e07b54','#43a047','#9c27b0','#f9a825','#e53935','#00acc1','#f06292','#546e7a','#795548'];
+
+function renderMatColorPresets() {
+  const el = document.getElementById('manage-mat-color-presets');
+  if (!el) return;
+  el.innerHTML = '';
+  MAT_COLOR_PRESETS.forEach(c => {
+    const dot = document.createElement('div');
+    dot.style.cssText = `width:20px; height:20px; border-radius:50%; background:${c}; cursor:pointer; border:2px solid transparent; flex-shrink:0;`;
+    dot.onclick = () => {
+      document.getElementById('manage-mat-color').value = c;
+      el.querySelectorAll('div').forEach(d => d.style.border = '2px solid transparent');
+      dot.style.border = '2px solid #333';
+    };
+    el.appendChild(dot);
+  });
+}
+
+// ── 教材名サジェスト ──
+function showMatNameSuggestions(val) {
+  const box = document.getElementById('mat-name-suggestions');
+  if (!box) return;
+  if (!val.trim()) { box.style.display = 'none'; return; }
+  // 過去に登録した教材名を候補に（重複除去・前方一致）
+  const hits = [...new Map(materials.map(m => [m.name, m])).values()]
+    .filter(m => m.name.includes(val));
+  if (!hits.length) { box.style.display = 'none'; return; }
+  box.style.display = 'block';
+  box.innerHTML = hits.map(m =>
+    `<div data-name="${m.name}" data-color="${m.color}" style="padding:7px 12px; cursor:pointer; font-size:13px; display:flex; align-items:center; gap:8px; border-bottom:1px solid #f0f0f0;">
+      <span style="width:12px; height:12px; border-radius:50%; background:${m.color}; display:inline-block; flex-shrink:0;"></span>
+      ${m.name}
+    </div>`
+  ).join('');
+  box.querySelectorAll('[data-name]').forEach(item => {
+    item.addEventListener('mousedown', e => {
+      e.preventDefault();
+      document.getElementById('manage-mat-name').value = item.dataset.name;
+      document.getElementById('manage-mat-color').value = item.dataset.color;
+      box.style.display = 'none';
+    });
+  });
+}
+
+// ── 教科サジェスト ──
+function showMatCategorySuggestions(val) {
+  const box = document.getElementById('mat-category-suggestions');
+  if (!box) return;
+  const cats = [...new Set(materials.map(m => m.category).filter(Boolean))];
+  if (!cats.length) { box.style.display = 'none'; return; }
+  box.style.display = 'flex';
+  box.innerHTML = cats.map(c =>
+    `<span data-cat="${c}" style="padding:4px 10px; border-radius:20px; font-size:12px; background:#e8f0fe; color:#1565c0; cursor:pointer; border:1px solid #90caf9;">${c}</span>`
+  ).join('');
+  box.querySelectorAll('[data-cat]').forEach(chip => {
+    chip.addEventListener('click', () => {
+      document.getElementById('manage-mat-category').value = chip.dataset.cat;
+      box.style.display = 'none';
+    });
+  });
+}
+
+// ── 追加フォーム開閉 ──
+function toggleMatAddForm() {
+  const form = document.getElementById('mat-add-form');
+  const icon = document.getElementById('mat-add-toggle-icon');
+  const open = form.style.display === 'none';
+  form.style.display = open ? 'block' : 'none';
+  icon.textContent = open ? '▲' : '▼';
+  if (open) {
+    renderMatColorPresets();
+    showMatCategorySuggestions('');
+  }
+}
+
+// ── 教材管理モーダル開閉 ──
+function openMatManage() {
+  _matActiveCat = '__all__';
+  renderMatCategoryTabs();
   renderMatManageList();
+  document.getElementById('mat-manage-overlay').classList.remove('hidden');
+}
+function closeMatManage() {
+  document.getElementById('mat-manage-overlay').classList.add('hidden');
+  cancelMatEdit();
+}
+
+// ── 教材リスト描画 ──
+function renderMatManageList() {
+  const el = document.getElementById('mat-manage-list');
+  if (!el) return;
+  el.innerHTML = '';
+
+  // フィルタリング
+  let filtered = materials.map((m, idx) => ({ ...m, _idx: idx }));
+  if (_matActiveCat === '__school__') {
+    filtered = filtered.filter(m => (m.source || 'school') === 'school');
+  } else if (_matActiveCat === '__juku__') {
+    filtered = filtered.filter(m => m.source === 'juku');
+  } else if (_matActiveCat !== '__all__') {
+    filtered = filtered.filter(m => m.category === _matActiveCat);
+  }
+
+  if (!filtered.length) {
+    el.innerHTML = '<div style="color:#aaa; font-size:13px; padding:10px 4px;">該当する教材がありません</div>';
+    return;
+  }
+
+  // 教科ごとにグループ化して表示
+  const groups = {};
+  filtered.forEach(m => {
+    const key = m.category || '（教科未設定）';
+    if (!groups[key]) groups[key] = [];
+    groups[key].push(m);
+  });
+
+  Object.entries(groups).forEach(([cat, mats]) => {
+    // 教科ヘッダー（すべて表示・区分フィルタ時のみ）
+    if (_matActiveCat === '__all__' || _matActiveCat === '__school__' || _matActiveCat === '__juku__') {
+      const hdr = document.createElement('div');
+      hdr.style.cssText = 'font-size:11px; font-weight:bold; color:#888; margin:8px 0 4px; padding-left:2px; letter-spacing:0.05em; border-bottom:1px solid #eee; padding-bottom:3px;';
+      hdr.textContent = cat;
+      el.appendChild(hdr);
+    }
+
+    mats.forEach(mat => {
+      const row = document.createElement('div');
+      row.className = 'mat-list-item';
+      row.style.cssText = 'display:flex; align-items:center; gap:8px; padding:7px 8px; border-radius:8px; margin-bottom:4px; background:#f8f9fb; border:1px solid #e8eef8;';
+
+      // 色ドット
+      const dot = document.createElement('div');
+      dot.className = 'mat-color-dot';
+      dot.style.cssText = `width:14px; height:14px; border-radius:50%; background:${mat.color}; flex-shrink:0;`;
+
+      // 名前・区分バッジ
+      const info = document.createElement('div');
+      info.style.cssText = 'flex:1; min-width:0;';
+      const srcBadge = mat.source === 'juku'
+        ? '<span style="font-size:10px; padding:1px 6px; border-radius:10px; background:#f3e5f5; color:#6a1b9a; margin-left:5px;">塾</span>'
+        : '<span style="font-size:10px; padding:1px 6px; border-radius:10px; background:#e3f2fd; color:#1565c0; margin-left:5px;">学校</span>';
+      info.innerHTML = `<span style="font-weight:bold; font-size:13px;">${mat.name}</span>${srcBadge}`;
+
+      // 操作ボタン群
+      const btns = document.createElement('div');
+      btns.style.cssText = 'display:flex; gap:4px; flex-shrink:0;';
+
+      const editBtn = document.createElement('button');
+      editBtn.textContent = '✏️';
+      editBtn.title = '編集';
+      editBtn.style.cssText = 'padding:3px 7px; border-radius:6px; font-size:12px; border:1px solid #ffe082; background:#fff8e1; cursor:pointer;';
+      editBtn.onclick = () => openMatEdit(mat._idx);
+
+      const progBtn = document.createElement('button');
+      progBtn.textContent = '📊';
+      progBtn.title = '進捗管理';
+      progBtn.className = 'btn-exam-progress';
+      progBtn.onclick = () => { closeMatManage(); openProgressModal(materials[mat._idx]); };
+
+      const delBtn = document.createElement('button');
+      delBtn.textContent = '削除';
+      delBtn.className = 'btn-delete-sm';
+      delBtn.onclick = async () => {
+        if (!confirm(`「${mat.name}」を削除しますか？`)) return;
+        materials.splice(mat._idx, 1);
+        await saveMaterials();
+        renderMatCategoryTabs();
+        renderMatManageList();
+      };
+
+      btns.appendChild(editBtn);
+      btns.appendChild(progBtn);
+      btns.appendChild(delBtn);
+      row.appendChild(dot);
+      row.appendChild(info);
+      row.appendChild(btns);
+      el.appendChild(row);
+    });
+  });
+}
+
+// ── 教材追加 ──
+async function addMaterialFromManage() {
+  const name = document.getElementById('manage-mat-name').value.trim();
+  if (!name) { alert('教材名を入力してください'); return; }
+  const color    = document.getElementById('manage-mat-color').value;
+  const category = document.getElementById('manage-mat-category').value.trim();
+  const source   = document.querySelector('input[name="manage-mat-source"]:checked')?.value || 'school';
+  materials.push({ id: genMatId(), name, color, category, source });
+  await saveMaterials();
+  document.getElementById('manage-mat-name').value = '';
+  document.getElementById('manage-mat-category').value = '';
+  document.getElementById('mat-name-suggestions').style.display = 'none';
+  renderMatCategoryTabs();
+  renderMatManageList();
+}
+
+// ── 教材編集 ──
+let _editingMatIdx = null;
+
+function openMatEdit(idx) {
+  _editingMatIdx = idx;
+  const mat = materials[idx];
+  document.getElementById('edit-mat-id').value = mat.id;
+  document.getElementById('edit-mat-name').value = mat.name;
+  document.getElementById('edit-mat-color').value = mat.color || '#4a90e2';
+  document.getElementById('edit-mat-category').value = mat.category || '';
+  const src = mat.source || 'school';
+  document.getElementById('edit-mat-src-school').checked = src === 'school';
+  document.getElementById('edit-mat-src-juku').checked   = src === 'juku';
+  document.getElementById('mat-edit-form').style.display = 'block';
+  document.getElementById('mat-edit-form').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+}
+
+async function saveMatEdit() {
+  if (_editingMatIdx === null) return;
+  const mat = materials[_editingMatIdx];
+  mat.name     = document.getElementById('edit-mat-name').value.trim() || mat.name;
+  mat.color    = document.getElementById('edit-mat-color').value;
+  mat.category = document.getElementById('edit-mat-category').value.trim();
+  mat.source   = document.querySelector('input[name="edit-mat-source"]:checked')?.value || 'school';
+  await saveMaterials();
+  cancelMatEdit();
+  renderMatCategoryTabs();
+  renderMatManageList();
+}
+
+function cancelMatEdit() {
+  _editingMatIdx = null;
+  const f = document.getElementById('mat-edit-form');
+  if (f) f.style.display = 'none';
 }
 
 // ════════════════════════════════════════
@@ -2843,15 +3197,13 @@ function ngFormatTime(minutes) {
 let _gridBuilt = false;
 
 // ── 考査ハイライト色を返すヘルパー ──
-// 戻り値: { bg, border, numColor } or null
 function getExamHighlight(dateObj) {
   if (!exams || !exams.length) return null;
-  let resultPriority = 0; // 1=黄, 2=オレンジ, 3=赤
+  let resultPriority = 0;
   for (const exam of exams) {
     if (!exam.dateFrom && !exam.date) continue;
     const examStart = exam.dateFrom ? parseLocalDate(exam.dateFrom) : parseLocalDate(exam.date);
     const examEnd   = exam.date     ? parseLocalDate(exam.date)     : examStart;
-    // 時刻除去して日単位比較
     const d = new Date(dateObj.getFullYear(), dateObj.getMonth(), dateObj.getDate());
     const s = new Date(examStart.getFullYear(), examStart.getMonth(), examStart.getDate());
     const e = new Date(examEnd.getFullYear(),   examEnd.getMonth(),   examEnd.getDate());
@@ -2859,11 +3211,8 @@ function getExamHighlight(dateObj) {
       resultPriority = Math.max(resultPriority, 3);
     } else {
       const diffDays = Math.round((s - d) / 86400000);
-      if (diffDays >= 1 && diffDays <= 7) {
-        resultPriority = Math.max(resultPriority, 2);
-      } else if (diffDays >= 8 && diffDays <= 14) {
-        resultPriority = Math.max(resultPriority, 1);
-      }
+      if (diffDays >= 1 && diffDays <= 7)  resultPriority = Math.max(resultPriority, 2);
+      else if (diffDays >= 8 && diffDays <= 14) resultPriority = Math.max(resultPriority, 1);
     }
   }
   if (resultPriority === 3) return { bg: '#ffcdd2', border: '2px solid #e53935', numColor: '#c62828' };
@@ -2971,6 +3320,8 @@ function renderNewGrid() {
     } else if (dow === 6) {
       cell.style.color = '#1a6bbf';
     }
+    cell.style.cursor = _quizMode ? 'pointer' : '';
+    cell.onclick = _quizMode ? ((dk => () => selectQuizDate(dk))(dayKey)) : null;
   }
 
   // ── ③ 毎回：ブロックのみ差し替え（requestAnimationFrameで分割） ──
@@ -4096,7 +4447,6 @@ document.addEventListener('click', function(e) {
   if (t.closest('#free-record-overlay') && t.classList.contains('btn-close'))      { closeFreeRecordModal(); return; }
 
   // ── 教材管理モーダル ──
-  if (t.closest('#mat-manage-overlay') && t.closest('.new-mat-form') && t.classList.contains('btn-add-sm')) { addMaterialFromManage(); return; }
   if (t.closest('#mat-manage-overlay') && t.classList.contains('btn-close')) { closeMatManage(); return; }
 
   // ── 進捗管理モーダル ──
@@ -4159,6 +4509,7 @@ document.addEventListener('click', function(e) {
 
   // ── 復習トースト ──
   if (t.matches('.btn-toast-cancel')) { cancelReviewMode(); return; }
+  if (t.matches('#quiz-toast-cancel')) { cancelQuizMode(); return; }
 
   // ── ポモドーロボックス（クリック） ──
   if (t.closest('[data-pomo-click]')) {
@@ -4284,6 +4635,10 @@ async function addMaterialInline() {
 </div>
 
 <div id="review-toast" class="hidden">📚 セルをタップして復習を予約してください　<button class="btn-toast-cancel">キャンセル</button></div>
+<div id="quiz-toast" class="hidden" style="position:fixed; bottom:70px; left:50%; transform:translateX(-50%); background:#2e7d32; color:#fff; padding:10px 20px; border-radius:24px; font-size:13px; font-weight:bold; z-index:9999; display:flex; align-items:center; gap:10px; box-shadow:0 4px 16px rgba(0,0,0,0.18); white-space:nowrap;">
+  📝 日付を選択してください（マンスリー／ウィークリーのヘッダー）
+  <button id="quiz-toast-cancel" style="background:rgba(255,255,255,0.2); border:none; color:#fff; padding:4px 10px; border-radius:12px; font-size:12px; cursor:pointer;">キャンセル</button>
+</div>
 
 <script src="nav.js"></script>
 <script src="guide.js"></script>
